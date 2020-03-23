@@ -1,0 +1,3 @@
+org.springframework.boot.autoconfigure.EnableAutoConfiguration=\
+KubernetesServiceRegistryAutoConfiguration,\
+KubernetesAutoServiceRegistrationAutoConfiguration

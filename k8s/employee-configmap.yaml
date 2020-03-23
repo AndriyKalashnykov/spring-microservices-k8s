@@ -1,0 +1,10 @@
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: employee
+data:
+  logging.pattern.console: "%clr(%d{yy-MM-dd E HH:mm:ss.SSS}){blue} %clr(%-5p) %clr(${PID}){faint} %clr(---){faint} %clr([%8.15t]){cyan} %clr(%-40.40logger{0}){blue} %clr(:){red} %clr(%m){faint}%n"
+  spring.cloud.kubernetes.discovery.all-namespaces: "true"
+  spring.data.mongodb.database: "admin"
+  spring.data.mongodb.host: "mongodb.mongo.svc.cluster.local"
+  spring.output.ansi.enabled: "ALWAYS"

@@ -1,0 +1,16 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+	<groupId>vmware.services</groupId>
+	<artifactId>spring-microservices-k8s</artifactId>
+	<version>1.1</version>
+	<packaging>pom</packaging>
+
+	<modules>
+		<module>employee-service</module>
+		<module>department-service</module>
+		<module>organization-service</module>
+		<module>gateway-service</module>
+    </modules>
+	
+</project>

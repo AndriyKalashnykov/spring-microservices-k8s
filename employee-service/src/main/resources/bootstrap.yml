@@ -1,0 +1,13 @@
+spring:
+  application:
+    name: employee
+  cloud:
+    kubernetes:
+      secrets:
+        enableApi: true
+#      client:
+#        masterUrl: ${minikube ip}:8443
+#        masterUrl: kubernetes.default.svc:8443
+#        masterUrl: kubernetes.default.svc.cluster.local:8443
+#        masterUrl:  192.168.64.23
+#        trustCerts: true
