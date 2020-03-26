@@ -42,6 +42,7 @@ spec:
           timeoutSeconds: 2
           periodSeconds: 20
           failureThreshold: 5
+      serviceAccountName: api-service-account
 ---
 apiVersion: v1
 kind: Service
