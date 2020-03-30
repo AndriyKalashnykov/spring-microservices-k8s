@@ -6,6 +6,7 @@
 - OS: Mac or Linux
 - [Docker](https://docs.docker.com/install/)
 - [Minikube](https://kubernetes.io/docs/tasks/tools/install-minikube/)
+- [Virtualbox](https://www.virtualbox.org/manual/ch02.html)
 - [kubectl](https://kubernetes.io/docs/tasks/tools/install-kubectl/)
 - [sdkman](https://sdkman.io/install)
 
