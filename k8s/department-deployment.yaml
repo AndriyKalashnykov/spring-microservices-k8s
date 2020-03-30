@@ -15,18 +15,18 @@ spec:
         app: department
     spec:
       containers:
-      - name: department
-        image: vmware/department:1.1
-        ports:
-          - containerPort: 8080
-        resources:
+        - name: department
+          image: vmware/department:1.1
+          ports:
+            - containerPort: 8080
+          resources:
             requests:
               cpu: "0.2"
               memory: 300Mi
             limits:
               cpu: "1.0"
               memory: 300Mi
-        readinessProbe:
+          readinessProbe:
             httpGet:
               port: 8080
               path: /actuator/health
@@ -34,7 +34,7 @@ spec:
             timeoutSeconds: 2
             periodSeconds: 20
             failureThreshold: 5
-        livenessProbe:
+          livenessProbe:
             httpGet:
               port: 8080
               path: /actuator/info
@@ -42,6 +42,18 @@ spec:
             timeoutSeconds: 2
             periodSeconds: 20
             failureThreshold: 5
+          volumeMounts:
+            - name: mongodb
+              mountPath: /etc/secretspot
+#            - name: config
+#              mountPath: /etc/appconfig
+      volumes:
+        - name: mongodb
+          secret:
+            secretName: department
+#        - name: config
+#          configMap:
+#            name: department
       serviceAccountName: api-service-account
 ---
 apiVersion: v1
@@ -52,8 +64,8 @@ metadata:
     app: department
 spec:
   ports:
-  - port: 8080
-    protocol: TCP
+    - port: 8080
+      protocol: TCP
   selector:
     app: department
   type: NodePort

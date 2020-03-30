@@ -42,6 +42,18 @@ spec:
             timeoutSeconds: 10
             periodSeconds: 20
             failureThreshold: 10
+          volumeMounts:
+            - name: mongodb
+              mountPath: /etc/secretspot
+#            - name: config
+#              mountPath: /etc/appconfig
+      volumes:
+        - name: mongodb
+          secret:
+            secretName: employee
+#        - name: config
+#          configMap:
+#            name: employee
       serviceAccountName: api-service-account
 ---
 apiVersion: v1

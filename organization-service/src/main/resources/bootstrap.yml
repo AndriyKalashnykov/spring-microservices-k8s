@@ -3,5 +3,26 @@ spring:
     name: organization
   cloud:
     kubernetes:
-      secrets:
+      config:
         enableApi: true
+      #        # default is true
+      #        enabled: true
+      #        # load from path
+      #        # configs must be mounted as single file
+      #        # there is no recursion support, see:
+      #        # https://github.com/spring-cloud/spring-cloud-kubernetes/issues/327#issuecomment-522538916
+      #        # file must be referenced here
+      #        paths:
+      #          - /etc/appconfig/application.properties
+      #        enableApi: false
+      secrets:
+        # default is true
+        enabled: true
+        # secret location
+        # this is loaded in with normal k/v in a Kubernetes secret
+        # and not a application.properties file
+        # spring will handle looking up the credentials in each k/v's directory
+        paths:
+          - /etc/secretspot
+        # default is false
+        enableApi: false
