@@ -9,3 +9,7 @@ data:
   zuul.routes.employee.path: "/employee/**"
   zuul.routes.organization.path: "/organization/**"
   spring.output.ansi.enabled: "ALWAYS"
+  management.endpoints.web.exposure.include: "health,info,metrics,prometheus"
+  management.metrics.enable.all: "true"
+  management.metrics.distribution.percentiles-histogram.http.server.requests: "true"
+  management.metrics.distribution.sla.http.server.requests: "1ms,5ms"
