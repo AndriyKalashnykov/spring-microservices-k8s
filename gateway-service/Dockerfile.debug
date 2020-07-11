@@ -39,4 +39,4 @@ ENV _JAVA_OPTIONS "-XX:MinRAMPercentage=60.0 -XX:MaxRAMPercentage=90.0 \
 -Dspring.profiles.active=default"
 
 # set entrypoint to layered Spring Boot application
-ENTRYPOINT ["/busybox/sh"]
+ENTRYPOINT ["java", "org.springframework.boot.loader.JarLauncher"]
