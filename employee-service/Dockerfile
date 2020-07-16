@@ -27,7 +27,7 @@ WORKDIR /application
 # copy layers from build image to runtime image as nonroot user
 COPY --from=build --chown=nonroot:nonroot /tmp/target/dependencies/ ./
 COPY --from=build --chown=nonroot:nonroot /tmp/target/snapshot-dependencies/ ./
-COPY --from=build --chown=nonroot:nonroot /tmp/target/resources/ ./
+COPY --from=build --chown=nonroot:nonroot /tmp/target/spring-boot-loader/ ./
 COPY --from=build --chown=nonroot:nonroot /tmp/target/application/ ./
 
 EXPOSE 8080
