@@ -1,6 +1,8 @@
 package vmware.services.organization;
 
+import io.micrometer.core.instrument.MeterRegistry;
 import org.springframework.boot.SpringApplication;
+import org.springframework.boot.actuate.autoconfigure.metrics.MeterRegistryCustomizer;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
@@ -39,5 +41,12 @@ public class OrganizationApplication {
 				.build()
 				.apiInfo(new ApiInfoBuilder().version("1.0").title("Organization API").description("Documentation Organization API v1.0").build());
 	}
-	
+
+	@Bean
+	MeterRegistryCustomizer meterRegistryCustomizer(MeterRegistry meterRegistry){
+		return registry -> {
+			meterRegistry.config()
+					.commonTags("application", "organization");
+		};
+	}
 }

@@ -1,6 +1,8 @@
 package vmware.services.department;
 
+import io.micrometer.core.instrument.MeterRegistry;
 import org.springframework.boot.SpringApplication;
+import org.springframework.boot.actuate.autoconfigure.metrics.MeterRegistryCustomizer;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
@@ -38,5 +40,13 @@ public class DepartmentApplication {
                 .paths(PathSelectors.any())
                 .build()
                 .apiInfo(new ApiInfoBuilder().version("1.0").title("Department API").description("Documentation Department API v1.0").build());
+    }
+
+    @Bean
+    MeterRegistryCustomizer meterRegistryCustomizer(MeterRegistry meterRegistry){
+        return registry -> {
+            meterRegistry.config()
+                    .commonTags("application", "department");
+        };
     }
 }

@@ -1,7 +1,9 @@
 package vmware.services.employee;
 
+import io.micrometer.core.instrument.MeterRegistry;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringApplication;
+import org.springframework.boot.actuate.autoconfigure.metrics.MeterRegistryCustomizer;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
 import org.springframework.context.annotation.Bean;
@@ -36,5 +38,12 @@ public class EmployeeApplication {
 				.build()
 				.apiInfo(new ApiInfoBuilder().version("1.0").title("Employee API").description("Documentation Employee API v1.0").build());
 	}
-	
+
+	@Bean
+	MeterRegistryCustomizer meterRegistryCustomizer(MeterRegistry meterRegistry){
+		return registry -> {
+			meterRegistry.config()
+					.commonTags("application", "employee");
+		};
+	}
 }
