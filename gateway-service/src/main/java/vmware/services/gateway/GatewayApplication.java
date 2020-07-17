@@ -60,11 +60,11 @@ public class GatewayApplication {
 				.build();
 	}
 
-	@Bean
-	MeterRegistryCustomizer meterRegistryCustomizer(MeterRegistry meterRegistry){
-		return registry -> {
-			meterRegistry.config()
-					.commonTags("application", "gateway");
-		};
-	}
+//	@Bean
+//	MeterRegistryCustomizer meterRegistryCustomizer(MeterRegistry meterRegistry){
+//		return registry -> {
+//			meterRegistry.config()
+//					.commonTags("application", "gateway");
+//		};
+//	}
 }
