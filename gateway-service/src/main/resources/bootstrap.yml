@@ -1,3 +1,7 @@
 spring:
   application:
     name: gateway
+management:
+  endpoints:
+    loggers:
+      sensitive: false

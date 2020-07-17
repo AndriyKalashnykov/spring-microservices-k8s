@@ -34,3 +34,7 @@ spring:
 #        masterUrl: kubernetes.default.svc.cluster.local:8443
 #        masterUrl:  192.168.64.23
 #        trustCerts: true
+management:
+  endpoints:
+    loggers:
+      sensitive: false

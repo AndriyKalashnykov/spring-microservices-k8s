@@ -27,3 +27,7 @@ spring:
           - /vault/secrets
         # default is false
         enableApi: false
+management:
+  endpoints:
+    loggers:
+      sensitive: false
