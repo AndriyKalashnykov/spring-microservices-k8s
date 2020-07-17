@@ -29,5 +29,7 @@ spring:
         enableApi: false
 management:
   endpoints:
-    loggers:
-      sensitive: false
+    web:
+      exposure:
+        include: loggers
+endpoints.loggers.sensitive: false

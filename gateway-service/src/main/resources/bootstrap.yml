@@ -3,5 +3,7 @@ spring:
     name: gateway
 management:
   endpoints:
-    loggers:
-      sensitive: false
+    web:
+      exposure:
+        include: loggers
+endpoints.loggers.sensitive: false
