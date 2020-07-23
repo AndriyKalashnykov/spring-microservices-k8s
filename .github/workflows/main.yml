@@ -33,5 +33,5 @@ jobs:
         password: ${{ secrets.DOCKERHUB_PASSWORD }}
         repository: andriykalashnykov/gateway-debug
         tags: 1.1
-        dockerfile: Dockerfile.debug
+        dockerfile: ./gateway-service/Dockerfile.debug
 
