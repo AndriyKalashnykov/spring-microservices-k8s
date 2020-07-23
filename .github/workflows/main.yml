@@ -34,5 +34,5 @@ jobs:
         repository: andriykalashnykov/gateway-debug
         tags: 1.1
         path: ./gateway-service
-        dockerfile: Dockerfile.debug
+        dockerfile: ./gateway-service/Dockerfile.debug
 
