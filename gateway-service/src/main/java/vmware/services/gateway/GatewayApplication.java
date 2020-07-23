@@ -24,6 +24,7 @@ import vmware.services.gateway.config.RibbonConfiguration;
 import springfox.documentation.swagger2.annotations.EnableSwagger2;
 
 import javax.annotation.PostConstruct;
+import java.util.List;
 import java.util.stream.Stream;
 
 @Configuration
@@ -47,8 +48,21 @@ public class GatewayApplication {
 	@PostConstruct
 	public void init() {
 		LOGGER.info("Services: {}", client.getServices());
-		Stream<ServiceInstance> s = client.getServices().stream().flatMap(it -> client.getInstances(it).stream());
-		s.forEach(it -> LOGGER.info("Instance: url={}:{}, id={}, service={}", it.getHost(), it.getPort(), it.getInstanceId(), it.getServiceId()));
+
+		// loop through details on every service for logging purposes
+		for (String svc : client.getServices()) {
+			try {
+				// TODO(joshrosso): temporary workaround as getInstances will throw an exception when an endpoint port is
+				// not set. See: https://github.com/spring-cloud/spring-cloud-kubernetes/issues/513
+				List<ServiceInstance> its = client.getInstances(svc);
+				for (ServiceInstance it : its) {
+					LOGGER.info("Instance: url={}:{}, id={}, service={}", it.getHost(), it.getPort(), it.getInstanceId(), it.getServiceId());
+				}
+			} catch (Exception ex) {
+				LOGGER.warn("Failed to lookup instance due to endpoint not specifying port for service {}. Exception: {}" + svc, ex.toString());
+			}
+		}
+
 	}
 
 	@Autowired
