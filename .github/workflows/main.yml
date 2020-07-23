@@ -24,15 +24,15 @@ jobs:
 
     # Runs a single command using the runners shell
     - name: Run a one-line script
-      run: echo Hello, world!
+      run: echo Build and push Docker images is under construction...
 
-    - name: Build and push Docker images
-      uses: docker/build-push-action@v1.1.0
-      with:
-        username: ${{ secrets.DOCKERHUB_USERNAME }}
-        password: ${{ secrets.DOCKERHUB_PASSWORD }}
-        repository: andriykalashnykov/gateway-debug
-        tags: 1.1
-        path: ./gateway-service
-        dockerfile: ./gateway-service/Dockerfile.debug
+#     - name: Build and push Docker images
+#       uses: docker/build-push-action@v1.1.0
+#       with:
+#         username: ${{ secrets.DOCKERHUB_USERNAME }}
+#         password: ${{ secrets.DOCKERHUB_PASSWORD }}
+#         repository: andriykalashnykov/gateway-debug
+#         tags: 1.1
+#         path: ./gateway-service
+#         dockerfile: ./gateway-service/Dockerfile.debug
 
