@@ -5,6 +5,8 @@ spring:
     kubernetes:
       config:
         enableApi: true
+        paths:
+          - /vault/secrets/mongodb.properties
 #        # default is true
 #        enabled: true
 #        # load from path
@@ -24,6 +26,5 @@ spring:
         # spring will handle looking up the credentials in each k/v's directory
         paths:
           - /etc/secretspot
-          - /vault/secrets
         # default is false
         enableApi: false
