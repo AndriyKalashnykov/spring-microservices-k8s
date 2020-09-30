@@ -31,3 +31,6 @@ http $(minikube service organization --url -n $NAMESPACE_ORGANIZATION)/1/with-em
 
 # via ingress
 #http http://microservices-cluster.info/employee/
+#APP_URL=http://localhost:8080/
+#curl -X POST "$APP_URL" -H "accept: */*" -H "Content-Type: application/json" -d "{ \"age\": 25, \"departmentId\": 1, \"id\": \"1\", \"name\": \"Smith\", \"organizationId\": 1, \"position\": \"engineer\"}"
+#curl -X GET "$APP_URL" -H "accept: */*" -H "Content-Type: application/json"
