@@ -27,15 +27,15 @@ jobs:
       run: echo Build and push Docker images is under construction...
 
 # Commenting out since since build-push-action fails to get one of the layers ...
-#     - name: Build and push Docker images
-#       uses: docker/build-push-action@v1.1.0
-#       with:
-#         username: ${{ secrets.DOCKERHUB_USERNAME }}
-#         password: ${{ secrets.DOCKERHUB_PASSWORD }}
-#         repository: andriykalashnykov/gateway-debug
-#         tags: 1.1
-#         path: ./gateway-service
-#         dockerfile: ./gateway-service/Dockerfile.debug
-#         cache_from: andriykalashnykov/gateway-debug
-#         cache_to: andriykalashnykov/gateway-debug
+    - name: Build and push Docker images
+      uses: docker/build-push-action@#92
+      with:
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_PASSWORD }}
+        repository: andriykalashnykov/gateway-debug
+        tags: 1.1
+        path: ./gateway-service
+        dockerfile: ./gateway-service/Dockerfile.debug
+        cache_from: andriykalashnykov/gateway-debug
+        cache_to: andriykalashnykov/gateway-debug
 
