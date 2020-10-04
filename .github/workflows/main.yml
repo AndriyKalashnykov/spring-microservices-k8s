@@ -40,4 +40,4 @@ jobs:
           file: ./gateway-service/Dockerfile.debug
           platforms: linux/amd64
           push: true
-          tags: 1.2
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/gateway-service:latest
