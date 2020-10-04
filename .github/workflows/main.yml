@@ -45,7 +45,7 @@ jobs:
         name: Build and push - employee service
         uses: docker/build-push-action@v2
         with:
-          context: ./gateway-employee
+          context: ./employee-service
           file: ./employee-service/Dockerfile.debug
           platforms: linux/amd64
           push: true
@@ -54,7 +54,7 @@ jobs:
         name: Build and push - organization service
         uses: docker/build-push-action@v2
         with:
-          context: ./organization-organization
+          context: ./organization-service
           file: ./organization-service/Dockerfile.debug
           platforms: linux/amd64
           push: true
@@ -63,7 +63,7 @@ jobs:
         name: Build and push - department service
         uses: docker/build-push-action@v2
         with:
-          context: ./department-organization
+          context: ./department-service
           file: ./department-service/Dockerfile.debug
           platforms: linux/amd64
           push: true
