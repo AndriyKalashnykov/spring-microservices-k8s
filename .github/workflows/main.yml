@@ -38,6 +38,6 @@ jobs:
         with:
           context: ./gateway-service
           file: ./gateway-service/Dockerfile.debug
-          platforms: linux/amd64,linux/arm64,linux/386
+          platforms: linux/amd64,linux/386
           push: true
           tags: 1.2
