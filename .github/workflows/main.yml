@@ -41,6 +41,8 @@ jobs:
           platforms: linux/amd64
           push: true
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/gateway-debug:latest
+          cache-from: type=local,src=/tmp/.buildx-cache
+          cache-to: type=local,dest=/tmp/.buildx-cache
       -
         name: Build and push - employee service
         uses: docker/build-push-action@v2
@@ -50,6 +52,8 @@ jobs:
           platforms: linux/amd64
           push: true
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/employee-debug:latest
+          cache-from: type=local,src=/tmp/.buildx-cache
+          cache-to: type=local,dest=/tmp/.buildx-cache  
       -
         name: Build and push - organization service
         uses: docker/build-push-action@v2
@@ -59,6 +63,8 @@ jobs:
           platforms: linux/amd64
           push: true
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/organization-debug:latest
+          cache-from: type=local,src=/tmp/.buildx-cache
+          cache-to: type=local,dest=/tmp/.buildx-cache  
       -
         name: Build and push - department service
         uses: docker/build-push-action@v2
@@ -67,4 +73,6 @@ jobs:
           file: ./department-service/Dockerfile.debug
           platforms: linux/amd64
           push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/department-debug:latest 
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/department-debug:latest
+          cache-from: type=local,src=/tmp/.buildx-cache
+          cache-to: type=local,dest=/tmp/.buildx-cache    
