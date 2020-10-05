@@ -1,0 +1,41 @@
+
+# Travis CI Java documentation can be found in:
+# https://docs.travis-ci.com/user/languages/java/
+
+# We will use Ubuntu 18.04 (bionic beaver). List of options:
+# https://docs.travis-ci.com/user/reference/overview/#linux
+
+dist: bionic
+
+language: java
+
+# A list of available JDKs in Trusty can be seed in:
+# https://docs.travis-ci.com/user/reference/xenial/#jvm-clojure-groovy-java-scala-support
+jdk:
+  - openjdk11
+
+env:
+  - MAVEN_OPTS="-Djava.awt.headless=true -XX:+UseG1GC -Dfile.encoding=UTF-8"
+
+# see https://blog.travis-ci.com/2014-12-17-faster-builds-with-container-based-infrastructure
+sudo: false
+
+# cache the build tool's caches
+cache:
+  directories:
+    - $HOME/.m2
+
+# Each job in Travis CI has several steps:
+# https://docs.travis-ci.com/user/job-lifecycle/
+
+install: true
+
+# script:
+# - ./mvnw clean install
+
+notifications:
+  email:
+    recipients:
+      - AndriyKalashnykov@gmail.com
+    on_success: change
+    on_failure: always

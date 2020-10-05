@@ -1,5 +1,6 @@
-### Java Microservices with Spring Boot and Spring Cloud Kubernetes
+[![Build Status](https://travis-ci.org/AndriyKalashnykov/spring-microservices-k8s.svg?branch=master)](https://travis-ci.org/AndriyKalashnykov/spring-microservices-k8s)
 
+### Java Microservices with Spring Boot and Spring Cloud Kubernetes
 
 ### Pre-requisites
 
