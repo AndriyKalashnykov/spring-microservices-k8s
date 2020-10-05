@@ -1,5 +1,5 @@
 [![Build Status](https://api.travis-ci.com/AndriyKalashnykov/spring-microservices-k8s.svg?branch=master)](https://travis-ci.com/github/AndriyKalashnykov/spring-microservices-k8s)
-
+![](https://github.com/AndriyKalashnykov/spring-microservices-k8s/workflows/ci/badge.svg)
 ### Java Microservices with Spring Boot and Spring Cloud Kubernetes
 
 ### Pre-requisites
