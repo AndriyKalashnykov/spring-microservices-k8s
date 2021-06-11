@@ -14,7 +14,7 @@
     JDK 11.x
     
     ```shell
-    sdk use java 11.0.5.hs-adpt
+    sdk use java 11.0.10.hs-adpt
     ```
 - [Apache Maven](https://maven.apache.org/install.html)
 - [Curl](https://help.ubidots.com/en/articles/2165289-learn-how-to-install-run-curl-on-windows-macosx-linux)

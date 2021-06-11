@@ -63,7 +63,7 @@
 		<repository>
 			<id>repository.spring.release</id>
 			<name>Spring GA Repository</name>
-			<url>http://repo.spring.io/release</url>
+			<url>https://repo.spring.io/release</url>
 		</repository>
 		<repository>
 			<id>spring-milestones</id>
@@ -71,23 +71,15 @@
 			<url>https://repo.spring.io/milestone</url>
 		</repository>
 		<repository>
-			<snapshots>
-				<enabled>false</enabled>
-			</snapshots>
-			<id>central</id>
-			<name>libs-release</name>
-			<url>https://repo.spring.io/libs-release</url>
-		</repository>
-		<repository>
 			<snapshots />
 			<id>snapshots</id>
 			<name>libs-snapshot</name>
-			<url>https://repo.spring.io/libs-snapshot</url>
+			<url>https://repo.spring.io/snapshot</url>
 		</repository>
 		<repository>
 			<id>spring-milestone</id>
 			<name>Spring Maven MILESTONE Repository</name>
-			<url>https://repo.spring.io/libs-milestone</url>
+			<url>https://repo.spring.io/milestone</url>
 		</repository>
 	</repositories>
 	<pluginRepositories>
