@@ -20,6 +20,9 @@ kubectl apply -n $NAMESPACE_ORGANIZATION -f organization-deployment.yaml
 kubectl apply -n $NAMESPACE_GATEWAY -f gateway-configmap.yaml
 kubectl apply -n $NAMESPACE_GATEWAY -f gateway-deployment.yaml
 kubectl apply -n $NAMESPACE_GATEWAY -f ingress.yaml
+# add external service for ingress in gateway namespace
+kubectl apply -n $NAMESPACE_GATEWAY -f external.yaml
+
 
 kubectl apply -n $NAMESPACE_EMPLOYEE -f employee-configmap.yaml
 kubectl apply -n $NAMESPACE_EMPLOYEE -f employee-secret.yaml

@@ -5,22 +5,19 @@ metadata:
   annotations:
     nginx.ingress.kubernetes.io/rewrite-target: /
 spec:
-  backend:
-    serviceName: default-http-backend
-    servicePort: 80
   rules:
   - host: microservices-cluster.info
     http:
       paths:
       - path: /employee
         backend:
-          serviceName: employee
+          serviceName: employee-external
           servicePort: 8080
       - path: /department
         backend:
-          serviceName: department
+          serviceName: department-external
           servicePort: 8080
       - path: /organization
         backend:
-          serviceName: organization
+          serviceName: organization-external
           servicePort: 8080

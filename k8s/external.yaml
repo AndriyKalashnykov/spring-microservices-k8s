@@ -1,0 +1,26 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: department-external 
+  namespace: gateway
+spec: 
+  type: ExternalName
+  externalName: department.department.svc.cluster.local
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: organization-external 
+  namespace: gateway
+spec: 
+  type: ExternalName
+  externalName: organization.organization.svc.cluster.local
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: employee-external 
+  namespace: gateway
+spec: 
+  type: ExternalName
+  externalName: employee.employee.svc.cluster.local
