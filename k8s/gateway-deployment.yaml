@@ -55,6 +55,7 @@ spec:
   - port: 8080
     protocol: TCP
     targetPort: 8080
+    nodePort: 31088
   selector:
     app: gateway
   type: NodePort

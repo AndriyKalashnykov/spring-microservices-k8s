@@ -6,18 +6,18 @@ metadata:
     nginx.ingress.kubernetes.io/rewrite-target: /
 spec:
   rules:
-  - host: microservices-cluster.info
+  - host: k8s.msyhu.com
     http:
       paths:
-      - path: /employee
+      - path: /employee3
         backend:
           serviceName: employee-external
           servicePort: 8080
-      - path: /department
+      - path: /department3
         backend:
           serviceName: department-external
           servicePort: 8080
-      - path: /organization
+      - path: /organization3
         backend:
           serviceName: organization-external
           servicePort: 8080
