@@ -4,6 +4,40 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 ### Java Microservices with Spring Boot and Spring Cloud Kubernetes
 
+This is repository accompanies my article for the `Tanzu Development Center` - [Microservices with Spring Cloud Kubernetes Reference Architecture](https://tanzu.vmware.com/developer/guides/preparing-and-deploying-kubernetes-workloads/)
+
+This Reference Architecture demonstrates design, development, and deployment of
+[Spring Boot](https://spring.io/projects/spring-boot) microservices on
+Kubernetes. Each section covers architectural recommendations and configuration
+for each concern when applicable.
+
+High-level key recommendations:
+
+- Consider Best Practices in Cloud Native Applications and [The 12
+  Factor App](https://12factor.net/)
+- Keep each microservice in a separate [Maven](https://maven.apache.org/) or
+  [Gradle](https://docs.gradle.org/current/userguide/userguide.html) project
+- Prefer using dependencies when inheriting from parent project instead of using
+  relative path
+- Use [Spring Initializr](https://start.spring.io/) a web application that can
+  generate a Spring Boot project structure, fill in your project details, pick
+  your options, and download a bundled up project
+
+This architecture demonstrates a complex Cloud Native application that
+addresses following concerns:
+
+- Externalized configuration using ConfigMaps, Secrets, and PropertySource
+- Kubernetes API server access using ServiceAccounts, Roles, and RoleBindings
+- Health checks using Application Probes
+  - readinessProbe
+  - livenessProbe
+  - startupProbe
+- Reporting application state using Spring Boot Actuators
+- Service discovery across namespaces using DiscoveryClient
+- Exposing API documentation using Swagger UI
+- Building a Docker image using best practices
+- Layering JARs using the Spring Boot plugin
+- Observing the application using Prometheus exporters
 ### Pre-requisites
 
 - OS: Mac or Linux
@@ -16,7 +50,9 @@
     JDK 11.x
     
     ```shell
-    sdk use java 11.0.10.hs-adpt
+    sdk install java 11.0.14-tem
+    sdk use java 11.0.14-tem
+
     ```
 - [Apache Maven](https://maven.apache.org/install.html)
 - [Curl](https://help.ubidots.com/en/articles/2165289-learn-how-to-install-run-curl-on-windows-macosx-linux)
@@ -50,7 +86,7 @@ cd ./spring-microservices-k8s/scripts/
 ./install-all.sh
 ```
 
-### Polulate test date
+### Polulate test data
 
 ```bash
 cd ./spring-microservices-k8s/scripts/
