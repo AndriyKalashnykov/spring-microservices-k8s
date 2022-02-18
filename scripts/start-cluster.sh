@@ -1,4 +1,4 @@
-#!/bin/bash
+  #!/bin/bash
 
 set -e
 set -x
@@ -13,4 +13,4 @@ minikube addons enable metrics-server
 eval $(minikube docker-env)
 
 kubectl config use-context $CLUSTER1_NAME
-minikube -p $CLUSTER1_NAME dashboard
+minikube -p $CLUSTER1_NAME tunnel dashboard
