@@ -126,3 +126,9 @@ cd ./spring-microservices-k8s/scripts/
 cd ./spring-microservices-k8s/scripts/
 ./stop-cluster.sh
 ```
+
+
+## Stargazers over time
+
+[![Stargazers over time](https://starchart.cc/AndriyKalashnykov/spring-microservices-k8s.svg)](https://starchart.cc/AndriyKalashnykov/spring-microservices-k8s)
+
