@@ -11,13 +11,13 @@ jobs:
     steps:
       -
         name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
       -
         name: Set up QEMU
-        uses: docker/setup-qemu-action@v1
+        uses: docker/setup-qemu-action@v3
       -
         name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v1
+        uses: docker/setup-buildx-action@v3
       -
         name: Cache Docker layers
         uses: actions/cache@v2
@@ -35,13 +35,13 @@ jobs:
             ${{ runner.os }}-maven-
       -
         name: Login to DockerHub
-        uses: docker/login-action@v1
+        uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
       -
         name: Build and push - gateway service
-        uses: docker/build-push-action@v2
+        uses: docker/build-push-action@v3
         with:
           context: ./gateway-service
           file: ./gateway-service/Dockerfile.debug
@@ -52,7 +52,7 @@ jobs:
           cache-to: type=local,dest=/tmp/.buildx-cache
       -
         name: Build and push - employee service
-        uses: docker/build-push-action@v2
+        uses: docker/build-push-action@v3
         with:
           context: ./employee-service
           file: ./employee-service/Dockerfile.debug
@@ -63,7 +63,7 @@ jobs:
           cache-to: type=local,dest=/tmp/.buildx-cache  
       -
         name: Build and push - organization service
-        uses: docker/build-push-action@v2
+        uses: docker/build-push-action@v3
         with:
           context: ./organization-service
           file: ./organization-service/Dockerfile.debug
@@ -74,7 +74,7 @@ jobs:
           cache-to: type=local,dest=/tmp/.buildx-cache  
       -
         name: Build and push - department service
-        uses: docker/build-push-action@v2
+        uses: docker/build-push-action@v3
         with:
           context: ./department-service
           file: ./department-service/Dockerfile.debug
