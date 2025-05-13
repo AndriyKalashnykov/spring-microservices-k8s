@@ -9,77 +9,87 @@ jobs:
   path-context:
     runs-on: ubuntu-latest
     steps:
-      -
-        name: Checkout
+      - name: Checkout
         uses: actions/checkout@v4
-      -
-        name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-      -
-        name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-      -
-        name: Cache Docker layers
-        uses: actions/cache@v2
+
+      - name: Set up JDK 11
+        uses: actions/setup-java@v4
         with:
-          path: /tmp/.buildx-cache
-          key: ${{ runner.os }}-buildx-${{ github.sha }}
-          restore-keys: |
-            ${{ runner.os }}-buildx-
-      - name: Cache local Maven repository
-        uses: actions/cache@v2
-        with:
-          path: ~/.m2/repository
-          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
-          restore-keys: |
-            ${{ runner.os }}-maven-
-      -
-        name: Login to DockerHub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-      -
-        name: Build and push - gateway service
-        uses: docker/build-push-action@v3
-        with:
-          context: ./gateway-service
-          file: ./gateway-service/Dockerfile.debug
-          platforms: linux/amd64
-          push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/gateway-debug:latest
-          cache-from: type=local,src=/tmp/.buildx-cache
-          cache-to: type=local,dest=/tmp/.buildx-cache
-      -
-        name: Build and push - employee service
-        uses: docker/build-push-action@v3
-        with:
-          context: ./employee-service
-          file: ./employee-service/Dockerfile.debug
-          platforms: linux/amd64
-          push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/employee-debug:latest
-          cache-from: type=local,src=/tmp/.buildx-cache
-          cache-to: type=local,dest=/tmp/.buildx-cache  
-      -
-        name: Build and push - organization service
-        uses: docker/build-push-action@v3
-        with:
-          context: ./organization-service
-          file: ./organization-service/Dockerfile.debug
-          platforms: linux/amd64
-          push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/organization-debug:latest
-          cache-from: type=local,src=/tmp/.buildx-cache
-          cache-to: type=local,dest=/tmp/.buildx-cache  
-      -
-        name: Build and push - department service
-        uses: docker/build-push-action@v3
-        with:
-          context: ./department-service
-          file: ./department-service/Dockerfile.debug
-          platforms: linux/amd64
-          push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/department-debug:latest
-          cache-from: type=local,src=/tmp/.buildx-cache
-          cache-to: type=local,dest=/tmp/.buildx-cache    
+          java-version: '11'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Build with Maven
+        run: mvn clean package
+
+#      - name: Set up QEMU
+#        uses: docker/setup-qemu-action@v3
+#
+#      - name: Set up Docker Buildx
+#        uses: docker/setup-buildx-action@v3
+#
+#      - name: Cache Docker layers
+#        uses: actions/cache@v2
+#        with:
+#          path: /tmp/.buildx-cache
+#          key: ${{ runner.os }}-buildx-${{ github.sha }}
+#          restore-keys: |
+#            ${{ runner.os }}-buildx-
+#
+#      - name: Cache local Maven repository
+#        uses: actions/cache@v2
+#        with:
+#          path: ~/.m2/repository
+#          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+#          restore-keys: |
+#            ${{ runner.os }}-maven-
+#
+#      - name: Login to DockerHub
+#        uses: docker/login-action@v3
+#        with:
+#          username: ${{ secrets.DOCKERHUB_USERNAME }}
+#          password: ${{ secrets.DOCKERHUB_TOKEN }}
+#
+#      - name: Build and push - gateway service
+#        uses: docker/build-push-action@v3
+#        with:
+#          context: ./gateway-service
+#          file: ./gateway-service/Dockerfile.debug
+#          platforms: linux/amd64
+#          push: true
+#          tags: ${{ secrets.DOCKERHUB_USERNAME }}/gateway-debug:latest
+#          cache-from: type=local,src=/tmp/.buildx-cache
+#          cache-to: type=local,dest=/tmp/.buildx-cache
+#
+#      - name: Build and push - employee service
+#        uses: docker/build-push-action@v3
+#        with:
+#          context: ./employee-service
+#          file: ./employee-service/Dockerfile.debug
+#          platforms: linux/amd64
+#          push: true
+#          tags: ${{ secrets.DOCKERHUB_USERNAME }}/employee-debug:latest
+#          cache-from: type=local,src=/tmp/.buildx-cache
+#          cache-to: type=local,dest=/tmp/.buildx-cache
+#
+#      - name: Build and push - organization service
+#        uses: docker/build-push-action@v3
+#        with:
+#          context: ./organization-service
+#          file: ./organization-service/Dockerfile.debug
+#          platforms: linux/amd64
+#          push: true
+#          tags: ${{ secrets.DOCKERHUB_USERNAME }}/organization-debug:latest
+#          cache-from: type=local,src=/tmp/.buildx-cache
+#          cache-to: type=local,dest=/tmp/.buildx-cache
+#
+#      - name: Build and push - department service
+#        uses: docker/build-push-action@v3
+#        with:
+#          context: ./department-service
+#          file: ./department-service/Dockerfile.debug
+#          platforms: linux/amd64
+#          push: true
+#          tags: ${{ secrets.DOCKERHUB_USERNAME }}/department-debug:latest
+#          cache-from: type=local,src=/tmp/.buildx-cache
+#          cache-to: type=local,dest=/tmp/.buildx-cache
