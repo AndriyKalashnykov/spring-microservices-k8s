@@ -18,6 +18,11 @@ jobs:
           java-version: '11'
           distribution: 'temurin'
           cache: maven
+          cache-dependency-path: |
+            department-service/pom.xml
+            employee-service/pom.xml
+            gateway-service/pom.xml
+            organization-service/pom.xml
 
       - name: Build with Maven
         run: mvn clean package
