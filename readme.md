@@ -129,6 +129,5 @@ cd ./spring-microservices-k8s/scripts/
 
 
 ## Stargazers over time
-
-[![Stargazers over time](https://starchart.cc/AndriyKalashnykov/spring-microservices-k8s.svg)](https://starchart.cc/AndriyKalashnykov/spring-microservices-k8s)
+[![Stargazers over time](https://starchart.cc/AndriyKalashnykov/spring-microservices-k8s.svg?variant=adaptive)](https://starchart.cc/AndriyKalashnykov/spring-microservices-k8s)
 
