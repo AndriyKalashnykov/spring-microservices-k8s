@@ -1,5 +1,5 @@
 [![GitHub CI Status](https://github.com/AndriyKalashnykov/spring-microservices-k8s/workflows/ci/badge.svg)](https://github.com/AndriyKalashnykov/spring-microservices-k8s/actions?query=workflow%3Aci)
-[![Hits](https://hits.sh/github.com/AndriyKalashnykov/spring-microservices-k8s.svg)](https://hits.sh/github.com/AndriyKalashnykov/spring-microservices-k8s/)
+[![Hits](https://hits.sh/github.com/AndriyKalashnykov/spring-microservices-k8s.svg?view=today-total&style=plastic)](https://hits.sh/github.com/AndriyKalashnykov/spring-microservices-k8s/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 ### Java Microservices with Spring Boot and Spring Cloud Kubernetes
 
