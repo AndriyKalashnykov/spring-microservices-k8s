@@ -1,6 +1,6 @@
 [![GitHub CI Status](https://github.com/AndriyKalashnykov/spring-microservices-k8s/workflows/ci/badge.svg)](https://github.com/AndriyKalashnykov/spring-microservices-k8s/actions?query=workflow%3Aci)
 [![Hits](https://hits.sh/github.com/AndriyKalashnykov/spring-microservices-k8s.svg?view=today-total&style=plastic)](https://hits.sh/github.com/AndriyKalashnykov/spring-microservices-k8s/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![License: MIT](https://img.shields.io/badge/License-MIT-brightgreen.svg)](https://opensource.org/licenses/MIT)
 ### Java Microservices with Spring Boot and Spring Cloud Kubernetes
 
 This is repository accompanies my article for the `Tanzu Development Center` - [Microservices with Spring Cloud Kubernetes Reference Architecture](https://tanzu.vmware.com/developer/guides/app-enhancements-spring-k8s//)
