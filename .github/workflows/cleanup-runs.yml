@@ -5,9 +5,14 @@ on:
     - cron: '0 0 * * 0'
   workflow_dispatch:
 
+permissions:
+  actions: write
+
 jobs:
   cleanup:
     runs-on: ubuntu-latest
+    permissions:
+      actions: write
     steps:
       - name: Delete old workflow runs
         uses: Mattraks/delete-workflow-runs@bd2822c9d98065c9766fb1f4bbc32325c47de4fb # v2
