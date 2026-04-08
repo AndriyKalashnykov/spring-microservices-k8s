@@ -27,4 +27,8 @@ ENV _JAVA_OPTIONS="-XX:MinRAMPercentage=60.0 -XX:MaxRAMPercentage=90.0 \
 -Dspring.output.ansi.enabled=ALWAYS \
 -Dspring.profiles.active=default"
 
+# HEALTHCHECK: not needed — Kubernetes startup/readiness/liveness probes
+# handle health checks. Distroless :nonroot has no shell or curl.
+# For standalone Docker use, run with --build-arg VARIANT=debug and
+# add: HEALTHCHECK CMD ["wget","--spider","-q","http://localhost:8080/actuator/health"]
 ENTRYPOINT ["java", "org.springframework.boot.loader.launch.JarLauncher"]
