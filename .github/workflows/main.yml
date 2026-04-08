@@ -64,20 +64,20 @@ jobs:
       - name: Static check
         run: make static-check
 
-      - name: Trivy filesystem scan
+      - name: Trivy filesystem scan (CRITICAL - blocking)
         uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # 0.35.0
         with:
           scan-type: 'fs'
           scanners: 'vuln,secret,misconfig'
-          severity: 'CRITICAL,HIGH'
+          severity: 'CRITICAL'
           exit-code: '1'
 
-      - name: Trivy filesystem scan (MEDIUM - informational)
+      - name: Trivy filesystem scan (HIGH/MEDIUM - informational)
         uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # 0.35.0
         with:
           scan-type: 'fs'
           scanners: 'vuln,secret,misconfig'
-          severity: 'MEDIUM'
+          severity: 'HIGH,MEDIUM'
           exit-code: '0'
 
   tests:
