@@ -167,13 +167,14 @@ GitHub Actions runs on every push to `master`, tags `v*`, and pull requests.
 Integration tests use [Testcontainers](https://testcontainers.com/) with MongoDB for fast local testing via `make test`.
 End-to-end tests validate the full stack on Kind via `make e2e`.
 
-### Required Secrets
+### Required Secrets and Variables
 
-| Secret | Used by | How to obtain |
-|--------|---------|---------------|
-| `NVD_API_KEY` | `cve-check` job | Free API key from [NIST NVD](https://nvd.nist.gov/developers/request-an-api-key). Without it, OWASP dependency-check is rate-limited and the job may time out. |
+| Name | Type | Used by | How to obtain |
+|------|------|---------|---------------|
+| `NVD_API_KEY` | Secret | `cve-check` job | Free API key from [NIST NVD](https://nvd.nist.gov/developers/request-an-api-key). Without it, OWASP dependency-check is rate-limited and the job may time out. |
 
-Set via **Settings > Secrets and variables > Actions > New repository secret**.
+Set secrets via **Settings > Secrets and variables > Actions > New repository secret**.
+Set variables via **Settings > Secrets and variables > Actions > Variables tab > New repository variable**.
 
 A weekly [cleanup workflow](.github/workflows/cleanup-runs.yml) prunes old workflow runs.
 
