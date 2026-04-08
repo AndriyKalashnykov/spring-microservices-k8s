@@ -132,7 +132,7 @@ jobs:
 
   cve-check:
     needs: [lint]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master' && vars.ACT != 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -156,9 +156,14 @@ jobs:
           key: nvd-db-${{ hashFiles('pom.xml') }}
           restore-keys: nvd-db-
 
+      - name: Create Maven settings for OSS Index
+        run: make maven-settings-ossindex
+
       - name: OWASP dependency check
         env:
           NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
+          OSS_INDEX_USER: ${{ secrets.OSS_INDEX_USER }}
+          OSS_INDEX_TOKEN: ${{ secrets.OSS_INDEX_TOKEN }}
           MAVEN_OPTS: '--add-modules jdk.incubator.vector'
         run: make cve-check
 

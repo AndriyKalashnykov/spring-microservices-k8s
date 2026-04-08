@@ -202,9 +202,17 @@ lint-docker: deps-hadolint
 secrets: deps-gitleaks
 	@gitleaks detect --source . --verbose --redact --no-git
 
+#maven-settings-ossindex: @ Create Maven settings for OSS Index credentials
+maven-settings-ossindex:
+	@if [ -n "$$OSS_INDEX_USER" ] && [ -n "$$OSS_INDEX_TOKEN" ]; then \
+		mkdir -p ~/.m2 && \
+		printf '<settings>\n  <servers>\n    <server>\n      <id>ossindex</id>\n      <username>%s</username>\n      <password>%s</password>\n    </server>\n  </servers>\n</settings>\n' "$$OSS_INDEX_USER" "$$OSS_INDEX_TOKEN" > ~/.m2/settings.xml; \
+	fi
+
 #cve-check: @ Run OWASP dependency vulnerability scan
-cve-check: deps
-	@$(MVN) -B org.owasp:dependency-check-maven:check $(if $(NVD_API_KEY),-DnvdApiKey=$(NVD_API_KEY))
+cve-check: deps maven-settings-ossindex
+	@$(MVN) -B org.owasp:dependency-check-maven:check \
+		$$([ -n "$$NVD_API_KEY" ] && echo "-DnvdApiKey=$$NVD_API_KEY")
 
 #coverage-generate: @ Generate code coverage report
 coverage-generate: deps
@@ -412,7 +420,9 @@ ci-run: deps-act
 	@act push --container-architecture linux/amd64 \
 		--artifact-server-path /tmp/act-artifacts \
 		--var ACT=true \
-		$(if $(NVD_API_KEY),--secret NVD_API_KEY=$(NVD_API_KEY))
+		$$([ -n "$$NVD_API_KEY" ] && echo "--secret NVD_API_KEY=$$NVD_API_KEY") \
+		$$([ -n "$$OSS_INDEX_USER" ] && echo "--secret OSS_INDEX_USER=$$OSS_INDEX_USER") \
+		$$([ -n "$$OSS_INDEX_TOKEN" ] && echo "--secret OSS_INDEX_TOKEN=$$OSS_INDEX_TOKEN")
 
 #release: @ Create a release (usage: make release VERSION=x.y.z)
 release: deps
@@ -458,7 +468,7 @@ renovate-validate: renovate-bootstrap
 	deps deps-maven deps-install deps-check deps-docker deps-kind deps-act \
 	deps-hadolint deps-gitleaks deps-updates deps-update deps-prune \
 	clean build test lint format format-check \
-	lint-docker secrets cve-check \
+	lint-docker secrets maven-settings-ossindex cve-check \
 	coverage-generate coverage-check coverage-open static-check \
 	image-build image-load \
 	kind-create kind-setup kind-deploy kind-undeploy kind-redeploy kind-destroy \

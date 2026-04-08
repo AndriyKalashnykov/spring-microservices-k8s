@@ -171,7 +171,9 @@ End-to-end tests validate the full stack on Kind via `make e2e`.
 
 | Name | Type | Used by | How to obtain |
 |------|------|---------|---------------|
-| `NVD_API_KEY` | Secret | `cve-check` job | Free API key from [NIST NVD](https://nvd.nist.gov/developers/request-an-api-key). Without it, OWASP dependency-check is rate-limited and the job may time out. |
+| `NVD_API_KEY` | Secret | `cve-check` job | Free API key from [NIST NVD](https://nvd.nist.gov/developers/request-an-api-key). Without it, OWASP dependency-check is heavily rate-limited. |
+| `OSS_INDEX_USER` | Secret | `cve-check` job | Free account at [Sonatype OSS Index](https://ossindex.sonatype.org/user/signin). Your email address. Optional — improves vulnerability data quality. |
+| `OSS_INDEX_TOKEN` | Secret | `cve-check` job | API token from [OSS Index settings](https://ossindex.sonatype.org/user/settings). Optional — paired with `OSS_INDEX_USER`. |
 
 Set secrets via **Settings > Secrets and variables > Actions > New repository secret**.
 Set variables via **Settings > Secrets and variables > Actions > Variables tab > New repository variable**.
