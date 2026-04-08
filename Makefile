@@ -152,7 +152,7 @@ test: deps
 lint: deps
 	@$(MVN) -B validate -Ddependency-check.skip=true
 	@$(MVN) -B compile -Dmaven.compiler.failOnWarning=true -Ddependency-check.skip=true -q
-	@$(MVN) -B checkstyle:check -Dcheckstyle.failOnViolation=false
+	@$(MVN) -B checkstyle:check -Dcheckstyle.config.location="$$(pwd)/checkstyle.xml"
 
 #format: @ Auto-format Java source code
 format: deps
