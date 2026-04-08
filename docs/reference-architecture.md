@@ -75,27 +75,41 @@ The application is built with these open source components:
   Swagger UI.
 
 ```mermaid
+%%{init: {'theme': 'base', 'themeVariables': {
+  'primaryColor': '#1e40af', 'primaryTextColor': '#fff',
+  'lineColor': '#3b82f6', 'fontFamily': 'arial'
+}}}%%
 graph TB
-    Client([Client]) --> Gateway[Gateway Service<br/>Spring Cloud Gateway MVC<br/>LoadBalancer via MetalLB]
+    Client([👤 Client]):::client --> Gateway[🌐 Gateway Service<br/>Spring Cloud Gateway MVC<br/>LoadBalancer via MetalLB]
 
-    Gateway -->|/employee/**| Employee[Employee Service<br/>RestController + MongoDB]
-    Gateway -->|/department/**| Department[Department Service<br/>RestController + MongoDB]
-    Gateway -->|/organization/**| Organization[Organization Service<br/>RestController + MongoDB]
+    Gateway -->|/employee/**| Employee[👤 Employee Service<br/>RestController + MongoDB]
+    Gateway -->|/department/**| Department[🏢 Department Service<br/>RestController + MongoDB]
+    Gateway -->|/organization/**| Organization[🏛️ Organization Service<br/>RestController + MongoDB]
 
     Department -.->|RestClient| Employee
     Organization -.->|RestClient| Employee
     Organization -.->|RestClient| Department
 
-    Employee --> MongoDB[(MongoDB 7.0)]
+    Employee --> MongoDB[(🗄️ MongoDB 7.0)]
     Department --> MongoDB
     Organization --> MongoDB
 
-    subgraph "Spring Cloud Kubernetes"
+    subgraph k8s ["☸ Spring Cloud Kubernetes"]
         Gateway
         Employee
         Department
         Organization
     end
+
+    classDef client fill:#f59e0b,stroke:#d97706,color:#000
+    classDef gateway fill:#2563eb,stroke:#1e40af,color:#fff
+    classDef service fill:#059669,stroke:#047857,color:#fff
+    classDef db fill:#7c3aed,stroke:#6d28d9,color:#fff
+
+    class Client client
+    class Gateway gateway
+    class Employee,Department,Organization service
+    class MongoDB db
 ```
 
 ## Reference Architecture Environment
@@ -105,25 +119,29 @@ per service replica. The application uses a microservices architecture
 with replicated containers calling each other.
 
 ```mermaid
+%%{init: {'theme': 'base', 'themeVariables': {
+  'primaryColor': '#1e40af', 'primaryTextColor': '#fff',
+  'lineColor': '#3b82f6', 'fontFamily': 'arial'
+}}}%%
 graph TB
-    subgraph kind["Kind Cluster"]
+    subgraph kind["☸ Kind Cluster"]
         subgraph ns-gw["gateway namespace"]
-            GW[gateway pod<br/>:8080 LoadBalancer]
+            GW[🌐 gateway pod<br/>:8080 LoadBalancer]:::gateway
         end
         subgraph ns-emp["employee namespace"]
-            EMP[employee pod<br/>:8080 ClusterIP]
+            EMP[👤 employee pod<br/>:8080 ClusterIP]:::service
         end
         subgraph ns-dept["department namespace"]
-            DEPT[department pod<br/>:8080 ClusterIP]
+            DEPT[🏢 department pod<br/>:8080 ClusterIP]:::service
         end
         subgraph ns-org["organization namespace"]
-            ORG[organization pod<br/>:8080 ClusterIP]
+            ORG[🏛️ organization pod<br/>:8080 ClusterIP]:::service
         end
         subgraph ns-mongo["mongo namespace"]
-            MONGO[(mongodb pod<br/>:27017 ClusterIP)]
+            MONGO[(🗄️ mongodb pod<br/>:27017)]:::db
         end
-        subgraph metallb["MetalLB"]
-            LB[LoadBalancer IP]
+        subgraph metallb["⚖️ MetalLB"]
+            LB[LoadBalancer IP]:::lb
         end
     end
 
@@ -131,6 +149,11 @@ graph TB
     EMP --> MONGO
     DEPT --> MONGO
     ORG --> MONGO
+
+    classDef gateway fill:#2563eb,stroke:#1e40af,color:#fff
+    classDef service fill:#059669,stroke:#047857,color:#fff
+    classDef db fill:#7c3aed,stroke:#6d28d9,color:#fff
+    classDef lb fill:#f59e0b,stroke:#d97706,color:#000
 ```
 
 ## Spring Cloud Kubernetes
@@ -310,14 +333,22 @@ Every Service in the cluster is assigned a DNS name following the pattern
 is reachable at `mongodb.mongo.svc.cluster.local:27017`.
 
 ```mermaid
+%%{init: {'theme': 'base', 'themeVariables': {
+  'primaryColor': '#1e40af', 'primaryTextColor': '#fff',
+  'lineColor': '#3b82f6', 'fontFamily': 'monospace'
+}}}%%
 graph LR
-    subgraph "Kubernetes DNS"
-        E["employee.employee.svc.cluster.local:8080"]
-        D["department.department.svc.cluster.local:8080"]
-        O["organization.organization.svc.cluster.local:8080"]
-        G["gateway.gateway.svc.cluster.local:8080"]
-        M["mongodb.mongo.svc.cluster.local:27017"]
+    subgraph dns ["☸ Kubernetes DNS"]
+        G["🌐 gateway.gateway.svc.cluster.local:8080"]:::gateway
+        E["👤 employee.employee.svc.cluster.local:8080"]:::service
+        D["🏢 department.department.svc.cluster.local:8080"]:::service
+        O["🏛️ organization.organization.svc.cluster.local:8080"]:::service
+        M["🗄️ mongodb.mongo.svc.cluster.local:27017"]:::db
     end
+
+    classDef gateway fill:#2563eb,stroke:#1e40af,color:#fff
+    classDef service fill:#059669,stroke:#047857,color:#fff
+    classDef db fill:#7c3aed,stroke:#6d28d9,color:#fff
 ```
 
 The pattern is `<service>.<namespace>.svc.cluster.local:<port>`.

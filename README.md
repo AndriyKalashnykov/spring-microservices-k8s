@@ -128,20 +128,39 @@ make deps
 ## Architecture
 
 ```mermaid
+%%{init: {'theme': 'base', 'themeVariables': {
+  'primaryColor': '#1e40af',
+  'primaryTextColor': '#ffffff',
+  'primaryBorderColor': '#1e3a5f',
+  'lineColor': '#3b82f6',
+  'secondaryColor': '#dbeafe',
+  'tertiaryColor': '#f0f9ff',
+  'fontFamily': 'arial'
+}}}%%
 graph TB
-    Client([Client]) --> Gateway[Gateway Service<br/>Spring Cloud Gateway MVC<br/>LoadBalancer via MetalLB]
+    Client([👤 Client]):::client --> Gateway[🌐 Gateway Service<br/>Spring Cloud Gateway MVC<br/>LoadBalancer via MetalLB]
 
-    Gateway -->|/employee/**| Employee[Employee Service<br/>MongoDB]
-    Gateway -->|/department/**| Department[Department Service<br/>MongoDB]
-    Gateway -->|/organization/**| Organization[Organization Service<br/>MongoDB]
+    Gateway -->|/employee/**| Employee[👤 Employee Service]
+    Gateway -->|/department/**| Department[🏢 Department Service]
+    Gateway -->|/organization/**| Organization[🏛️ Organization Service]
 
     Department -.->|RestClient| Employee
     Organization -.->|RestClient| Employee
     Organization -.->|RestClient| Department
 
-    Employee --> MongoDB[(MongoDB 7.0)]
+    Employee --> MongoDB[(🗄️ MongoDB 7.0)]
     Department --> MongoDB
     Organization --> MongoDB
+
+    classDef client fill:#f59e0b,stroke:#d97706,color:#000
+    classDef gateway fill:#2563eb,stroke:#1e40af,color:#fff
+    classDef service fill:#059669,stroke:#047857,color:#fff
+    classDef db fill:#7c3aed,stroke:#6d28d9,color:#fff
+
+    class Client client
+    class Gateway gateway
+    class Employee,Department,Organization service
+    class MongoDB db
 ```
 
 See the full [Reference Architecture](docs/reference-architecture.md) document with all diagrams.
