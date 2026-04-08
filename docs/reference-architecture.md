@@ -39,7 +39,9 @@ addresses the following concerns:
 | Spring Cloud | 2024.0.3 |
 | Spring Cloud Kubernetes | 3.x (via 2024.0.3) |
 | Spring Cloud Gateway MVC | 4.2.x |
-| Spring Cloud OpenFeign | 4.2.x |
+| RestClient + @HttpExchange | Spring 6.1+ (native) |
+| Micrometer Tracing | (managed by Spring Boot BOM) |
+| Testcontainers | (managed by Spring Boot BOM) |
 | Spring Cloud LoadBalancer | 4.2.x |
 | SpringDoc OpenAPI | 2.8.16 |
 | MongoDB | 7.0 |
@@ -66,8 +68,7 @@ The application is built with these open source components:
   configuration and load balancing.
 - [Spring Cloud Gateway MVC](https://docs.spring.io/spring-cloud-gateway/reference/spring-cloud-gateway-server-mvc.html):
   Servlet-based API gateway for routing requests to microservices.
-- [OpenFeign](https://github.com/OpenFeign/feign): Declarative HTTP client for
-  inter-service communication.
+- [RestClient](https://docs.spring.io/spring-framework/reference/integration/rest-clients.html#rest-http-interface) with `@HttpExchange`: Native Spring declarative HTTP client for inter-service communication, integrated with Spring Cloud LoadBalancer.
 - [Spring Cloud LoadBalancer](https://docs.spring.io/spring-cloud-commons/reference/spring-cloud-commons/loadbalancer.html):
   Client-side load balancing via Kubernetes service discovery.
 - [SpringDoc OpenAPI](https://springdoc.org/): OpenAPI 3 documentation with
@@ -98,7 +99,7 @@ demonstrates the use of the following features:
 
 ```
 spring-microservices-k8s/
-├── department-service/    # Department microservice (calls Employee via Feign)
+├── department-service/    # Department microservice (calls Employee via RestClient)
 │   └── src/
 ├── employee-service/      # Employee microservice (base CRUD service)
 │   └── src/
@@ -163,7 +164,7 @@ spring:
 ## Enable Service Discovery Across All Namespaces
 
 The `all-namespaces: true` setting in `application.yml` enables cross-namespace
-discovery. This allows the gateway and inter-service Feign clients to find
+discovery. This allows the gateway and inter-service RestClient calls to find
 services deployed in different namespaces.
 
 Application classes are streamlined in Spring Boot 3.x — annotations like
@@ -174,7 +175,6 @@ are no longer needed (auto-configured).
 
 ```java
 @SpringBootApplication
-@EnableFeignClients
 public class DepartmentApplication {
 
     public static void main(String[] args) {
@@ -189,19 +189,18 @@ public class DepartmentApplication {
 }
 ```
 
-Feign is a declarative web service client. To communicate with
-`employee-service` from `department-service`, create an interface with the
-`@FeignClient` annotation. The name `"employee"` maps to the Kubernetes service
-name, resolved at runtime via Spring Cloud Kubernetes DiscoveryClient.
+RestClient with `@HttpExchange` is a native Spring declarative HTTP client. To
+communicate with `employee-service` from `department-service`, create an
+interface annotated with `@HttpExchange`. The service name `"employee"` is
+resolved at runtime via Spring Cloud Kubernetes DiscoveryClient and
+Spring Cloud LoadBalancer.
 
 `/department-service/src/main/java/.../client/EmployeeClient.java`
 
 ```java
-@FeignClient(name = "employee")
 public interface EmployeeClient {
-
-    @GetMapping("/department/{departmentId}")
-    List<Employee> findByDepartment(@PathVariable("departmentId") String departmentId);
+    @GetExchange("/department/{departmentId}")
+    List<Employee> findByDepartment(@PathVariable String departmentId);
 }
 ```
 
@@ -392,6 +391,42 @@ management.metrics.enable.all: "true"
 ```
 
 Endpoints: `/actuator/metrics` and `/actuator/prometheus`.
+
+## Distributed Tracing with Micrometer
+
+Micrometer Tracing (replacing Spring Cloud Sleuth) provides distributed trace
+propagation across services. Trace IDs are automatically propagated via HTTP
+headers through RestClient and Spring MVC.
+
+Dependencies (managed by Spring Boot BOM):
+
+```xml
+<dependency>
+    <groupId>io.micrometer</groupId>
+    <artifactId>micrometer-tracing-bridge-brave</artifactId>
+</dependency>
+```
+
+Configured via ConfigMap:
+
+```yaml
+management.tracing.sampling.probability: "1.0"
+```
+
+## Integration Testing with Testcontainers
+
+Each backend service includes integration tests using
+[Testcontainers](https://testcontainers.com/) with a real MongoDB instance.
+Tests run during `make test` — no Kubernetes cluster required.
+
+```bash
+make test    # runs Testcontainers-based integration tests
+make e2e     # runs full Kind cluster end-to-end tests
+```
+
+Tests use `@SpringBootTest` with `@ServiceConnection` for automatic MongoDB
+container lifecycle management. Spring Cloud Kubernetes is disabled during
+tests via an `application-test.yml` profile.
 
 ## Build Docker Images
 
@@ -624,8 +659,8 @@ The `e2e/e2e-test.sh` script validates the entire stack:
 4. **Create department** — POST through gateway → department service → MongoDB
 5. **List departments** — GET verifies department stored
 6. **Create organization** — POST through gateway → organization service → MongoDB
-7. **Cross-service: org with employees** — GET triggers organization → Feign → employee
-8. **Cross-service: org with departments** — GET triggers organization → Feign → department
+7. **Cross-service: org with employees** — GET triggers organization → RestClient → employee
+8. **Cross-service: org with departments** — GET triggers organization → RestClient → department
 
 Example cross-service response:
 

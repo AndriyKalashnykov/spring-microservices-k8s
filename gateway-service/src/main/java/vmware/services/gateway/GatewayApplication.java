@@ -25,6 +25,10 @@ public class GatewayApplication {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(GatewayApplication.class);
 
+	private static final String EMPLOYEE_SERVICE = "employee";
+	private static final String DEPARTMENT_SERVICE = "department";
+	private static final String ORGANIZATION_SERVICE = "organization";
+
 	public static void main(String[] args) {
 		SpringApplication.run(GatewayApplication.class, args);
 	}
@@ -49,28 +53,28 @@ public class GatewayApplication {
 
 	@Bean
 	public RouterFunction<ServerResponse> employeeRoute() {
-		return route("employee")
-				.route(path("/employee", "/employee/**"), HandlerFunctions.http())
+		return route(EMPLOYEE_SERVICE)
+				.route(path("/" + EMPLOYEE_SERVICE, "/" + EMPLOYEE_SERVICE + "/**"), HandlerFunctions.http())
 				.before(stripPrefix(1))
-				.filter(lb("employee"))
+				.filter(lb(EMPLOYEE_SERVICE))
 				.build();
 	}
 
 	@Bean
 	public RouterFunction<ServerResponse> departmentRoute() {
-		return route("department")
-				.route(path("/department", "/department/**"), HandlerFunctions.http())
+		return route(DEPARTMENT_SERVICE)
+				.route(path("/" + DEPARTMENT_SERVICE, "/" + DEPARTMENT_SERVICE + "/**"), HandlerFunctions.http())
 				.before(stripPrefix(1))
-				.filter(lb("department"))
+				.filter(lb(DEPARTMENT_SERVICE))
 				.build();
 	}
 
 	@Bean
 	public RouterFunction<ServerResponse> organizationRoute() {
-		return route("organization")
-				.route(path("/organization", "/organization/**"), HandlerFunctions.http())
+		return route(ORGANIZATION_SERVICE)
+				.route(path("/" + ORGANIZATION_SERVICE, "/" + ORGANIZATION_SERVICE + "/**"), HandlerFunctions.http())
 				.before(stripPrefix(1))
-				.filter(lb("organization"))
+				.filter(lb(ORGANIZATION_SERVICE))
 				.build();
 	}
 }

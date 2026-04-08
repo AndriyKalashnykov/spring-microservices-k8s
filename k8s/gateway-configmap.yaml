@@ -10,3 +10,4 @@ data:
   management.metrics.enable.all: "true"
   management.metrics.distribution.percentiles-histogram.http.server.requests: "true"
   management.metrics.distribution.slo.http.server.requests: "1ms,5ms"
+  management.tracing.sampling.probability: "1.0"

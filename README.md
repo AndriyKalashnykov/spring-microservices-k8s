@@ -7,7 +7,7 @@
 
 This reference architecture demonstrates design, development, and deployment of Spring Boot microservices on Kubernetes. It implements a hierarchical domain model (Organization > Department > Employee) with four services deployed across isolated namespaces, using Spring Cloud Kubernetes for service discovery, configuration, and secrets management.
 
-The tech stack includes Java 21, Spring Boot 3.4, Spring Cloud Kubernetes (2024.0), Spring Cloud Gateway MVC, OpenFeign for inter-service communication, MongoDB 7.0 for persistence, and Kind with MetalLB for local development.
+The tech stack includes Java 21, Spring Boot 3.4, Spring Cloud Kubernetes (2024.0), Spring Cloud Gateway MVC, RestClient with @HttpExchange for inter-service communication, Micrometer Tracing for distributed tracing, MongoDB 7.0 for persistence, Testcontainers for integration testing, and Kind with MetalLB for local development.
 
 ## Quick Start
 
@@ -110,6 +110,7 @@ This architecture follows Cloud Native best practices and [The 12 Factor App](ht
 - **Health checks** using readiness, liveness, and startup probes
 - **Application state** reported via Spring Boot Actuators
 - **Service discovery** across namespaces using Spring Cloud Kubernetes DiscoveryClient
+- **Inter-service communication** via RestClient (`@HttpExchange`)
 - **API documentation** exposed via Swagger UI
 - **Docker images** built with layered JARs using the Spring Boot plugin
 - **Observability** via Prometheus exporters
@@ -117,10 +118,10 @@ This architecture follows Cloud Native best practices and [The 12 Factor App](ht
 ### Service Communication
 
 ```
-Client -> Gateway (Zuul, LoadBalancer via MetalLB)
+Client -> Gateway (Spring Cloud Gateway MVC, LoadBalancer via MetalLB)
   |-- /employee/**     -> Employee Service (MongoDB)
-  |-- /department/**   -> Department Service (MongoDB, calls Employee via Feign)
-  +-- /organization/** -> Organization Service (MongoDB, calls Department + Employee via Feign)
+  |-- /department/**   -> Department Service (MongoDB, calls Employee via RestClient)
+  +-- /organization/** -> Organization Service (MongoDB, calls Department + Employee via RestClient)
 ```
 
 Each service runs in its own Kubernetes namespace with dedicated service accounts and RBAC role bindings for cross-namespace discovery.
@@ -133,6 +134,9 @@ GitHub Actions runs on every push to `master`, tags `v*`, and pull requests.
 |-----|----------|-------|
 | **ci** | push, PR | Build, Lint, Test via `make ci` |
 | **docker** | tag push only | Build and push multi-arch Docker images to DockerHub |
+
+Integration tests use [Testcontainers](https://testcontainers.com/) with MongoDB for fast local testing via `make test`.
+End-to-end tests validate the full stack on Kind via `make e2e`.
 
 A weekly [cleanup workflow](.github/workflows/cleanup-runs.yml) prunes old workflow runs.
 

@@ -2,7 +2,7 @@ spring:
   application:
     name: department
   config:
-    import: "kubernetes:"
+    import: "optional:kubernetes:"
   cloud:
     kubernetes:
       config:

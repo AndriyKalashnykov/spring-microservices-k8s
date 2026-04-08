@@ -47,10 +47,13 @@ make kind-destroy    # Delete Kind cluster
 ## Tech Stack
 
 - Java 21, Spring Boot 3.4, Spring Cloud Kubernetes (2024.0)
+- RestClient with @HttpExchange (inter-service communication)
+- Micrometer Tracing (distributed trace propagation)
 - Maven multi-module build
 - Docker (multi-arch via buildx)
 - Kubernetes (Kind + MetalLB for local dev)
 - MongoDB 7.0
+- Testcontainers (integration tests)
 
 ## Skills
 
