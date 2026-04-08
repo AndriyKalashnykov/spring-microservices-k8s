@@ -194,8 +194,6 @@ lint-docker: deps-hadolint
 	@for svc in $(SERVICES); do \
 		echo "Linting $$svc-service/Dockerfile..."; \
 		hadolint $$svc-service/Dockerfile; \
-		echo "Linting $$svc-service/Dockerfile.debug..."; \
-		hadolint $$svc-service/Dockerfile.debug; \
 	done
 
 #secrets: @ Scan for hardcoded secrets
@@ -238,7 +236,7 @@ static-check: format-check lint lint-docker secrets
 image-build: build
 	@for svc in $(SERVICES); do \
 		echo "Building $$svc:$(IMAGE_TAG)..."; \
-		BUILDX_BUILDER=default docker buildx build --load -t $$svc:$(IMAGE_TAG) -f $$svc-service/Dockerfile.debug $$svc-service/; \
+		BUILDX_BUILDER=default docker buildx build --load --build-arg VARIANT=debug -t $$svc:$(IMAGE_TAG) -f $$svc-service/Dockerfile $$svc-service/; \
 	done
 
 #image-load: @ Load Docker images into KinD cluster

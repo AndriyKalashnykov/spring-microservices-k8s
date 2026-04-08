@@ -127,6 +127,17 @@ jobs:
       - name: Build
         run: make build
 
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7
+        with:
+          name: service-jars
+          path: |
+            employee-service/target/*.jar
+            department-service/target/*.jar
+            organization-service/target/*.jar
+            gateway-service/target/*.jar
+          retention-days: 1
+
   cve-check:
     needs: [lint]
     if: github.event_name == 'push' && github.ref == 'refs/heads/master' && vars.ACT != 'true'
@@ -177,22 +188,20 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/')
     needs: [builds, tests]
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 30
     permissions:
       contents: read
       packages: write
+    strategy:
+      matrix:
+        service: [gateway, employee, organization, department]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
-      - name: Set up JDK 21
-        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
+      - name: Download build artifacts
+        uses: actions/download-artifact@95815c38cf2ff2164869cbab79da8d1f422bc89e # v4
         with:
-          java-version: '21'
-          distribution: 'temurin'
-          cache: maven
-
-      - name: Build JARs
-        run: make build
+          name: service-jars
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@ce360397dd3f832beb865e1373c09c0e9f86d70a # v4
@@ -207,90 +216,25 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Docker metadata - gateway
-        id: meta-gateway
+      - name: Docker metadata
+        id: meta
         uses: docker/metadata-action@030e881283bb7a6894de51c315a6bfe6a94e05cf # v6
         with:
-          images: ghcr.io/${{ github.repository }}/gateway
+          images: ghcr.io/${{ github.repository }}/${{ matrix.service }}
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=raw,value=latest
 
-      - name: Build and push - gateway
+      - name: Build and push
         uses: docker/build-push-action@d08e5c354a6adb9ed34480a06d141179aa583294 # v7
         with:
-          context: ./gateway-service
-          file: ./gateway-service/Dockerfile.debug
+          context: ./${{ matrix.service }}-service
+          file: ./${{ matrix.service }}-service/Dockerfile
+          build-args: VARIANT=debug
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ${{ steps.meta-gateway.outputs.tags }}
-          labels: ${{ steps.meta-gateway.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      - name: Docker metadata - employee
-        id: meta-employee
-        uses: docker/metadata-action@030e881283bb7a6894de51c315a6bfe6a94e05cf # v6
-        with:
-          images: ghcr.io/${{ github.repository }}/employee
-          tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=raw,value=latest
-
-      - name: Build and push - employee
-        uses: docker/build-push-action@d08e5c354a6adb9ed34480a06d141179aa583294 # v7
-        with:
-          context: ./employee-service
-          file: ./employee-service/Dockerfile.debug
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ steps.meta-employee.outputs.tags }}
-          labels: ${{ steps.meta-employee.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      - name: Docker metadata - organization
-        id: meta-organization
-        uses: docker/metadata-action@030e881283bb7a6894de51c315a6bfe6a94e05cf # v6
-        with:
-          images: ghcr.io/${{ github.repository }}/organization
-          tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=raw,value=latest
-
-      - name: Build and push - organization
-        uses: docker/build-push-action@d08e5c354a6adb9ed34480a06d141179aa583294 # v7
-        with:
-          context: ./organization-service
-          file: ./organization-service/Dockerfile.debug
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ steps.meta-organization.outputs.tags }}
-          labels: ${{ steps.meta-organization.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      - name: Docker metadata - department
-        id: meta-department
-        uses: docker/metadata-action@030e881283bb7a6894de51c315a6bfe6a94e05cf # v6
-        with:
-          images: ghcr.io/${{ github.repository }}/department
-          tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=raw,value=latest
-
-      - name: Build and push - department
-        uses: docker/build-push-action@d08e5c354a6adb9ed34480a06d141179aa583294 # v7
-        with:
-          context: ./department-service
-          file: ./department-service/Dockerfile.debug
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ steps.meta-department.outputs.tags }}
-          labels: ${{ steps.meta-department.outputs.labels }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max

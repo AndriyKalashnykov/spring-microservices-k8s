@@ -1,31 +1,23 @@
-FROM maven:3.9-eclipse-temurin-21 AS build
+# Runtime Dockerfile — uses pre-built JAR from Maven build
+# For local builds: run `make build` first, then `make image-build`
+# For CI: the builds job produces JARs before Docker builds
 
-WORKDIR /build
-COPY pom.xml .
-# create a layer with all of the Manven dependencies, first time it takes a while consequent call are very fast
-RUN mvn dependency:go-offline
+ARG VARIANT=nonroot
 
-COPY ./pom.xml /tmp/
-COPY ./src /tmp/src/
-WORKDIR /tmp/
-# build the project
-RUN mvn clean package -DskipTests
+FROM eclipse-temurin:21-jre AS extract
+WORKDIR /tmp
+COPY target/*.jar app.jar
+RUN java -Djarmode=layertools -jar app.jar extract
 
-# extract JAR Layers
-WORKDIR /tmp/target
-RUN java -Djarmode=layertools -jar *.jar extract
-
-# runtime image
-FROM gcr.io/distroless/java21-debian12:nonroot AS runtime
+FROM gcr.io/distroless/java21-debian12:${VARIANT} AS runtime
 
 USER nonroot:nonroot
 WORKDIR /application
 
-# copy layers from build image to runtime image as nonroot user
-COPY --from=build --chown=nonroot:nonroot /tmp/target/dependencies/ ./
-COPY --from=build --chown=nonroot:nonroot /tmp/target/snapshot-dependencies/ ./
-COPY --from=build --chown=nonroot:nonroot /tmp/target/spring-boot-loader/ ./
-COPY --from=build --chown=nonroot:nonroot /tmp/target/application/ ./
+COPY --from=extract --chown=nonroot:nonroot /tmp/dependencies/ ./
+COPY --from=extract --chown=nonroot:nonroot /tmp/snapshot-dependencies/ ./
+COPY --from=extract --chown=nonroot:nonroot /tmp/spring-boot-loader/ ./
+COPY --from=extract --chown=nonroot:nonroot /tmp/application/ ./
 
 EXPOSE 8080
 
@@ -35,5 +27,4 @@ ENV _JAVA_OPTIONS="-XX:MinRAMPercentage=60.0 -XX:MaxRAMPercentage=90.0 \
 -Dspring.output.ansi.enabled=ALWAYS \
 -Dspring.profiles.active=default"
 
-# set entrypoint to layered Spring Boot application
 ENTRYPOINT ["java", "org.springframework.boot.loader.launch.JarLauncher"]
