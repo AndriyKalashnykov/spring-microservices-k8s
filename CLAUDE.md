@@ -55,7 +55,7 @@ make kind-destroy    # Delete Kind cluster
 - Maven multi-module build
 - Docker (multi-arch via buildx)
 - Kubernetes (Kind + MetalLB for local dev)
-- MongoDB 8.0
+- MongoDB 8
 - Testcontainers (integration tests)
 - Checkstyle + hadolint + gitleaks (static analysis)
 

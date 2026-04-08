@@ -14,7 +14,7 @@ This reference architecture demonstrates design, development, and deployment of 
 | API Gateway | Spring Cloud Gateway MVC |
 | Inter-service | RestClient with `@HttpExchange` |
 | Service Discovery | Spring Cloud Kubernetes |
-| Database | MongoDB 8.0 (Bitnami, non-root) |
+| Database | MongoDB 8 (Bitnami, non-root) |
 | API Docs | SpringDoc OpenAPI 2.8 / Swagger UI |
 | Tracing | Micrometer Tracing (Brave) |
 | Testing | Testcontainers (integration), Kind e2e |
@@ -44,7 +44,7 @@ graph TB
     Organization -.->|RestClient| Employee
     Organization -.->|RestClient| Department
 
-    Employee --> MongoDB[(🗄️ MongoDB 8.0)]
+    Employee --> MongoDB[(🗄️ MongoDB 8)]
     Department --> MongoDB
     Organization --> MongoDB
 

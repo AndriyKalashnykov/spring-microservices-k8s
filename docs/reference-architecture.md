@@ -90,7 +90,7 @@ graph TB
     Organization -.->|RestClient| Employee
     Organization -.->|RestClient| Department
 
-    Employee --> MongoDB[(🗄️ MongoDB 8.0)]
+    Employee --> MongoDB[(🗄️ MongoDB 8)]
     Department --> MongoDB
     Organization --> MongoDB
 
@@ -355,7 +355,7 @@ The pattern is `<service>.<namespace>.svc.cluster.local:<port>`.
 
 ## Configure MongoDB
 
-MongoDB 8.0 runs as a single-replica deployment in the `mongo` namespace.
+MongoDB 8 runs as a single-replica deployment in the `mongo` namespace.
 
 `/k8s/mongodb-deployment.yaml` (abbreviated)
 
