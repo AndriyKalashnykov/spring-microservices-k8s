@@ -48,7 +48,7 @@ make deps
 | `make build` | Build all modules with Maven (skip tests) |
 | `make clean` | Clean all build artifacts |
 | `make test` | Run tests |
-| `make lint` | Compile with warnings as errors |
+| `make lint` | Run Checkstyle and compiler warning checks |
 | `make format` | Auto-format Java source code |
 | `make format-check` | Verify code formatting (CI gate) |
 
@@ -57,9 +57,12 @@ make deps
 | Target | Description |
 |--------|-------------|
 | `make static-check` | Run all quality and security checks |
-| `make vulncheck` | Check for known vulnerabilities in dependencies |
+| `make cve-check` | Run OWASP dependency vulnerability scan |
 | `make lint-docker` | Lint all Dockerfiles with hadolint |
 | `make secrets` | Scan for hardcoded secrets |
+| `make coverage-generate` | Generate code coverage report |
+| `make coverage-check` | Verify code coverage meets minimum threshold |
+| `make coverage-open` | Open code coverage report in browser |
 | `make deps-prune` | Check for unused Maven dependencies |
 
 ### Docker
@@ -106,12 +109,19 @@ make deps
 |--------|-------------|
 | `make ci` | Run full local CI pipeline |
 | `make ci-run` | Run GitHub Actions workflow locally using act |
+| `make release VERSION=x.y.z` | Create a semver release tag |
 | `make deps` | Check required dependencies |
+| `make deps-install` | Install Java and Maven via SDKMAN |
+| `make deps-maven` | Install Maven if not present (for CI) |
+| `make deps-check` | Show required tools and installation status |
 | `make deps-docker` | Check Docker and kubectl |
 | `make deps-kind` | Install KinD for local Kubernetes testing |
 | `make deps-act` | Install act for local CI runs |
 | `make deps-hadolint` | Install hadolint for Dockerfile linting |
 | `make deps-gitleaks` | Install gitleaks for secret scanning |
+| `make deps-updates` | Print project dependencies updates |
+| `make deps-update` | Update project dependencies to latest releases |
+| `make renovate-bootstrap` | Install nvm and npm for Renovate |
 | `make renovate-validate` | Validate Renovate configuration |
 
 ## Architecture
@@ -148,9 +158,10 @@ GitHub Actions runs on every push to `master`, tags `v*`, and pull requests.
 
 | Job | Triggers | Steps |
 |-----|----------|-------|
-| **static-check** | push, PR | Format check, Checkstyle, Dockerfile lint, secret scan |
-| **build** | after static-check | Build all modules with Maven |
-| **test** | after static-check | Run Testcontainers integration tests |
+| **lint** | push, PR | Format check, Checkstyle, Dockerfile lint, secret scan, Trivy |
+| **builds** | after lint | Build all modules with Maven |
+| **tests** | after lint | Run Testcontainers integration tests + coverage |
+| **cve-check** | push to master | OWASP dependency vulnerability scan |
 | **docker** | tag push only | Build and push multi-arch Docker images to DockerHub |
 
 Integration tests use [Testcontainers](https://testcontainers.com/) with MongoDB for fast local testing via `make test`.

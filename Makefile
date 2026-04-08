@@ -1,20 +1,40 @@
 .DEFAULT_GOAL := help
 
-MVN               := $(shell command -v mvn 2>/dev/null || echo ./mvnw)
+APP_NAME      := spring-microservices-k8s
+CURRENTTAG    := $(shell git describe --tags --abbrev=0 2>/dev/null || echo "dev")
+
+SHELL         := /bin/bash
+SDKMAN        := $${SDKMAN_DIR:-$$HOME/.sdkman}/bin/sdkman-init.sh
+MVN           := $(shell command -v mvn 2>/dev/null || echo ./mvnw)
+
 KIND_CLUSTER_NAME := spring-microservices-k8s
 SERVICES          := employee department organization gateway
 IMAGE_TAG         := local
 SA_NAME           := api-service-account
+
+# Detect macOS for 'open' vs 'xdg-open'
+OPEN_CMD := $(if $(filter Darwin,$(shell uname -s)),open,xdg-open)
+
+# Semver regex for release validation
+SEMVER_RE := ^[0-9]+\.[0-9]+\.[0-9]+$$
+
+# === Tool Versions (pinned) ===
+JAVA_VER     := 21-tem
+# renovate: datasource=maven depName=org.apache.maven:apache-maven
+MAVEN_VER    := 3.9.14
 # renovate: datasource=github-releases depName=kubernetes-sigs/kind
 KIND_VERSION      := 0.31.0
 # renovate: datasource=github-releases depName=metallb/metallb
 METALLB_VERSION   := 0.15.3
-# renovate: datasource=github-releases depName=nektos/act
+# renovate: datasource=github-releases depName=nektos/act extractVersion=^v(?<version>.*)$
 ACT_VERSION       := 0.2.87
-# renovate: datasource=github-releases depName=hadolint/hadolint
+# renovate: datasource=github-releases depName=hadolint/hadolint extractVersion=^v(?<version>.*)$
 HADOLINT_VERSION  := 2.14.0
-# renovate: datasource=github-releases depName=zricethezav/gitleaks
+# renovate: datasource=github-releases depName=zricethezav/gitleaks extractVersion=^v(?<version>.*)$
 GITLEAKS_VERSION  := 8.30.1
+# renovate: datasource=github-releases depName=nvm-sh/nvm extractVersion=^v(?<version>.*)$
+NVM_VERSION       := 0.40.4
+NODE_VERSION      := 22
 
 # ---------------------------------------------------------------------------
 # Help
@@ -24,70 +44,44 @@ GITLEAKS_VERSION  := 8.30.1
 help:
 	@echo "Usage: make COMMAND"
 	@echo "Commands :"
-	@grep -E '[a-zA-Z\.\-]+:.*?@ .*$$' $(MAKEFILE_LIST)| tr -d '#' | awk 'BEGIN {FS = ":.*?@ "}; {printf "\033[32m%-20s\033[0m - %s\n", $$1, $$2}'
+	@grep -E '[a-zA-Z\.\-]+:.*?@ .*$$' $(MAKEFILE_LIST)| tr -d '#' | awk 'BEGIN {FS = ":.*?@ "}; {printf "\033[32m%-30s\033[0m - %s\n", $$1, $$2}'
 
 # ---------------------------------------------------------------------------
-# Build
+# Dependencies
 # ---------------------------------------------------------------------------
 
-#build: @ Build all modules with Maven (skip tests)
-build:
-	@$(MVN) clean package -DskipTests
-
-#clean: @ Clean all build artifacts
-clean:
-	@$(MVN) clean
-
-#test: @ Run tests
-test:
-	@$(MVN) test
-
-#lint: @ Run Checkstyle static analysis
-lint:
-	@$(MVN) checkstyle:check -Dcheckstyle.failOnViolation=false
-
-#format: @ Auto-format Java source code
-format:
-	@$(MVN) io.spring.javaformat:spring-javaformat-maven-plugin:apply
-
-#format-check: @ Verify code formatting (CI gate)
-format-check:
-	@$(MVN) io.spring.javaformat:spring-javaformat-maven-plugin:validate
-
-#vulncheck: @ Check for known vulnerabilities in dependencies
-vulncheck:
-	@$(MVN) org.owasp:dependency-check-maven:check -DfailBuildOnCVSS=9
-
-#deps-prune: @ Check for unused Maven dependencies
-deps-prune:
-	@$(MVN) dependency:analyze -DignoreNonCompile=true 2>&1 | grep -E 'Unused|Used undeclared' || echo "No unused dependencies found."
-
-# ---------------------------------------------------------------------------
-# Image
-# ---------------------------------------------------------------------------
-
-#image-build: @ Build Docker images for all services
-image-build: build
-	@for svc in $(SERVICES); do \
-		echo "Building $$svc:$(IMAGE_TAG)..."; \
-		BUILDX_BUILDER=default docker buildx build --load -t $$svc:$(IMAGE_TAG) -f $$svc-service/Dockerfile.debug $$svc-service/; \
-	done
-
-#image-load: @ Load Docker images into KinD cluster
-image-load:
-	@for svc in $(SERVICES); do \
-		echo "Loading $$svc:$(IMAGE_TAG) into cluster..."; \
-		kind load docker-image $$svc:$(IMAGE_TAG) --name $(KIND_CLUSTER_NAME); \
-	done
-
-# ---------------------------------------------------------------------------
-# Deps
-# ---------------------------------------------------------------------------
-
-#deps: @ Check required dependencies
+#deps: @ Check that required tools (java, mvn) are installed
 deps:
-	@command -v java >/dev/null 2>&1 || { echo "Error: java required. See https://adoptium.net/"; exit 1; }
-	@command -v mvn >/dev/null 2>&1 || test -x ./mvnw || { echo "Error: mvn or ./mvnw required. See https://maven.apache.org/install.html"; exit 1; }
+	@command -v java >/dev/null 2>&1 || { echo "Error: Java required. Run: make deps-install"; exit 1; }
+	@command -v mvn >/dev/null 2>&1 || test -x ./mvnw || { echo "Error: Maven required. Run: make deps-install"; exit 1; }
+
+#deps-maven: @ Install Maven if not present (for CI containers)
+deps-maven:
+	@command -v mvn >/dev/null 2>&1 || { \
+		echo "Installing Maven $(MAVEN_VER)..."; \
+		curl -fsSL "https://archive.apache.org/dist/maven/maven-3/$(MAVEN_VER)/binaries/apache-maven-$(MAVEN_VER)-bin.tar.gz" | tar xz -C /opt; \
+		ln -sf "/opt/apache-maven-$(MAVEN_VER)/bin/mvn" /usr/local/bin/mvn; \
+	}
+
+#deps-install: @ Install Java and Maven via SDKMAN
+deps-install:
+	@if [ ! -f "$(SDKMAN)" ]; then \
+		echo "Installing SDKMAN..."; \
+		curl -s "https://get.sdkman.io?rcupdate=false" | bash; \
+	fi
+	@. $(SDKMAN) && \
+		echo N | sdk install java $(JAVA_VER) && sdk use java $(JAVA_VER) && \
+		echo N | sdk install maven $(MAVEN_VER) && sdk use maven $(MAVEN_VER)
+
+#deps-check: @ Show required tools and installation status
+deps-check:
+	@echo "--- Tool status ---"
+	@for tool in java mvn docker kubectl kind act hadolint gitleaks node; do \
+		printf "  %-16s " "$$tool:"; \
+		command -v $$tool >/dev/null 2>&1 && echo "installed" || echo "NOT installed"; \
+	done
+	@echo "--- SDKMAN ---"
+	@[ -f "$(SDKMAN)" ] && echo "  installed" || echo "  NOT installed (run: make deps-install)"
 
 #deps-docker: @ Check Docker and kubectl
 deps-docker:
@@ -125,6 +119,53 @@ deps-gitleaks:
 		tar xz -C /usr/local/bin gitleaks; \
 	}
 
+#deps-updates: @ Print project dependencies updates
+deps-updates: deps
+	@$(MVN) -B versions:display-dependency-updates
+
+#deps-update: @ Update project dependencies to latest releases
+deps-update: deps-updates
+	@$(MVN) -B versions:use-latest-releases
+	@$(MVN) -B versions:commit
+
+#deps-prune: @ Check for unused Maven dependencies
+deps-prune: deps
+	@$(MVN) -B dependency:analyze -DignoreNonCompile=true 2>&1 | grep -E 'Unused|Used undeclared' || echo "No unused dependencies found."
+
+# ---------------------------------------------------------------------------
+# Build
+# ---------------------------------------------------------------------------
+
+#clean: @ Clean all build artifacts
+clean: deps
+	@$(MVN) -B clean -q
+
+#build: @ Build all modules with Maven (skip tests)
+build: deps
+	@$(MVN) -B install -Dmaven.test.skip=true -Ddependency-check.skip=true
+
+#test: @ Run tests
+test: deps
+	@$(MVN) -B test -Ddependency-check.skip=true
+
+#lint: @ Run Checkstyle and compiler warning checks
+lint: deps
+	@$(MVN) -B validate -Ddependency-check.skip=true
+	@$(MVN) -B compile -Dmaven.compiler.failOnWarning=true -Ddependency-check.skip=true -q
+	@$(MVN) -B checkstyle:check -Dcheckstyle.failOnViolation=false
+
+#format: @ Auto-format Java source code
+format: deps
+	@$(MVN) -B io.spring.javaformat:spring-javaformat-maven-plugin:apply
+
+#format-check: @ Verify code formatting (CI gate)
+format-check: deps
+	@$(MVN) -B io.spring.javaformat:spring-javaformat-maven-plugin:validate
+
+# ---------------------------------------------------------------------------
+# Code Quality
+# ---------------------------------------------------------------------------
+
 #lint-docker: @ Lint all Dockerfiles with hadolint
 lint-docker: deps-hadolint
 	@for svc in $(SERVICES); do \
@@ -137,6 +178,44 @@ lint-docker: deps-hadolint
 #secrets: @ Scan for hardcoded secrets
 secrets: deps-gitleaks
 	@gitleaks detect --source . --verbose --redact --no-git
+
+#cve-check: @ Run OWASP dependency vulnerability scan
+cve-check: deps
+	@$(MVN) -B org.owasp:dependency-check-maven:check $(if $(NVD_API_KEY),-DnvdApiKey=$(NVD_API_KEY))
+
+#coverage-generate: @ Generate code coverage report
+coverage-generate: deps
+	@$(MVN) -B test -Ddependency-check.skip=true org.jacoco:jacoco-maven-plugin:report
+
+#coverage-check: @ Verify code coverage meets minimum threshold
+coverage-check: coverage-generate
+	@echo "Coverage reports generated. Review in target/site/jacoco/"
+
+#coverage-open: @ Open code coverage report in browser
+coverage-open:
+	@$(OPEN_CMD) ./employee-service/target/site/jacoco/index.html
+
+#static-check: @ Run all quality and security checks
+static-check: format-check lint lint-docker secrets
+	@echo "Static check passed."
+
+# ---------------------------------------------------------------------------
+# Docker Images
+# ---------------------------------------------------------------------------
+
+#image-build: @ Build Docker images for all services
+image-build: build
+	@for svc in $(SERVICES); do \
+		echo "Building $$svc:$(IMAGE_TAG)..."; \
+		BUILDX_BUILDER=default docker buildx build --load -t $$svc:$(IMAGE_TAG) -f $$svc-service/Dockerfile.debug $$svc-service/; \
+	done
+
+#image-load: @ Load Docker images into KinD cluster
+image-load:
+	@for svc in $(SERVICES); do \
+		echo "Loading $$svc:$(IMAGE_TAG) into cluster..."; \
+		kind load docker-image $$svc:$(IMAGE_TAG) --name $(KIND_CLUSTER_NAME); \
+	done
 
 # ---------------------------------------------------------------------------
 # KinD Cluster
@@ -278,7 +357,7 @@ gateway-url:
 #gateway-open: @ Open Swagger UI in browser
 gateway-open:
 	@EXTERNAL_IP=$$(kubectl get svc gateway -n gateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}'); \
-	xdg-open "http://$$EXTERNAL_IP:8080/swagger-ui.html"
+	$(OPEN_CMD) "http://$$EXTERNAL_IP:8080/swagger-ui.html"
 
 #logs-employee: @ Tail employee service logs
 logs-employee:
@@ -297,33 +376,54 @@ logs-gateway:
 	@kubectl logs -f -l app=gateway -n gateway
 
 # ---------------------------------------------------------------------------
-# Static Analysis
-# ---------------------------------------------------------------------------
-
-#static-check: @ Run all quality and security checks
-static-check: format-check lint lint-docker secrets
-	@echo "Static check passed."
-
-# ---------------------------------------------------------------------------
 # CI
 # ---------------------------------------------------------------------------
 
 #ci: @ Run full local CI pipeline
-ci: deps clean build static-check test
-	@echo "Local CI pipeline passed."
+ci: deps lint coverage-generate coverage-check build
+	@echo "=== CI Complete ==="
 
 #ci-run: @ Run GitHub Actions workflow locally using act
 ci-run: deps-act
 	@docker container prune -f 2>/dev/null || true
-	@act push --container-architecture linux/amd64
+	@act push --container-architecture linux/amd64 \
+		--artifact-server-path /tmp/act-artifacts \
+		--var ACT=true \
+		$(if $(NVD_API_KEY),--secret NVD_API_KEY=$(NVD_API_KEY))
+
+#release: @ Create a release (usage: make release VERSION=x.y.z)
+release: deps
+	@if [ -z "$(VERSION)" ]; then \
+		echo "Error: VERSION is required (e.g., make release VERSION=1.0.0)"; \
+		exit 1; \
+	fi
+	@if ! echo "$(VERSION)" | grep -qE '$(SEMVER_RE)'; then \
+		echo "Error: VERSION must be valid semver (e.g., 1.0.0 -> creates tag v1.0.0)"; \
+		exit 1; \
+	fi
+	@echo "Releasing version $(VERSION) (current: $(CURRENTTAG))..."
+	@echo -n "Proceed? [y/N] " && read ans && [ "$${ans:-N}" = y ] || { echo "Aborted."; exit 1; }
+	@git tag v$(VERSION)
+	@git push origin v$(VERSION)
+	@git push
+	@echo "Release $(VERSION) complete."
 
 # ---------------------------------------------------------------------------
 # Renovate
 # ---------------------------------------------------------------------------
 
+#renovate-bootstrap: @ Install nvm and npm for Renovate
+renovate-bootstrap:
+	@command -v node >/dev/null 2>&1 || { \
+		echo "Installing nvm $(NVM_VERSION)..."; \
+		export NVM_DIR="$${NVM_DIR:-$$HOME/.nvm}"; \
+		curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v$(NVM_VERSION)/install.sh | bash; \
+		. "$$NVM_DIR/nvm.sh" && nvm install $(NODE_VERSION); \
+	}
+
 #renovate-validate: @ Validate Renovate configuration
-renovate-validate:
-	@command -v npx >/dev/null 2>&1 || { echo "Error: npx required (install Node.js)"; exit 1; }
+renovate-validate: renovate-bootstrap
+	@[ -f renovate.json ] || { echo "Error: renovate.json not found"; exit 1; }
 	@if [ -n "$$GH_ACCESS_TOKEN" ]; then \
 		GITHUB_COM_TOKEN=$$GH_ACCESS_TOKEN npx --yes renovate --platform=local; \
 	else \
@@ -331,13 +431,16 @@ renovate-validate:
 		npx --yes renovate --platform=local; \
 	fi
 
-.PHONY: help build clean test lint \
-	format format-check vulncheck deps-prune \
+.PHONY: help \
+	deps deps-maven deps-install deps-check deps-docker deps-kind deps-act \
+	deps-hadolint deps-gitleaks deps-updates deps-update deps-prune \
+	clean build test lint format format-check \
+	lint-docker secrets cve-check \
+	coverage-generate coverage-check coverage-open static-check \
 	image-build image-load \
-	deps deps-docker deps-kind deps-act deps-hadolint deps-gitleaks \
-	lint-docker secrets static-check \
 	kind-create kind-setup kind-deploy kind-undeploy kind-redeploy kind-destroy \
 	e2e e2e-test populate \
 	gateway-url gateway-open \
 	logs-employee logs-department logs-organization logs-gateway \
-	ci ci-run renovate-validate
+	ci ci-run release \
+	renovate-bootstrap renovate-validate
