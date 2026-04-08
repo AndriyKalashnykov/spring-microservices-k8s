@@ -2,9 +2,9 @@
 # For local builds: run `make build` first, then `make image-build`
 # For CI: the builds job produces JARs before Docker builds
 
-ARG VARIANT=nonroot
+ARG VARIANT=nonroot@sha256:7e37784d94dccbf5ccb195c73b295f5ad00cd266512dfbac12eb9c3c28f8077d
 
-FROM eclipse-temurin:21-jre AS extract
+FROM eclipse-temurin:21-jre@sha256:a27f3be269a0a12b99ee58af1c4ebe45233d119d3926f643e3da5d298d4726dc AS extract
 WORKDIR /tmp
 COPY target/*.jar app.jar
 RUN java -Djarmode=layertools -jar app.jar extract
