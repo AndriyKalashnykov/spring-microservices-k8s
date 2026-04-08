@@ -1,12 +1,13 @@
 [![CI](https://github.com/AndriyKalashnykov/spring-microservices-k8s/actions/workflows/main.yml/badge.svg)](https://github.com/AndriyKalashnykov/spring-microservices-k8s/actions/workflows/main.yml)
 [![Hits](https://hits.sh/github.com/AndriyKalashnykov/spring-microservices-k8s.svg?view=today-total&style=plastic)](https://hits.sh/github.com/AndriyKalashnykov/spring-microservices-k8s/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-brightgreen.svg)](https://opensource.org/licenses/MIT)
+[![Renovate enabled](https://img.shields.io/badge/renovate-enabled-brightgreen.svg)](https://app.renovatebot.com/dashboard#github/AndriyKalashnykov/spring-microservices-k8s)
 
 # Java Microservices with Spring Boot and Spring Cloud Kubernetes
 
 This reference architecture demonstrates design, development, and deployment of Spring Boot microservices on Kubernetes. It implements a hierarchical domain model (Organization > Department > Employee) with four services deployed across isolated namespaces, using Spring Cloud Kubernetes for service discovery, configuration, and secrets management.
 
-The tech stack includes Java 11, Spring Boot 2.3.1, Spring Cloud Kubernetes (Hoxton.SR6), Netflix Zuul gateway, OpenFeign for inter-service communication, MongoDB for persistence, and Kind with MetalLB for local development.
+The tech stack includes Java 21, Spring Boot 3.4, Spring Cloud Kubernetes (2024.0), Spring Cloud Gateway MVC, OpenFeign for inter-service communication, MongoDB 7.0 for persistence, and Kind with MetalLB for local development.
 
 ## Quick Start
 
@@ -26,7 +27,7 @@ make gateway-open  # open Swagger UI in browser
 |------|---------|---------|
 | [GNU Make](https://www.gnu.org/software/make/) | 3.81+ | Build orchestration |
 | [Git](https://git-scm.com/) | 2.0+ | Version control |
-| [JDK](https://adoptium.net/) | 11 | Java runtime and compiler |
+| [JDK](https://adoptium.net/) | 21 | Java runtime and compiler |
 | [Maven](https://maven.apache.org/) | 3.6+ | Build and dependency management |
 | [Docker](https://www.docker.com/) | 20.10+ | Container runtime |
 | [kubectl](https://kubernetes.io/docs/tasks/tools/) | 1.24+ | Kubernetes CLI |
@@ -96,6 +97,7 @@ make deps
 | `make deps` | Check required dependencies |
 | `make deps-kind` | Install KinD for local Kubernetes testing |
 | `make deps-act` | Install act for local CI runs |
+| `make renovate-validate` | Validate Renovate configuration |
 
 ## Architecture
 
@@ -131,6 +133,8 @@ GitHub Actions runs on every push to `master`, tags `v*`, and pull requests.
 | **docker** | tag push only | Build and push multi-arch Docker images to DockerHub |
 
 A weekly [cleanup workflow](.github/workflows/cleanup-runs.yml) prunes old workflow runs.
+
+[Renovate](https://docs.renovatebot.com/) keeps dependencies up to date with platform automerge enabled.
 
 ## Stargazers over time
 

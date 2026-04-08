@@ -11,4 +11,4 @@ data:
   management.endpoints.web.exposure.include: "health,info,metrics,prometheus"
   management.metrics.enable.all: "true"
   management.metrics.distribution.percentiles-histogram.http.server.requests: "true"
-  management.metrics.distribution.sla.http.server.requests: "1ms,5ms"
+  management.metrics.distribution.slo.http.server.requests: "1ms,5ms"

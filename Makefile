@@ -1,5 +1,6 @@
 .DEFAULT_GOAL := help
 
+MVN               := $(shell command -v mvn 2>/dev/null || echo ./mvnw)
 KIND_CLUSTER_NAME := spring-microservices-k8s
 SERVICES          := employee department organization gateway
 IMAGE_TAG         := local
@@ -27,19 +28,19 @@ help:
 
 #build: @ Build all modules with Maven (skip tests)
 build:
-	@mvn clean package -DskipTests
+	@$(MVN) clean package -DskipTests
 
 #clean: @ Clean all build artifacts
 clean:
-	@mvn clean
+	@$(MVN) clean
 
 #test: @ Run tests
 test:
-	@mvn test
+	@$(MVN) test
 
 #lint: @ Compile with warnings as errors
 lint:
-	@mvn compile -Dmaven.compiler.failOnWarning=true
+	@$(MVN) compile -Dmaven.compiler.failOnWarning=true
 
 # ---------------------------------------------------------------------------
 # Image
@@ -66,12 +67,15 @@ image-load:
 #deps: @ Check required dependencies
 deps:
 	@command -v java >/dev/null 2>&1 || { echo "Error: java required. See https://adoptium.net/"; exit 1; }
-	@command -v mvn >/dev/null 2>&1 || { echo "Error: mvn required. See https://maven.apache.org/install.html"; exit 1; }
+	@command -v mvn >/dev/null 2>&1 || test -x ./mvnw || { echo "Error: mvn or ./mvnw required. See https://maven.apache.org/install.html"; exit 1; }
+
+#deps-docker: @ Check Docker and kubectl
+deps-docker:
 	@command -v docker >/dev/null 2>&1 || { echo "Error: docker required. See https://docs.docker.com/get-docker/"; exit 1; }
 	@command -v kubectl >/dev/null 2>&1 || { echo "Error: kubectl required. See https://kubernetes.io/docs/tasks/tools/"; exit 1; }
 
 #deps-kind: @ Install KinD for local Kubernetes testing
-deps-kind: deps
+deps-kind: deps deps-docker
 	@command -v kind >/dev/null 2>&1 || { echo "Installing kind $(KIND_VERSION)..."; \
 		if command -v go >/dev/null 2>&1; then \
 			go install sigs.k8s.io/kind@v$(KIND_VERSION); \
@@ -257,11 +261,25 @@ ci-run: deps-act
 	@docker container prune -f 2>/dev/null || true
 	@act push --container-architecture linux/amd64
 
+# ---------------------------------------------------------------------------
+# Renovate
+# ---------------------------------------------------------------------------
+
+#renovate-validate: @ Validate Renovate configuration
+renovate-validate:
+	@command -v npx >/dev/null 2>&1 || { echo "Error: npx required (install Node.js)"; exit 1; }
+	@if [ -n "$$GH_ACCESS_TOKEN" ]; then \
+		GITHUB_COM_TOKEN=$$GH_ACCESS_TOKEN npx --yes renovate --platform=local; \
+	else \
+		echo "Warning: GH_ACCESS_TOKEN not set, some dependency lookups may fail"; \
+		npx --yes renovate --platform=local; \
+	fi
+
 .PHONY: help build clean test lint \
 	image-build image-load \
-	deps deps-kind deps-act \
+	deps deps-docker deps-kind deps-act \
 	kind-create kind-setup kind-deploy kind-undeploy kind-redeploy kind-destroy \
 	e2e e2e-test populate \
 	gateway-url gateway-open \
 	logs-employee logs-department logs-organization logs-gateway \
-	ci ci-run
+	ci ci-run renovate-validate

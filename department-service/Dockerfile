@@ -1,7 +1,4 @@
-ARG MVN_VERSION=3.6.3
-ARG JDK_VERSION=11
-
-FROM maven:${MVN_VERSION}-jdk-${JDK_VERSION}-slim as build
+FROM maven:3.9-eclipse-temurin-21 AS build
 
 WORKDIR /build
 COPY pom.xml .
@@ -19,7 +16,7 @@ WORKDIR /tmp/target
 RUN java -Djarmode=layertools -jar *.jar extract
 
 # runtime image
-FROM gcr.io/distroless/java:${JDK_VERSION} as runtime
+FROM gcr.io/distroless/java21-debian12:nonroot AS runtime
 
 USER nonroot:nonroot
 WORKDIR /application
@@ -32,11 +29,11 @@ COPY --from=build --chown=nonroot:nonroot /tmp/target/application/ ./
 
 EXPOSE 8080
 
-ENV _JAVA_OPTIONS "-XX:MinRAMPercentage=60.0 -XX:MaxRAMPercentage=90.0 \
+ENV _JAVA_OPTIONS="-XX:MinRAMPercentage=60.0 -XX:MaxRAMPercentage=90.0 \
 -Djava.security.egd=file:/dev/./urandom \
 -Djava.awt.headless=true -Dfile.encoding=UTF-8 \
 -Dspring.output.ansi.enabled=ALWAYS \
 -Dspring.profiles.active=default"
 
 # set entrypoint to layered Spring Boot application
-ENTRYPOINT ["java", "org.springframework.boot.loader.JarLauncher"]
+ENTRYPOINT ["java", "org.springframework.boot.loader.launch.JarLauncher"]

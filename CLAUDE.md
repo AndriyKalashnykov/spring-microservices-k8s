@@ -12,7 +12,7 @@ cluster with MongoDB backing.
 spring-microservices-k8s/
   department-service/    # Department microservice (Spring Boot)
   employee-service/      # Employee microservice (Spring Boot)
-  gateway-service/       # API gateway (Netflix Zuul)
+  gateway-service/       # API gateway (Spring Cloud Gateway MVC)
   organization-service/  # Organization microservice (Spring Boot)
   .github/workflows/     # CI/CD (GitHub Actions)
   k8s/                   # Kubernetes manifests, Kind + MetalLB configs
@@ -46,11 +46,11 @@ make kind-destroy    # Delete Kind cluster
 
 ## Tech Stack
 
-- Java 11, Spring Boot 2.3.1, Spring Cloud Kubernetes (Hoxton.SR6)
+- Java 21, Spring Boot 3.4, Spring Cloud Kubernetes (2024.0)
 - Maven multi-module build
 - Docker (multi-arch via buildx)
 - Kubernetes (Kind + MetalLB for local dev)
-- MongoDB
+- MongoDB 7.0
 
 ## Skills
 
@@ -62,5 +62,6 @@ Use the following skills when working on related files:
 | `README.md` | `/readme` |
 | `.github/workflows/*.{yml,yaml}` | `/ci-workflow` |
 | `CLAUDE.md` | `/claude` |
+| `renovate.json` | `/renovate` |
 
 When spawning subagents, always pass conventions from the respective skill into the agent's prompt.
