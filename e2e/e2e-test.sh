@@ -3,7 +3,7 @@ set -uo pipefail
 
 # ---------------------------------------------------------------------------
 # E2E test suite for Spring Boot microservices deployed on Kind + MetalLB
-# Tests employee, department, organization services via the Zuul gateway.
+# Tests employee, department, organization services via the Spring Cloud Gateway.
 # ---------------------------------------------------------------------------
 
 # --- Gateway discovery ------------------------------------------------------
@@ -67,13 +67,13 @@ fi
 # Tests
 # ===========================================================================
 
-# --- Wait for Zuul to discover backend services -----------------------------
+# --- Wait for gateway to discover backend services -----------------------------
 
-echo "Waiting for Zuul to discover backend services ..."
+echo "Waiting for gateway to discover backend services ..."
 for i in $(seq 1 30); do
   RESP=$(curl -s --max-time 30 "${BASE_URL}/employee/" 2>/dev/null || true)
   if echo "${RESP}" | grep -qF "["; then
-    echo "Zuul routing is active (attempt ${i}/30)."
+    echo "Gateway routing is active (attempt ${i}/30)."
     break
   fi
   echo "  Attempt ${i}/30 — backend services not yet routable. Retrying in 10s ..."

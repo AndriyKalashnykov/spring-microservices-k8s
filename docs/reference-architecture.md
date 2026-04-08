@@ -445,11 +445,11 @@ Run all checks:
 
 ```bash
 make static-check    # format-check + checkstyle + hadolint + gitleaks
-make vulncheck       # OWASP dependency vulnerability scan (separate, slower)
+make cve-check       # OWASP dependency vulnerability scan (separate, slower)
 make deps-prune      # check for unused Maven dependencies
 ```
 
-The CI workflow runs `static-check` as the first job — format and lint errors are caught before build or tests run.
+The CI workflow runs `lint` as the first job (which calls `make static-check`) — format and lint errors are caught before build or tests run.
 
 ## Build Docker Images
 
@@ -715,9 +715,10 @@ GitHub Actions runs on every push to `master`, tags `v*`, and pull requests.
 
 | Job | Triggers | Steps |
 |-----|----------|-------|
-| **static-check** | push, PR | Format check, Checkstyle, Dockerfile lint, secret scan |
-| **build** | after static-check | Build all modules with Maven |
-| **test** | after static-check | Run Testcontainers integration tests |
+| **lint** | push, PR | Format check, Checkstyle, Dockerfile lint, secret scan, Trivy |
+| **builds** | after lint | Build all modules with Maven |
+| **tests** | after lint | Run Testcontainers integration tests + coverage |
+| **cve-check** | push to master | OWASP dependency vulnerability scan |
 | **docker** | tag push only | Build and push multi-arch Docker images to GHCR |
 
 A weekly [cleanup workflow](.github/workflows/cleanup-runs.yml) prunes old
