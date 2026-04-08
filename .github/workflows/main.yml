@@ -222,8 +222,7 @@ jobs:
         with:
           images: ghcr.io/${{ github.repository }}/${{ matrix.service }}
           tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern=v{{version}}
             type=raw,value=latest
 
       - name: Build and push
@@ -236,5 +235,6 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          provenance: false
           cache-from: type=gha
           cache-to: type=gha,mode=max
