@@ -101,6 +101,8 @@ make deps
 
 ## Architecture
 
+See the full [Reference Architecture](docs/reference-architecture.md) document with diagrams.
+
 This architecture follows Cloud Native best practices and [The 12 Factor App](https://12factor.net/) methodology. Key concerns addressed:
 
 - **Externalized configuration** using ConfigMaps, Secrets, and PropertySource
