@@ -127,7 +127,22 @@ make deps
 
 ## Architecture
 
-![Microservices Landscape](docs/diagrams/spring-boot-micro-services-landscape.png)
+```mermaid
+graph TB
+    Client([Client]) --> Gateway[Gateway Service<br/>Spring Cloud Gateway MVC<br/>LoadBalancer via MetalLB]
+
+    Gateway -->|/employee/**| Employee[Employee Service<br/>MongoDB]
+    Gateway -->|/department/**| Department[Department Service<br/>MongoDB]
+    Gateway -->|/organization/**| Organization[Organization Service<br/>MongoDB]
+
+    Department -.->|RestClient| Employee
+    Organization -.->|RestClient| Employee
+    Organization -.->|RestClient| Department
+
+    Employee --> MongoDB[(MongoDB 7.0)]
+    Department --> MongoDB
+    Organization --> MongoDB
+```
 
 See the full [Reference Architecture](docs/reference-architecture.md) document with all diagrams.
 

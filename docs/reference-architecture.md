@@ -74,7 +74,29 @@ The application is built with these open source components:
 - [SpringDoc OpenAPI](https://springdoc.org/): OpenAPI 3 documentation with
   Swagger UI.
 
-![Microservices Landscape](diagrams/spring-boot-micro-services-landscape.png)
+```mermaid
+graph TB
+    Client([Client]) --> Gateway[Gateway Service<br/>Spring Cloud Gateway MVC<br/>LoadBalancer via MetalLB]
+
+    Gateway -->|/employee/**| Employee[Employee Service<br/>RestController + MongoDB]
+    Gateway -->|/department/**| Department[Department Service<br/>RestController + MongoDB]
+    Gateway -->|/organization/**| Organization[Organization Service<br/>RestController + MongoDB]
+
+    Department -.->|RestClient| Employee
+    Organization -.->|RestClient| Employee
+    Organization -.->|RestClient| Department
+
+    Employee --> MongoDB[(MongoDB 7.0)]
+    Department --> MongoDB
+    Organization --> MongoDB
+
+    subgraph "Spring Cloud Kubernetes"
+        Gateway
+        Employee
+        Department
+        Organization
+    end
+```
 
 ## Reference Architecture Environment
 
@@ -82,7 +104,34 @@ Each microservice runs in its own container, one container per pod and one pod
 per service replica. The application uses a microservices architecture
 with replicated containers calling each other.
 
-![Microservices Stack](diagrams/spring-boot-micro-services-stack.png)
+```mermaid
+graph TB
+    subgraph kind["Kind Cluster"]
+        subgraph ns-gw["gateway namespace"]
+            GW[gateway pod<br/>:8080 LoadBalancer]
+        end
+        subgraph ns-emp["employee namespace"]
+            EMP[employee pod<br/>:8080 ClusterIP]
+        end
+        subgraph ns-dept["department namespace"]
+            DEPT[department pod<br/>:8080 ClusterIP]
+        end
+        subgraph ns-org["organization namespace"]
+            ORG[organization pod<br/>:8080 ClusterIP]
+        end
+        subgraph ns-mongo["mongo namespace"]
+            MONGO[(mongodb pod<br/>:27017 ClusterIP)]
+        end
+        subgraph metallb["MetalLB"]
+            LB[LoadBalancer IP]
+        end
+    end
+
+    LB --> GW
+    EMP --> MONGO
+    DEPT --> MONGO
+    ORG --> MONGO
+```
 
 ## Spring Cloud Kubernetes
 
@@ -260,7 +309,18 @@ Every Service in the cluster is assigned a DNS name following the pattern
 `<service>.<namespace>.svc.cluster.local`. For example, the MongoDB service
 is reachable at `mongodb.mongo.svc.cluster.local:27017`.
 
-![Service Naming](diagrams/spring-boot-micro-services-naming.png)
+```mermaid
+graph LR
+    subgraph "Kubernetes DNS"
+        E["employee.employee.svc.cluster.local:8080"]
+        D["department.department.svc.cluster.local:8080"]
+        O["organization.organization.svc.cluster.local:8080"]
+        G["gateway.gateway.svc.cluster.local:8080"]
+        M["mongodb.mongo.svc.cluster.local:27017"]
+    end
+```
+
+The pattern is `<service>.<namespace>.svc.cluster.local:<port>`.
 
 ## Configure MongoDB
 
@@ -509,13 +569,7 @@ Spring Boot layered JARs produce these layers (smallest to largest change freque
 - `spring-boot-loader` — Spring Boot launcher
 - `application` — your code (changes most often)
 
-![Layered JAR](diagrams/spring-boot-micro-services-layered-jar-list.png)
-
-The [Dive](https://github.com/wagoodman/dive) tool can analyze image layers:
-
-![Docker Build Layers](diagrams/spring-boot-micro-services-docker-build.png)
-
-![Docker Runtime Layers](diagrams/spring-boot-micro-services-docker-runtime.png)
+Use [Dive](https://github.com/wagoodman/dive) to analyze image layers: `dive employee:local`
 
 ## Deploy a Spring Boot Application
 
@@ -580,9 +634,7 @@ Deploy all services:
 make kind-deploy
 ```
 
-![Department Namespace Overview](diagrams/spring-boot-micro-services-department-ns-overview.png)
-
-![Pod Resources](diagrams/spring-boot-micro-services-department-pods-resource-viewer.png)
+View deployed resources with `kubectl get all -n department`.
 
 ## Configure Gateway Service
 
@@ -653,7 +705,7 @@ for local development on Kind.
 Swagger UI is exposed on the gateway service at `/swagger-ui.html` and
 aggregates API documentation from all backend services across namespaces.
 
-![Gateway Swagger UI](diagrams/spring-boot-micro-services-gateway-swagger-ui.png)
+Open Swagger UI with `make gateway-open` or navigate to `http://<gateway-ip>:8080/swagger-ui.html`.
 
 ## Local Development with Kind + MetalLB
 
