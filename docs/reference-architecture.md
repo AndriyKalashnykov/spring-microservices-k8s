@@ -92,7 +92,7 @@ demonstrates the use of the following features:
 
 - Discovering services across all namespaces using DiscoveryClient
 - Using ConfigMap and Secrets as Spring Boot property sources with
-  `spring.config.import: "kubernetes:"`
+  `spring.config.import: "optional:kubernetes:"`
 - Implementing health checks using Spring Cloud Kubernetes pod health indicator
 
 ## Source Code Directory Structure
@@ -111,7 +111,9 @@ spring-microservices-k8s/
 ├── e2e/                   # End-to-end test script
 ├── docs/                  # Architecture documentation and diagrams
 ├── Makefile               # Build orchestration (run `make help`)
-└── pom.xml                # Parent POM (multi-module)
+├── mvnw                   # Maven wrapper (for act CI compatibility)
+├── pom.xml                # Parent POM (multi-module)
+└── renovate.json          # Renovate dependency update configuration
 ```
 
 ## Quick Start
@@ -148,7 +150,7 @@ spring:
   application:
     name: department
   config:
-    import: "kubernetes:"
+    import: "optional:kubernetes:"
   cloud:
     kubernetes:
       config:

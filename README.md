@@ -95,6 +95,7 @@ make deps
 | `make ci` | Run full local CI pipeline |
 | `make ci-run` | Run GitHub Actions workflow locally using act |
 | `make deps` | Check required dependencies |
+| `make deps-docker` | Check Docker and kubectl |
 | `make deps-kind` | Install KinD for local Kubernetes testing |
 | `make deps-act` | Install act for local CI runs |
 | `make renovate-validate` | Validate Renovate configuration |

@@ -17,8 +17,11 @@ spring-microservices-k8s/
   .github/workflows/     # CI/CD (GitHub Actions)
   k8s/                   # Kubernetes manifests, Kind + MetalLB configs
   e2e/                   # End-to-end test script
+  docs/                  # Architecture documentation and diagrams
   Makefile               # Build orchestration (run `make help`)
+  mvnw                   # Maven wrapper (for act CI compatibility)
   pom.xml                # Parent POM (multi-module)
+  renovate.json          # Renovate dependency update configuration
 ```
 
 ## Build & Run
