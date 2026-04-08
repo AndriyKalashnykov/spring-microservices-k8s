@@ -7,9 +7,18 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.cloud.client.ServiceInstance;
 import org.springframework.cloud.client.discovery.DiscoveryClient;
+import org.springframework.cloud.gateway.server.mvc.handler.HandlerFunctions;
+import org.springframework.context.annotation.Bean;
+import org.springframework.web.servlet.function.RouterFunction;
+import org.springframework.web.servlet.function.ServerResponse;
 
 import jakarta.annotation.PostConstruct;
 import java.util.List;
+
+import static org.springframework.cloud.gateway.server.mvc.filter.BeforeFilterFunctions.stripPrefix;
+import static org.springframework.cloud.gateway.server.mvc.filter.LoadBalancerFilterFunctions.lb;
+import static org.springframework.cloud.gateway.server.mvc.handler.GatewayRouterFunctions.route;
+import static org.springframework.cloud.gateway.server.mvc.predicate.GatewayRequestPredicates.path;
 
 @SpringBootApplication
 public class GatewayApplication {
@@ -26,20 +35,42 @@ public class GatewayApplication {
 	@PostConstruct
 	public void init() {
 		LOGGER.info("Services: {}", client.getServices());
-
-		// loop through details on every service for logging purposes
 		for (String svc : client.getServices()) {
 			try {
-				// TODO(joshrosso): temporary workaround as getInstances will throw an exception when an endpoint port is
-				// not set. See: https://github.com/spring-cloud/spring-cloud-kubernetes/issues/513
 				List<ServiceInstance> its = client.getInstances(svc);
 				for (ServiceInstance it : its) {
 					LOGGER.info("Instance: url={}:{}, id={}, service={}", it.getHost(), it.getPort(), it.getInstanceId(), it.getServiceId());
 				}
 			} catch (Exception ex) {
-				LOGGER.warn("Failed to lookup instance due to endpoint not specifying port for service {}. Exception: {}" + svc, ex.toString());
+				LOGGER.warn("Failed to lookup instance for service {}: {}", svc, ex.toString());
 			}
 		}
+	}
 
+	@Bean
+	public RouterFunction<ServerResponse> employeeRoute() {
+		return route("employee")
+				.route(path("/employee", "/employee/**"), HandlerFunctions.http())
+				.before(stripPrefix(1))
+				.filter(lb("employee"))
+				.build();
+	}
+
+	@Bean
+	public RouterFunction<ServerResponse> departmentRoute() {
+		return route("department")
+				.route(path("/department", "/department/**"), HandlerFunctions.http())
+				.before(stripPrefix(1))
+				.filter(lb("department"))
+				.build();
+	}
+
+	@Bean
+	public RouterFunction<ServerResponse> organizationRoute() {
+		return route("organization")
+				.route(path("/organization", "/organization/**"), HandlerFunctions.http())
+				.before(stripPrefix(1))
+				.filter(lb("organization"))
+				.build();
 	}
 }

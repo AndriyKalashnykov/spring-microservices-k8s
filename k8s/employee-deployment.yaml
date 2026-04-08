@@ -27,22 +27,29 @@ spec:
             limits:
               cpu: "1.0"
               memory: 1Gi
+          startupProbe:
+            httpGet:
+              port: 8080
+              path: /actuator/health
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 20
           readinessProbe:
             httpGet:
               port: 8080
               path: /actuator/health
-            initialDelaySeconds: 60
-            timeoutSeconds: 10
-            periodSeconds: 20
-            failureThreshold: 10
+            initialDelaySeconds: 0
+            timeoutSeconds: 5
+            periodSeconds: 10
+            failureThreshold: 3
           livenessProbe:
             httpGet:
               port: 8080
               path: /actuator/info
-            initialDelaySeconds: 60
-            timeoutSeconds: 10
-            periodSeconds: 20
-            failureThreshold: 10
+            initialDelaySeconds: 0
+            timeoutSeconds: 5
+            periodSeconds: 30
+            failureThreshold: 3
           volumeMounts:
             - name: mongodb
               mountPath: /etc/secretspot
