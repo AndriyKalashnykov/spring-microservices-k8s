@@ -9,7 +9,7 @@ COPY ./pom.xml /tmp/
 COPY ./src /tmp/src/
 WORKDIR /tmp/
 # build the project
-RUN mvn clean package
+RUN mvn clean package -DskipTests
 
 # extract JAR Layers
 WORKDIR /tmp/target
