@@ -2,133 +2,136 @@
 [![Hits](https://hits.sh/github.com/AndriyKalashnykov/spring-microservices-k8s.svg?view=today-total&style=plastic)](https://hits.sh/github.com/AndriyKalashnykov/spring-microservices-k8s/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-brightgreen.svg)](https://opensource.org/licenses/MIT)
 
-### Java Microservices with Spring Boot and Spring Cloud Kubernetes
+# Java Microservices with Spring Boot and Spring Cloud Kubernetes
 
-This is repository accompanies my article for the `Tanzu Development Center` - [Microservices with Spring Cloud Kubernetes Reference Architecture](https://tanzu.vmware.com/developer/guides/app-enhancements-spring-k8s//)
+This reference architecture demonstrates design, development, and deployment of Spring Boot microservices on Kubernetes. It implements a hierarchical domain model (Organization > Department > Employee) with four services deployed across isolated namespaces, using Spring Cloud Kubernetes for service discovery, configuration, and secrets management.
 
-This Reference Architecture demonstrates design, development, and deployment of
-[Spring Boot](https://spring.io/projects/spring-boot) microservices on
-Kubernetes. Each section covers architectural recommendations and configuration
-for each concern when applicable.
+The tech stack includes Java 11, Spring Boot 2.3.1, Spring Cloud Kubernetes (Hoxton.SR6), Netflix Zuul gateway, OpenFeign for inter-service communication, MongoDB for persistence, and Kind with MetalLB for local development.
 
-High-level key recommendations:
-
-- Consider Best Practices in Cloud Native Applications and [The 12
-  Factor App](https://12factor.net/)
-- Keep each microservice in a separate [Maven](https://maven.apache.org/) or
-  [Gradle](https://docs.gradle.org/current/userguide/userguide.html) project
-- Prefer using dependencies when inheriting from parent project instead of using
-  relative path
-- Use [Spring Initializr](https://start.spring.io/) a web application that can
-  generate a Spring Boot project structure, fill in your project details, pick
-  your options, and download a bundled up project
-
-This architecture demonstrates a complex Cloud Native application that
-addresses following concerns:
-
-- Externalized configuration using ConfigMaps, Secrets, and PropertySource
-- Kubernetes API server access using ServiceAccounts, Roles, and RoleBindings
-- Health checks using Application Probes
-  - readinessProbe
-  - livenessProbe
-  - startupProbe
-- Reporting application state using Spring Boot Actuators
-- Service discovery across namespaces using DiscoveryClient
-- Exposing API documentation using Swagger UI
-- Building a Docker image using best practices
-- Layering JARs using the Spring Boot plugin
-- Observing the application using Prometheus exporters
-### Pre-requisites
-
-- OS: Mac or Linux
-- [Docker](https://docs.docker.com/install/)
-- [Minikube](https://kubernetes.io/docs/tasks/tools/install-minikube/)
-- [Virtualbox](https://www.virtualbox.org/manual/ch02.html)
-- [kubectl](https://kubernetes.io/docs/tasks/tools/install-kubectl/)
-- [sdkman](https://sdkman.io/install)
-
-    JDK 11.x
-    
-    ```shell
-    sdk install java 11.0.14-tem
-    sdk use java 11.0.14-tem
-
-    ```
-- [Apache Maven](https://maven.apache.org/install.html)
-- [Curl](https://help.ubidots.com/en/articles/2165289-learn-how-to-install-run-curl-on-windows-macosx-linux)
-- [HTTPie](https://httpie.org/doc#installation)
-- [tree](http://mama.indstate.edu/users/ice/tree/)
-
-### Clone repository
+## Quick Start
 
 ```bash
-git clone git@github.com:AndriyKalashnykov/spring-microservices-k8s.git
+make deps          # check required tools
+make build         # build all modules with Maven
+make kind-create   # create local Kind cluster with MetalLB
+make kind-setup    # configure namespaces, RBAC, deploy MongoDB
+make kind-deploy   # build images, load into Kind, deploy services
+make e2e-test      # run end-to-end API tests
+make gateway-open  # open Swagger UI in browser
 ```
 
-### Start Kubernetes cluster
+## Prerequisites
+
+| Tool | Version | Purpose |
+|------|---------|---------|
+| [GNU Make](https://www.gnu.org/software/make/) | 3.81+ | Build orchestration |
+| [Git](https://git-scm.com/) | 2.0+ | Version control |
+| [JDK](https://adoptium.net/) | 11 | Java runtime and compiler |
+| [Maven](https://maven.apache.org/) | 3.6+ | Build and dependency management |
+| [Docker](https://www.docker.com/) | 20.10+ | Container runtime |
+| [kubectl](https://kubernetes.io/docs/tasks/tools/) | 1.24+ | Kubernetes CLI |
+| [Kind](https://kind.sigs.k8s.io/) | 0.31+ | Local Kubernetes clusters (auto-installed by `make deps-kind`) |
+
+Install and verify required tools:
 
 ```bash
-cd ./spring-microservices-k8s/scripts/
-./start-cluster.sh
+make deps
 ```
 
-### Configure Kubernetes cluster
+## Available Make Targets
 
-```bash
-cd ./spring-microservices-k8s/scripts/
-./setup-cluster.sh
+### Build
+
+| Target | Description |
+|--------|-------------|
+| `make build` | Build all modules with Maven (skip tests) |
+| `make clean` | Clean all build artifacts |
+| `make test` | Run tests |
+| `make lint` | Compile with warnings as errors |
+
+### Docker
+
+| Target | Description |
+|--------|-------------|
+| `make image-build` | Build Docker images for all services |
+| `make image-load` | Load Docker images into KinD cluster |
+
+### Kind Cluster
+
+| Target | Description |
+|--------|-------------|
+| `make kind-create` | Create local KinD cluster with MetalLB |
+| `make kind-setup` | Create namespaces, RBAC, service accounts, and deploy MongoDB |
+| `make kind-deploy` | Build, load images, deploy all services, and wait for rollout |
+| `make kind-undeploy` | Remove all services from KinD cluster |
+| `make kind-redeploy` | Undeploy then deploy all services |
+| `make kind-destroy` | Delete KinD cluster |
+
+### E2E Testing
+
+| Target | Description |
+|--------|-------------|
+| `make e2e` | Run full end-to-end test cycle (create, setup, deploy, test, destroy) |
+| `make e2e-test` | Run end-to-end test script |
+| `make populate` | Populate test data via gateway |
+
+### Utilities
+
+| Target | Description |
+|--------|-------------|
+| `make help` | List all available targets |
+| `make gateway-url` | Print gateway LoadBalancer URL |
+| `make gateway-open` | Open Swagger UI in browser |
+| `make logs-employee` | Tail employee service logs |
+| `make logs-department` | Tail department service logs |
+| `make logs-organization` | Tail organization service logs |
+| `make logs-gateway` | Tail gateway service logs |
+
+### CI
+
+| Target | Description |
+|--------|-------------|
+| `make ci` | Run full local CI pipeline |
+| `make ci-run` | Run GitHub Actions workflow locally using act |
+| `make deps` | Check required dependencies |
+| `make deps-kind` | Install KinD for local Kubernetes testing |
+| `make deps-act` | Install act for local CI runs |
+
+## Architecture
+
+This architecture follows Cloud Native best practices and [The 12 Factor App](https://12factor.net/) methodology. Key concerns addressed:
+
+- **Externalized configuration** using ConfigMaps, Secrets, and PropertySource
+- **Kubernetes API access** using ServiceAccounts, Roles, and RoleBindings
+- **Health checks** using readiness, liveness, and startup probes
+- **Application state** reported via Spring Boot Actuators
+- **Service discovery** across namespaces using Spring Cloud Kubernetes DiscoveryClient
+- **API documentation** exposed via Swagger UI
+- **Docker images** built with layered JARs using the Spring Boot plugin
+- **Observability** via Prometheus exporters
+
+### Service Communication
+
+```
+Client -> Gateway (Zuul, LoadBalancer via MetalLB)
+  |-- /employee/**     -> Employee Service (MongoDB)
+  |-- /department/**   -> Department Service (MongoDB, calls Employee via Feign)
+  +-- /organization/** -> Organization Service (MongoDB, calls Department + Employee via Feign)
 ```
 
-### Deploy application to Kubernetes cluster
+Each service runs in its own Kubernetes namespace with dedicated service accounts and RBAC role bindings for cross-namespace discovery.
 
-```bash
-cd ./spring-microservices-k8s/scripts/
-./install-all.sh
-```
+## CI/CD
 
-### Populate test data
+GitHub Actions runs on every push to `master`, tags `v*`, and pull requests.
 
-```bash
-cd ./spring-microservices-k8s/scripts/
-./populate-data.sh
-```
+| Job | Triggers | Steps |
+|-----|----------|-------|
+| **ci** | push, PR | Build, Lint, Test via `make ci` |
+| **docker** | tag push only | Build and push multi-arch Docker images to DockerHub |
 
-### Observe Employee service logs
-
-```bash
-cd ./spring-microservices-k8s/scripts/
-./employee-log.sh
-```
-
-### Open Swagger UI web interface
-
-```bash
-cd ./spring-microservices-k8s/scripts/
-./gateway-open.sh
-```
-
-### Undeploy application from Kubernetes cluster
-
-```bash
-cd ./spring-microservices-k8s/scripts/
-./delete-all.sh
-```
-
-### Delete Application specific Kubernetes cluster configuration (namespaces, clusterRole, etc.)
-
-```bash
-cd ./spring-microservices-k8s/scripts/
-./destroy-cluster.sh
-```
-
-### Stop Kubernetes cluster
-
-```bash
-cd ./spring-microservices-k8s/scripts/
-./stop-cluster.sh
-```
-
+A weekly [cleanup workflow](.github/workflows/cleanup-runs.yml) prunes old workflow runs.
 
 ## Stargazers over time
-[![Stargazers over time](https://starchart.cc/AndriyKalashnykov/spring-microservices-k8s.svg?variant=adaptive)](https://starchart.cc/AndriyKalashnykov/spring-microservices-k8s)
 
+[![Stargazers over time](https://starchart.cc/AndriyKalashnykov/spring-microservices-k8s.svg?variant=adaptive)](https://starchart.cc/AndriyKalashnykov/spring-microservices-k8s)

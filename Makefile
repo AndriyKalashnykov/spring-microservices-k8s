@@ -1,76 +1,267 @@
-.PHONY: help build clean test package docker-build \
-       cluster-start cluster-setup cluster-stop cluster-destroy \
-       deploy undeploy populate gateway-open \
-       lint ci
+.DEFAULT_GOAL := help
 
-SHELL := /bin/bash
+KIND_CLUSTER_NAME := spring-microservices-k8s
+SERVICES          := employee department organization gateway
+IMAGE_TAG         := local
+SA_NAME           := api-service-account
+# renovate: datasource=github-releases depName=kubernetes-sigs/kind
+KIND_VERSION      := 0.31.0
+# renovate: datasource=github-releases depName=metallb/metallb
+METALLB_VERSION   := 0.15.3
+# renovate: datasource=github-releases depName=nektos/act
+ACT_VERSION       := 0.2.87
 
-help: ## Show this help
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | \
-		awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
+# ---------------------------------------------------------------------------
+# Help
+# ---------------------------------------------------------------------------
+
+#help: @ List available tasks
+help:
+	@echo "Usage: make COMMAND"
+	@echo "Commands :"
+	@grep -E '[a-zA-Z\.\-]+:.*?@ .*$$' $(MAKEFILE_LIST)| tr -d '#' | awk 'BEGIN {FS = ":.*?@ "}; {printf "\033[32m%-20s\033[0m - %s\n", $$1, $$2}'
 
 # ---------------------------------------------------------------------------
 # Build
 # ---------------------------------------------------------------------------
 
-build: package ## Build all modules (alias for package)
+#build: @ Build all modules with Maven (skip tests)
+build:
+	@mvn clean package -DskipTests
 
-package: ## Build all modules with Maven
-	mvn clean package
+#clean: @ Clean all build artifacts
+clean:
+	@mvn clean
 
-clean: ## Clean all build artifacts
-	mvn clean
+#test: @ Run tests
+test:
+	@mvn test
 
-test: ## Run tests
-	mvn test
-
-# ---------------------------------------------------------------------------
-# Docker
-# ---------------------------------------------------------------------------
-
-docker-build: package ## Build Docker images for all services
-	docker build -t gateway-debug:latest -f gateway-service/Dockerfile.debug gateway-service/
-	docker build -t employee-debug:latest -f employee-service/Dockerfile.debug employee-service/
-	docker build -t organization-debug:latest -f organization-service/Dockerfile.debug organization-service/
-	docker build -t department-debug:latest -f department-service/Dockerfile.debug department-service/
+#lint: @ Compile with warnings as errors
+lint:
+	@mvn compile -Dmaven.compiler.failOnWarning=true
 
 # ---------------------------------------------------------------------------
-# Cluster lifecycle
+# Image
 # ---------------------------------------------------------------------------
 
-cluster-start: ## Start Minikube cluster
-	./scripts/start-cluster.sh
+#image-build: @ Build Docker images for all services
+image-build: build
+	@for svc in $(SERVICES); do \
+		echo "Building $$svc:$(IMAGE_TAG)..."; \
+		BUILDX_BUILDER=default docker buildx build --load -t $$svc:$(IMAGE_TAG) -f $$svc-service/Dockerfile.debug $$svc-service/; \
+	done
 
-cluster-setup: ## Configure cluster (namespaces, RBAC)
-	./scripts/setup-cluster.sh
-
-cluster-stop: ## Stop Minikube cluster
-	./scripts/stop-cluster.sh
-
-cluster-destroy: ## Remove cluster configuration
-	./scripts/destroy-cluster.sh
-
-# ---------------------------------------------------------------------------
-# Application lifecycle
-# ---------------------------------------------------------------------------
-
-deploy: ## Deploy all services to Kubernetes
-	./scripts/install-all.sh
-
-undeploy: ## Undeploy all services from Kubernetes
-	./scripts/delete-all.sh
-
-populate: ## Populate test data
-	./scripts/populate-data.sh
-
-gateway-open: ## Open Swagger UI in browser
-	./scripts/gateway-open.sh
+#image-load: @ Load Docker images into KinD cluster
+image-load:
+	@for svc in $(SERVICES); do \
+		echo "Loading $$svc:$(IMAGE_TAG) into cluster..."; \
+		kind load docker-image $$svc:$(IMAGE_TAG) --name $(KIND_CLUSTER_NAME); \
+	done
 
 # ---------------------------------------------------------------------------
-# CI helpers
+# Deps
 # ---------------------------------------------------------------------------
 
-lint: ## Lint Maven project (validate phase)
-	mvn validate
+#deps: @ Check required dependencies
+deps:
+	@command -v java >/dev/null 2>&1 || { echo "Error: java required. See https://adoptium.net/"; exit 1; }
+	@command -v mvn >/dev/null 2>&1 || { echo "Error: mvn required. See https://maven.apache.org/install.html"; exit 1; }
+	@command -v docker >/dev/null 2>&1 || { echo "Error: docker required. See https://docs.docker.com/get-docker/"; exit 1; }
+	@command -v kubectl >/dev/null 2>&1 || { echo "Error: kubectl required. See https://kubernetes.io/docs/tasks/tools/"; exit 1; }
 
-ci: clean test ## Run local CI pipeline (clean + test)
+#deps-kind: @ Install KinD for local Kubernetes testing
+deps-kind: deps
+	@command -v kind >/dev/null 2>&1 || { echo "Installing kind $(KIND_VERSION)..."; \
+		if command -v go >/dev/null 2>&1; then \
+			go install sigs.k8s.io/kind@v$(KIND_VERSION); \
+		else \
+			curl -Lo ./kind https://kind.sigs.k8s.io/dl/v$(KIND_VERSION)/kind-linux-amd64 && chmod +x ./kind && sudo mv ./kind /usr/local/bin/kind; \
+		fi; \
+	}
+
+#deps-act: @ Install act for local CI runs
+deps-act: deps
+	@command -v act >/dev/null 2>&1 || { echo "Installing act $(ACT_VERSION)..."; \
+		curl -sSfL https://raw.githubusercontent.com/nektos/act/master/install.sh | bash -s -- -b /usr/local/bin v$(ACT_VERSION); \
+	}
+
+# ---------------------------------------------------------------------------
+# KinD Cluster
+# ---------------------------------------------------------------------------
+
+#kind-create: @ Create local KinD cluster with MetalLB
+kind-create: deps-kind
+	@if kind get clusters 2>/dev/null | grep -q "^$(KIND_CLUSTER_NAME)$$"; then \
+		echo "KinD cluster '$(KIND_CLUSTER_NAME)' already exists..."; \
+		kubectl config use-context kind-$(KIND_CLUSTER_NAME); \
+	else \
+		echo "Creating KinD cluster..."; \
+		kind create cluster --config=k8s/kind-config.yaml --name $(KIND_CLUSTER_NAME) --wait 60s; \
+	fi
+	@echo "Installing MetalLB $(METALLB_VERSION)..."
+	@kubectl apply -f https://raw.githubusercontent.com/metallb/metallb/v$(METALLB_VERSION)/config/manifests/metallb-native.yaml
+	@echo "Waiting for MetalLB controller..."
+	@kubectl rollout status deployment/controller -n metallb-system --timeout=180s
+	@echo "Waiting for MetalLB speaker..."
+	@kubectl rollout status daemonset/speaker -n metallb-system --timeout=180s
+	@echo "Configuring MetalLB IP pool..."
+	@ip_sub=$$(docker network inspect kind -f '{{range .IPAM.Config}}{{.Subnet}} {{end}}' | grep -oE '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' | head -1 | awk -F. '{printf "%d.%d", $$1, $$2}'); \
+	sed "s/METALLB_IP_SUB/$$ip_sub/g" k8s/metallb-config.yaml | kubectl apply -f -
+
+#kind-setup: @ Create namespaces, RBAC, service accounts, and deploy MongoDB
+kind-setup:
+	@echo "Creating namespaces..."
+	@for ns in department employee gateway organization mongo; do \
+		kubectl create namespace $$ns --dry-run=client -o yaml | kubectl apply -f -; \
+	done
+	@echo "Applying RBAC cluster role..."
+	@kubectl apply -f k8s/rbac-cluster-role.yaml
+	@echo "Creating service accounts and role bindings..."
+	@for ns in department employee gateway organization mongo; do \
+		kubectl create serviceaccount $(SA_NAME) -n $$ns --dry-run=client -o yaml | kubectl apply -f -; \
+		kubectl create clusterrolebinding $(SA_NAME)-$$ns \
+			--clusterrole=microservices-kubernetes-namespace-reader \
+			--serviceaccount=$$ns:$(SA_NAME) \
+			--dry-run=client -o yaml | kubectl apply -f -; \
+	done
+	@echo "Deploying MongoDB..."
+	@kubectl apply -f k8s/mongodb-configmap.yaml -n mongo
+	@kubectl apply -f k8s/mongodb-secret.yaml -n mongo
+	@kubectl apply -f k8s/mongodb-deployment.yaml -n mongo
+	@echo "Waiting for MongoDB rollout..."
+	@kubectl rollout status deployment/mongodb -n mongo --timeout=120s
+
+#kind-deploy: @ Build, load images, deploy all services, and wait for rollout
+kind-deploy: image-build
+	@$(MAKE) image-load
+	@echo "Deploying services..."
+	@for svc in employee department organization; do \
+		echo "Deploying $$svc..."; \
+		kubectl apply -f k8s/$$svc-configmap.yaml -n $$svc; \
+		kubectl apply -f k8s/$$svc-secret.yaml -n $$svc; \
+		kubectl apply -f k8s/$$svc-deployment.yaml -n $$svc; \
+	done
+	@echo "Deploying gateway..."
+	@kubectl apply -f k8s/gateway-configmap.yaml -n gateway
+	@kubectl apply -f k8s/gateway-deployment.yaml -n gateway
+	@echo "Waiting for deployments..."
+	@for svc in $(SERVICES); do \
+		echo "Waiting for $$svc rollout..."; \
+		kubectl rollout status deployment/$$svc -n $$svc --timeout=300s; \
+	done
+	@echo "Waiting for gateway LoadBalancer IP..."
+	@for i in $$(seq 1 30); do \
+		EXTERNAL_IP=$$(kubectl get svc gateway -n gateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null); \
+		if [ -n "$$EXTERNAL_IP" ] && [ "$$EXTERNAL_IP" != "<pending>" ]; then \
+			echo "Gateway available at http://$$EXTERNAL_IP:8080"; \
+			break; \
+		fi; \
+		echo "  waiting for LoadBalancer IP... ($$i/30)"; \
+		sleep 2; \
+	done
+
+#kind-undeploy: @ Remove all services from KinD cluster
+kind-undeploy:
+	@for svc in employee department organization; do \
+		echo "Removing $$svc..."; \
+		kubectl delete -f k8s/$$svc-deployment.yaml -n $$svc --ignore-not-found=true; \
+		kubectl delete -f k8s/$$svc-secret.yaml -n $$svc --ignore-not-found=true; \
+		kubectl delete -f k8s/$$svc-configmap.yaml -n $$svc --ignore-not-found=true; \
+	done
+	@echo "Removing gateway..."
+	@kubectl delete -f k8s/gateway-deployment.yaml -n gateway --ignore-not-found=true
+	@kubectl delete -f k8s/gateway-configmap.yaml -n gateway --ignore-not-found=true
+
+#kind-redeploy: @ Undeploy then deploy all services
+kind-redeploy: kind-undeploy kind-deploy
+
+#kind-destroy: @ Delete KinD cluster
+kind-destroy:
+	@kind delete cluster --name $(KIND_CLUSTER_NAME) 2>/dev/null || true
+	@echo "KinD cluster '$(KIND_CLUSTER_NAME)' deleted."
+
+# ---------------------------------------------------------------------------
+# E2E
+# ---------------------------------------------------------------------------
+
+#e2e: @ Run full end-to-end test cycle (create, setup, deploy, test, destroy)
+e2e: kind-create kind-setup kind-deploy e2e-test
+	@$(MAKE) kind-destroy
+
+#e2e-test: @ Run end-to-end test script
+e2e-test:
+	@./e2e/e2e-test.sh
+
+#populate: @ Populate test data via gateway
+populate:
+	@EXTERNAL_IP=$$(kubectl get svc gateway -n gateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}'); \
+	BASE_URL="http://$$EXTERNAL_IP:8080"; \
+	echo "Gateway URL: $$BASE_URL"; \
+	echo "Adding employees..."; \
+	curl -sf -X POST "$$BASE_URL/employee/" -H "Content-Type: application/json" \
+		-d '{"age":25,"departmentId":1,"name":"Smith","organizationId":1,"position":"engineer"}'; \
+	echo ""; \
+	curl -sf -X POST "$$BASE_URL/employee/" -H "Content-Type: application/json" \
+		-d '{"age":45,"departmentId":1,"name":"Johns","organizationId":1,"position":"manager"}'; \
+	echo ""; \
+	echo "Adding department..."; \
+	curl -sf -X POST "$$BASE_URL/department/" -H "Content-Type: application/json" \
+		-d '{"name":"RD Dept.","organizationId":1}'; \
+	echo ""; \
+	echo "Adding organization..."; \
+	curl -sf -X POST "$$BASE_URL/organization/" -H "Content-Type: application/json" \
+		-d '{"name":"MegaCorp","address":"Main Street"}'; \
+	echo ""
+
+# ---------------------------------------------------------------------------
+# Utility
+# ---------------------------------------------------------------------------
+
+#gateway-url: @ Print gateway LoadBalancer URL
+gateway-url:
+	@EXTERNAL_IP=$$(kubectl get svc gateway -n gateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}'); \
+	echo "http://$$EXTERNAL_IP:8080"
+
+#gateway-open: @ Open Swagger UI in browser
+gateway-open:
+	@EXTERNAL_IP=$$(kubectl get svc gateway -n gateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}'); \
+	xdg-open "http://$$EXTERNAL_IP:8080/swagger-ui.html"
+
+#logs-employee: @ Tail employee service logs
+logs-employee:
+	@kubectl logs -f -l app=employee -n employee
+
+#logs-department: @ Tail department service logs
+logs-department:
+	@kubectl logs -f -l app=department -n department
+
+#logs-organization: @ Tail organization service logs
+logs-organization:
+	@kubectl logs -f -l app=organization -n organization
+
+#logs-gateway: @ Tail gateway service logs
+logs-gateway:
+	@kubectl logs -f -l app=gateway -n gateway
+
+# ---------------------------------------------------------------------------
+# CI
+# ---------------------------------------------------------------------------
+
+#ci: @ Run full local CI pipeline
+ci: deps clean build lint test
+	@echo "Local CI pipeline passed."
+
+#ci-run: @ Run GitHub Actions workflow locally using act
+ci-run: deps-act
+	@docker container prune -f 2>/dev/null || true
+	@act push --container-architecture linux/amd64
+
+.PHONY: help build clean test lint \
+	image-build image-load \
+	deps deps-kind deps-act \
+	kind-create kind-setup kind-deploy kind-undeploy kind-redeploy kind-destroy \
+	e2e e2e-test populate \
+	gateway-url gateway-open \
+	logs-employee logs-department logs-organization logs-gateway \
+	ci ci-run

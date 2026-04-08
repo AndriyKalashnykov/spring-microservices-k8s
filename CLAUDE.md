@@ -3,7 +3,7 @@
 ## Project Overview
 
 Spring Boot microservices with Spring Cloud Kubernetes. Multi-module Maven project
-deploying four services (employee, department, organization, gateway) to a Kubernetes
+deploying four services (employee, department, organization, gateway) to a local Kind
 cluster with MongoDB backing.
 
 ## Repository Layout
@@ -12,52 +12,55 @@ cluster with MongoDB backing.
 spring-microservices-k8s/
   department-service/    # Department microservice (Spring Boot)
   employee-service/      # Employee microservice (Spring Boot)
-  gateway-service/       # API gateway (Spring Cloud Gateway)
+  gateway-service/       # API gateway (Netflix Zuul)
   organization-service/  # Organization microservice (Spring Boot)
-  k8s/                   # Kubernetes manifests (deployments, configmaps, secrets)
-  scripts/               # Shell scripts for cluster setup, deploy, teardown
+  .github/workflows/     # CI/CD (GitHub Actions)
+  k8s/                   # Kubernetes manifests, Kind + MetalLB configs
+  e2e/                   # End-to-end test script
+  Makefile               # Build orchestration (run `make help`)
   pom.xml                # Parent POM (multi-module)
 ```
 
 ## Build & Run
 
 ```bash
-# Build all modules
-mvn clean package
-
-# Start Minikube cluster
-./scripts/start-cluster.sh
-
-# Configure cluster (namespaces, RBAC)
-./scripts/setup-cluster.sh
-
-# Deploy all services
-./scripts/install-all.sh
-
-# Populate test data
-./scripts/populate-data.sh
-
-# Open Swagger UI
-./scripts/gateway-open.sh
+make build         # Build all modules
+make kind-create   # Create local Kind cluster with MetalLB
+make kind-setup    # Configure namespaces, RBAC, deploy MongoDB
+make kind-deploy   # Build, load, and deploy all services
+make populate      # Seed test data
+make gateway-open  # Open Swagger UI
 ```
 
 ## Teardown
 
 ```bash
-./scripts/delete-all.sh      # Undeploy services
-./scripts/destroy-cluster.sh  # Remove cluster config
-./scripts/stop-cluster.sh     # Stop Minikube
+make kind-undeploy   # Remove services
+make kind-destroy    # Delete Kind cluster
 ```
 
 ## CI/CD
 
-- **main.yml** -- builds with Maven, builds Docker images, pushes on tags
+- **main.yml** -- `ci` job (build/lint/test via `make ci`) + `docker` job (tag-gated multi-arch image builds)
 - **cleanup-runs.yml** -- weekly cleanup of old workflow runs
 
 ## Tech Stack
 
-- Java 11, Spring Boot, Spring Cloud Kubernetes
+- Java 11, Spring Boot 2.3.1, Spring Cloud Kubernetes (Hoxton.SR6)
 - Maven multi-module build
 - Docker (multi-arch via buildx)
-- Kubernetes (Minikube for local dev)
+- Kubernetes (Kind + MetalLB for local dev)
 - MongoDB
+
+## Skills
+
+Use the following skills when working on related files:
+
+| File(s) | Skill |
+|---------|-------|
+| `Makefile` | `/makefile` |
+| `README.md` | `/readme` |
+| `.github/workflows/*.{yml,yaml}` | `/ci-workflow` |
+| `CLAUDE.md` | `/claude` |
+
+When spawning subagents, always pass conventions from the respective skill into the agent's prompt.

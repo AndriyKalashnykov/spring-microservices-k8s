@@ -16,16 +16,17 @@ spec:
     spec:
       containers:
       - name: organization
-        image: vmware/organization:1.1
+        image: organization:local
+        imagePullPolicy: IfNotPresent
         ports:
           - containerPort: 8080
         resources:
           requests:
             cpu: "0.2"
-            memory: 300Mi
+            memory: 1Gi
           limits:
             cpu: "1.0"
-            memory: 300Mi
+            memory: 1Gi
         readinessProbe:
           httpGet:
             port: 8080
@@ -68,4 +69,4 @@ spec:
     protocol: TCP
   selector:
     app: organization
-  type: NodePort
+  type: ClusterIP
