@@ -4,7 +4,7 @@
 
 ARG VARIANT=nonroot
 
-FROM eclipse-temurin:21-jre AS extract
+FROM eclipse-temurin:25.0.1_8-jre@sha256:9d1d3068b16f2c4127be238ca06439012ff14a8fdf38f8f62472160f9058464a AS extract
 WORKDIR /tmp
 COPY target/*.jar app.jar
 RUN java -Djarmode=layertools -jar app.jar extract
