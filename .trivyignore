@@ -1,0 +1,5 @@
+# MongoDB requires writable filesystem for /data/db — readOnlyRootFilesystem breaks it
+KSV-0014
+
+# Spring Cloud Kubernetes requires get/list/watch on secrets for secret PropertySource loading
+KSV-0041
