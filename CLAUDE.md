@@ -49,7 +49,7 @@ make kind-destroy    # Delete Kind cluster
 
 ## Tech Stack
 
-- Java 21, Spring Boot 3.4, Spring Cloud Kubernetes (2024.0)
+- Java 25, Spring Boot 3.5, Spring Cloud Kubernetes (2025.0)
 - RestClient with @HttpExchange (inter-service communication)
 - Micrometer Tracing (distributed trace propagation)
 - Maven multi-module build

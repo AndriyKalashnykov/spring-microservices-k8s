@@ -7,7 +7,7 @@
 
 This reference architecture demonstrates design, development, and deployment of Spring Boot microservices on Kubernetes. It implements a hierarchical domain model (Organization > Department > Employee) with four services deployed across isolated namespaces, using Spring Cloud Kubernetes for service discovery, configuration, and secrets management.
 
-The tech stack includes Java 21, Spring Boot 3.4, Spring Cloud Kubernetes (2024.0), Spring Cloud Gateway MVC, RestClient with @HttpExchange for inter-service communication, Micrometer Tracing for distributed tracing, MongoDB 7.0 for persistence, Testcontainers for integration testing, and Kind with MetalLB for local development.
+The tech stack includes Java 25, Spring Boot 3.5, Spring Cloud Kubernetes (2025.0), Spring Cloud Gateway MVC, RestClient with @HttpExchange for inter-service communication, Micrometer Tracing for distributed tracing, MongoDB 7.0 for persistence, Testcontainers for integration testing, and Kind with MetalLB for local development.
 
 ## Quick Start
 
@@ -27,7 +27,7 @@ make gateway-open  # open Swagger UI in browser
 |------|---------|---------|
 | [GNU Make](https://www.gnu.org/software/make/) | 3.81+ | Build orchestration |
 | [Git](https://git-scm.com/) | 2.0+ | Version control |
-| [JDK](https://adoptium.net/) | 21 | Java runtime and compiler |
+| [JDK](https://adoptium.net/) | 25 | Java runtime and compiler |
 | [Maven](https://maven.apache.org/) | 3.6+ | Build and dependency management |
 | [Docker](https://www.docker.com/) | 20.10+ | Container runtime |
 | [kubectl](https://kubernetes.io/docs/tasks/tools/) | 1.24+ | Kubernetes CLI |

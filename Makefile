@@ -19,7 +19,7 @@ OPEN_CMD := $(if $(filter Darwin,$(shell uname -s)),open,xdg-open)
 SEMVER_RE := ^[0-9]+\.[0-9]+\.[0-9]+$$
 
 # === Tool Versions (pinned) ===
-JAVA_VER     := 21-tem
+JAVA_VER     := 25-tem
 # renovate: datasource=maven depName=org.apache.maven:apache-maven
 MAVEN_VER    := 3.9.14
 # renovate: datasource=github-releases depName=kubernetes-sigs/kind
