@@ -14,10 +14,23 @@ spec:
       labels:
         app: organization
     spec:
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
       containers:
       - name: organization
         image: organization:local
         imagePullPolicy: IfNotPresent
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+              - ALL
+        volumeMounts:
+          - name: tmp
+            mountPath: /tmp
         ports:
           - containerPort: 8080
         resources:
@@ -56,6 +69,8 @@ spec:
 #          - name: config
 #            mountPath: /etc/appconfig
       volumes:
+        - name: tmp
+          emptyDir: {}
         - name: mongodb
           secret:
             secretName: organization

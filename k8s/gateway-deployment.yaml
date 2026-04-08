@@ -14,10 +14,23 @@ spec:
       labels:
         app: gateway
     spec:
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
       containers:
       - name: gateway
         image: gateway:local
         imagePullPolicy: IfNotPresent
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+              - ALL
+        volumeMounts:
+          - name: tmp
+            mountPath: /tmp
         ports:
           - containerPort: 8080
         resources:
@@ -50,6 +63,9 @@ spec:
           timeoutSeconds: 5
           periodSeconds: 30
           failureThreshold: 3
+      volumes:
+        - name: tmp
+          emptyDir: {}
       serviceAccountName: api-service-account
 ---
 apiVersion: v1

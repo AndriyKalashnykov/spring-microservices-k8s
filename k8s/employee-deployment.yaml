@@ -14,10 +14,20 @@ spec:
       labels:
         app: employee
     spec:
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: employee
           image: employee:local
           imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
           ports:
             - containerPort: 8080
           resources:
@@ -51,11 +61,15 @@ spec:
             periodSeconds: 30
             failureThreshold: 3
           volumeMounts:
+            - name: tmp
+              mountPath: /tmp
             - name: mongodb
               mountPath: /etc/secretspot
 #            - name: config
 #              mountPath: /etc/appconfig
       volumes:
+        - name: tmp
+          emptyDir: {}
         - name: mongodb
           secret:
             secretName: employee

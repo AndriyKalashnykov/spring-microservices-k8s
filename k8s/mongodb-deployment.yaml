@@ -14,9 +14,18 @@ spec:
       labels:
         app: mongodb
     spec:
+      securityContext:
+        runAsNonRoot: false
+        seccompProfile:
+          type: RuntimeDefault
       containers:
       - name: mongodb
         image: mongo:7.0
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
         ports:
         - containerPort: 27017
         env:
