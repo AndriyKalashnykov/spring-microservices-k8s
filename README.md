@@ -162,7 +162,7 @@ GitHub Actions runs on every push to `master`, tags `v*`, and pull requests.
 | **builds** | after lint | Build all modules with Maven |
 | **tests** | after lint | Run Testcontainers integration tests + coverage |
 | **cve-check** | push to master | OWASP dependency vulnerability scan |
-| **docker** | tag push only | Build and push multi-arch Docker images to DockerHub |
+| **docker** | tag push only | Build and push multi-arch Docker images to GHCR |
 
 Integration tests use [Testcontainers](https://testcontainers.com/) with MongoDB for fast local testing via `make test`.
 End-to-end tests validate the full stack on Kind via `make e2e`.

@@ -718,7 +718,7 @@ GitHub Actions runs on every push to `master`, tags `v*`, and pull requests.
 | **static-check** | push, PR | Format check, Checkstyle, Dockerfile lint, secret scan |
 | **build** | after static-check | Build all modules with Maven |
 | **test** | after static-check | Run Testcontainers integration tests |
-| **docker** | tag push only | Build and push multi-arch Docker images to DockerHub |
+| **docker** | tag push only | Build and push multi-arch Docker images to GHCR |
 
 A weekly [cleanup workflow](.github/workflows/cleanup-runs.yml) prunes old
 workflow runs. [Renovate](https://docs.renovatebot.com/) keeps dependencies

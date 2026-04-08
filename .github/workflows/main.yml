@@ -169,6 +169,9 @@ jobs:
     needs: [builds, tests]
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: write
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
@@ -188,17 +191,18 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4
 
-      - name: Login to DockerHub
+      - name: Login to GHCR
         uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Docker metadata - gateway
         id: meta-gateway
         uses: docker/metadata-action@030e881283bb7a6894de51c315a6bfe6a94e05cf # v6
         with:
-          images: ${{ secrets.DOCKERHUB_USERNAME }}/gateway-debug
+          images: ghcr.io/${{ github.repository }}/gateway
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
@@ -220,7 +224,7 @@ jobs:
         id: meta-employee
         uses: docker/metadata-action@030e881283bb7a6894de51c315a6bfe6a94e05cf # v6
         with:
-          images: ${{ secrets.DOCKERHUB_USERNAME }}/employee-debug
+          images: ghcr.io/${{ github.repository }}/employee
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
@@ -242,7 +246,7 @@ jobs:
         id: meta-organization
         uses: docker/metadata-action@030e881283bb7a6894de51c315a6bfe6a94e05cf # v6
         with:
-          images: ${{ secrets.DOCKERHUB_USERNAME }}/organization-debug
+          images: ghcr.io/${{ github.repository }}/organization
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
@@ -264,7 +268,7 @@ jobs:
         id: meta-department
         uses: docker/metadata-action@030e881283bb7a6894de51c315a6bfe6a94e05cf # v6
         with:
-          images: ${{ secrets.DOCKERHUB_USERNAME }}/department-debug
+          images: ghcr.io/${{ github.repository }}/department
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
