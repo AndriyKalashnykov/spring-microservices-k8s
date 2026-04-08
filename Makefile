@@ -121,7 +121,7 @@ deps-hadolint:
 #deps-gitleaks: @ Install gitleaks for secret scanning
 deps-gitleaks:
 	@command -v gitleaks >/dev/null 2>&1 || { echo "Installing gitleaks $(GITLEAKS_VERSION)..."; \
-		curl -sSfL https://github.com/zricethezav/gitleaks/releases/download/v$(GITLEAKS_VERSION)/gitleaks_$(GITLEAKS_VERSION)_linux_amd64.tar.gz | \
+		curl -sSfL https://github.com/zricethezav/gitleaks/releases/download/v$(GITLEAKS_VERSION)/gitleaks_$(GITLEAKS_VERSION)_linux_x64.tar.gz | \
 		tar xz -C /usr/local/bin gitleaks; \
 	}
 
