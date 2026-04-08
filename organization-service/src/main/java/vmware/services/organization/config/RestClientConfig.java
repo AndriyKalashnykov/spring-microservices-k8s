@@ -12,26 +12,25 @@ import vmware.services.organization.client.EmployeeClient;
 @Configuration
 public class RestClientConfig {
 
-	@Bean
-	@LoadBalanced
-	RestClient.Builder restClientBuilder() {
-		return RestClient.builder();
-	}
+  @Bean
+  @LoadBalanced
+  RestClient.Builder restClientBuilder() {
+    return RestClient.builder();
+  }
 
-	@Bean
-	EmployeeClient employeeClient(RestClient.Builder builder) {
-		RestClient restClient = builder.clone().baseUrl("http://employee").build();
-		return HttpServiceProxyFactory.builderFor(RestClientAdapter.create(restClient))
-			.build()
-			.createClient(EmployeeClient.class);
-	}
+  @Bean
+  EmployeeClient employeeClient(RestClient.Builder builder) {
+    RestClient restClient = builder.clone().baseUrl("http://employee").build();
+    return HttpServiceProxyFactory.builderFor(RestClientAdapter.create(restClient))
+        .build()
+        .createClient(EmployeeClient.class);
+  }
 
-	@Bean
-	DepartmentClient departmentClient(RestClient.Builder builder) {
-		RestClient restClient = builder.clone().baseUrl("http://department").build();
-		return HttpServiceProxyFactory.builderFor(RestClientAdapter.create(restClient))
-			.build()
-			.createClient(DepartmentClient.class);
-	}
-
+  @Bean
+  DepartmentClient departmentClient(RestClient.Builder builder) {
+    RestClient restClient = builder.clone().baseUrl("http://department").build();
+    return HttpServiceProxyFactory.builderFor(RestClientAdapter.create(restClient))
+        .build()
+        .createClient(DepartmentClient.class);
+  }
 }

@@ -30,6 +30,8 @@ METALLB_VERSION   := 0.15.3
 ACT_VERSION       := 0.2.87
 # renovate: datasource=github-releases depName=hadolint/hadolint extractVersion=^v(?<version>.*)$
 HADOLINT_VERSION  := 2.14.0
+# renovate: datasource=github-releases depName=google/google-java-format extractVersion=^v(?<version>.*)$
+GJF_VERSION       := 1.35.0
 # renovate: datasource=github-releases depName=zricethezav/gitleaks extractVersion=^v(?<version>.*)$
 GITLEAKS_VERSION  := 8.30.1
 # renovate: datasource=github-releases depName=nvm-sh/nvm extractVersion=^v(?<version>.*)$
@@ -152,15 +154,36 @@ test: deps
 lint: deps
 	@$(MVN) -B validate -Ddependency-check.skip=true
 	@$(MVN) -B compile -Dmaven.compiler.failOnWarning=true -Ddependency-check.skip=true -q
-	@$(MVN) -B checkstyle:check -Dcheckstyle.config.location="$$(pwd)/checkstyle.xml"
+	@$(MVN) -B checkstyle:check -Dcheckstyle.config.location=google_checks.xml
 
-#format: @ Auto-format Java source code
-format: deps
-	@$(MVN) -B io.spring.javaformat:spring-javaformat-maven-plugin:apply
+GJF_JAR := $(HOME)/.cache/google-java-format/google-java-format-$(GJF_VERSION)-all-deps.jar
+GJF_URL := https://github.com/google/google-java-format/releases/download/v$(GJF_VERSION)/google-java-format-$(GJF_VERSION)-all-deps.jar
+
+$(GJF_JAR):
+	@mkdir -p $(dir $(GJF_JAR))
+	@echo "Downloading google-java-format $(GJF_VERSION)..."
+	@curl -sSfL -o $(GJF_JAR) $(GJF_URL)
+
+#format: @ Auto-format Java source code (Google style)
+format: $(GJF_JAR)
+	@find . -path '*/src/main/java/*.java' -o -path '*/src/test/java/*.java' | \
+		xargs java --add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED \
+			--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED \
+			--add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED \
+			--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED \
+			--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED \
+			-jar $(GJF_JAR) --replace
+	@echo "Formatted all Java files with Google style."
 
 #format-check: @ Verify code formatting (CI gate)
-format-check: deps
-	@$(MVN) -B io.spring.javaformat:spring-javaformat-maven-plugin:validate
+format-check: $(GJF_JAR)
+	@find . -path '*/src/main/java/*.java' -o -path '*/src/test/java/*.java' | \
+		xargs java --add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED \
+			--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED \
+			--add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED \
+			--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED \
+			--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED \
+			-jar $(GJF_JAR) --set-exit-if-changed --dry-run > /dev/null
 
 # ---------------------------------------------------------------------------
 # Code Quality

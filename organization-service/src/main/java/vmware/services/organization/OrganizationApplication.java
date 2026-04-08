@@ -9,13 +9,12 @@ import org.springframework.context.annotation.Bean;
 @SpringBootApplication
 public class OrganizationApplication {
 
-	public static void main(String[] args) {
-		SpringApplication.run(OrganizationApplication.class, args);
-	}
+  public static void main(String[] args) {
+    SpringApplication.run(OrganizationApplication.class, args);
+  }
 
-	@Bean
-	MeterRegistryCustomizer<MeterRegistry> meterRegistryCustomizer() {
-		return registry -> registry.config().commonTags("application", "organization");
-	}
-
+  @Bean
+  MeterRegistryCustomizer<MeterRegistry> meterRegistryCustomizer() {
+    return registry -> registry.config().commonTags("application", "organization");
+  }
 }

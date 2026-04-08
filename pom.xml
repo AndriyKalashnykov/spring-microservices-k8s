@@ -26,16 +26,11 @@
 					<artifactId>maven-checkstyle-plugin</artifactId>
 					<version>3.6.0</version>
 					<configuration>
-						<configLocation>${maven.multiModuleProjectDirectory}/checkstyle.xml</configLocation>
+						<configLocation>google_checks.xml</configLocation>
 						<consoleOutput>true</consoleOutput>
 						<violationSeverity>warning</violationSeverity>
 						<failOnViolation>true</failOnViolation>
 					</configuration>
-				</plugin>
-				<plugin>
-					<groupId>io.spring.javaformat</groupId>
-					<artifactId>spring-javaformat-maven-plugin</artifactId>
-					<version>0.0.47</version>
 				</plugin>
 				<plugin>
 					<groupId>org.jacoco</groupId>
