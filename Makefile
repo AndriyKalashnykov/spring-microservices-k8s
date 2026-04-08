@@ -5,6 +5,14 @@ CURRENTTAG    := $(shell git describe --tags --abbrev=0 2>/dev/null || echo "dev
 
 SHELL         := /bin/bash
 SDKMAN        := $${SDKMAN_DIR:-$$HOME/.sdkman}/bin/sdkman-init.sh
+
+# Auto-detect SDKMAN Java 25 and set JAVA_HOME/PATH
+SDKMAN_JAVA   := $(wildcard $(HOME)/.sdkman/candidates/java/25*-tem)
+ifneq ($(SDKMAN_JAVA),)
+  export JAVA_HOME := $(lastword $(sort $(SDKMAN_JAVA)))
+  export PATH      := $(JAVA_HOME)/bin:$(PATH)
+endif
+
 MVN           := $(shell command -v mvn 2>/dev/null || echo ./mvnw)
 
 KIND_CLUSTER_NAME := spring-microservices-k8s
@@ -52,9 +60,9 @@ help:
 # Dependencies
 # ---------------------------------------------------------------------------
 
-#deps: @ Check that required tools (java, mvn) are installed
+#deps: @ Check required tools (java 25, mvn)
 deps:
-	@command -v java >/dev/null 2>&1 || { echo "Error: Java required. Run: make deps-install"; exit 1; }
+	@java -version 2>&1 | grep -q '"25\.' || { echo "Error: Java 25 required. Run: make deps-install"; exit 1; }
 	@command -v mvn >/dev/null 2>&1 || test -x ./mvnw || { echo "Error: Maven required. Run: make deps-install"; exit 1; }
 
 #deps-maven: @ Install Maven if not present (for CI containers)

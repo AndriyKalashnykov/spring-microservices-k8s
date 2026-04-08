@@ -15,31 +15,34 @@ spec:
         app: mongodb
     spec:
       securityContext:
-        runAsNonRoot: false
+        runAsNonRoot: true
+        runAsUser: 1001
+        fsGroup: 1001
         seccompProfile:
           type: RuntimeDefault
       containers:
       - name: mongodb
-        image: mongo:7.0
+        image: bitnami/mongodb:latest
         securityContext:
           allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: false
           capabilities:
             drop:
               - ALL
         ports:
         - containerPort: 27017
         env:
-        - name: MONGO_INITDB_DATABASE
+        - name: MONGODB_DATABASE
           valueFrom:
             configMapKeyRef:
               name: mongodb
               key: database-name
-        - name: MONGO_INITDB_ROOT_USERNAME
+        - name: MONGODB_ROOT_USER
           valueFrom:
             secretKeyRef:
               name: mongodb
               key: database-user
-        - name: MONGO_INITDB_ROOT_PASSWORD
+        - name: MONGODB_ROOT_PASSWORD
           valueFrom:
             secretKeyRef:
               name: mongodb
@@ -54,14 +57,14 @@ spec:
         readinessProbe:
           tcpSocket:
             port: 27017
-          initialDelaySeconds: 50
+          initialDelaySeconds: 30
           timeoutSeconds: 2
-          periodSeconds: 20
+          periodSeconds: 10
           failureThreshold: 5
         livenessProbe:
           tcpSocket:
             port: 27017
-          initialDelaySeconds: 50
+          initialDelaySeconds: 30
           timeoutSeconds: 2
           periodSeconds: 20
           failureThreshold: 5

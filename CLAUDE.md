@@ -55,7 +55,7 @@ make kind-destroy    # Delete Kind cluster
 - Maven multi-module build
 - Docker (multi-arch via buildx)
 - Kubernetes (Kind + MetalLB for local dev)
-- MongoDB 7.0
+- MongoDB 8.0
 - Testcontainers (integration tests)
 - Checkstyle + hadolint + gitleaks (static analysis)
 
@@ -72,3 +72,10 @@ Use the following skills when working on related files:
 | `renovate.json` | `/renovate` |
 
 When spawning subagents, always pass conventions from the respective skill into the agent's prompt.
+
+## Deferred Upgrades
+
+| Item | Blocker | Revisit |
+|------|---------|---------|
+| SpringDoc 2.x → 3.x | Incompatible with Spring Boot 3.5 (`NoClassDefFoundError` on relocated `ErrorPageRegistrar`) | When SpringDoc releases SB 3.5-compatible version |
+| Spring Boot 4.x | Ecosystem not ready — SpringDoc, Spring Cloud need compatible releases. MongoDB property renames, tracing config changes. | 3-6 months after SB 4.0 GA (October 2026+) |

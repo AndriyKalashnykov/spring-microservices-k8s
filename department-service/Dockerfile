@@ -9,8 +9,8 @@ RUN java -Djarmode=layertools -jar app.jar extract
 
 FROM eclipse-temurin:25-jre-noble AS runtime
 
-RUN groupadd -r appuser && useradd -r -g appuser -d /application appuser
-USER appuser
+RUN groupadd -r appuser && useradd -r -g appuser -u 10001 -d /application appuser
+USER 10001
 WORKDIR /application
 
 COPY --from=extract --chown=appuser:appuser /tmp/dependencies/ ./

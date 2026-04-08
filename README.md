@@ -7,7 +7,43 @@
 
 This reference architecture demonstrates design, development, and deployment of Spring Boot microservices on Kubernetes. It implements a hierarchical domain model (Organization > Department > Employee) with four services deployed across isolated namespaces, using Spring Cloud Kubernetes for service discovery, configuration, and secrets management.
 
-The tech stack includes Java 25, Spring Boot 3.5, Spring Cloud Kubernetes (2025.0), Spring Cloud Gateway MVC, RestClient with @HttpExchange for inter-service communication, Micrometer Tracing for distributed tracing, MongoDB 7.0 for persistence, Testcontainers for integration testing, and Kind with MetalLB for local development.
+The tech stack includes Java 25, Spring Boot 3.5, Spring Cloud Kubernetes (2025.0), Spring Cloud Gateway MVC, RestClient with @HttpExchange for inter-service communication, Micrometer Tracing for distributed tracing, MongoDB 8.0 for persistence, Testcontainers for integration testing, and Kind with MetalLB for local development.
+
+```mermaid
+%%{init: {'theme': 'base', 'themeVariables': {
+  'primaryColor': '#1e40af',
+  'primaryTextColor': '#ffffff',
+  'primaryBorderColor': '#1e3a5f',
+  'lineColor': '#3b82f6',
+  'secondaryColor': '#dbeafe',
+  'tertiaryColor': '#f0f9ff',
+  'fontFamily': 'arial'
+}}}%%
+graph TB
+    Client([👤 Client]):::client --> Gateway[🌐 Gateway Service<br/>Spring Cloud Gateway MVC<br/>LoadBalancer via MetalLB]
+
+    Gateway -->|/employee/**| Employee[👤 Employee Service]
+    Gateway -->|/department/**| Department[🏢 Department Service]
+    Gateway -->|/organization/**| Organization[🏛️ Organization Service]
+
+    Department -.->|RestClient| Employee
+    Organization -.->|RestClient| Employee
+    Organization -.->|RestClient| Department
+
+    Employee --> MongoDB[(🗄️ MongoDB 8.0)]
+    Department --> MongoDB
+    Organization --> MongoDB
+
+    classDef client fill:#f59e0b,stroke:#d97706,color:#000
+    classDef gateway fill:#2563eb,stroke:#1e40af,color:#fff
+    classDef service fill:#059669,stroke:#047857,color:#fff
+    classDef db fill:#7c3aed,stroke:#6d28d9,color:#fff
+
+    class Client client
+    class Gateway gateway
+    class Employee,Department,Organization service
+    class MongoDB db
+```
 
 ## Quick Start
 
@@ -127,43 +163,7 @@ make deps
 
 ## Architecture
 
-```mermaid
-%%{init: {'theme': 'base', 'themeVariables': {
-  'primaryColor': '#1e40af',
-  'primaryTextColor': '#ffffff',
-  'primaryBorderColor': '#1e3a5f',
-  'lineColor': '#3b82f6',
-  'secondaryColor': '#dbeafe',
-  'tertiaryColor': '#f0f9ff',
-  'fontFamily': 'arial'
-}}}%%
-graph TB
-    Client([👤 Client]):::client --> Gateway[🌐 Gateway Service<br/>Spring Cloud Gateway MVC<br/>LoadBalancer via MetalLB]
-
-    Gateway -->|/employee/**| Employee[👤 Employee Service]
-    Gateway -->|/department/**| Department[🏢 Department Service]
-    Gateway -->|/organization/**| Organization[🏛️ Organization Service]
-
-    Department -.->|RestClient| Employee
-    Organization -.->|RestClient| Employee
-    Organization -.->|RestClient| Department
-
-    Employee --> MongoDB[(🗄️ MongoDB 7.0)]
-    Department --> MongoDB
-    Organization --> MongoDB
-
-    classDef client fill:#f59e0b,stroke:#d97706,color:#000
-    classDef gateway fill:#2563eb,stroke:#1e40af,color:#fff
-    classDef service fill:#059669,stroke:#047857,color:#fff
-    classDef db fill:#7c3aed,stroke:#6d28d9,color:#fff
-
-    class Client client
-    class Gateway gateway
-    class Employee,Department,Organization service
-    class MongoDB db
-```
-
-See the full [Reference Architecture](docs/reference-architecture.md) document with all diagrams.
+> See the full [Reference Architecture](docs/reference-architecture.md) for detailed diagrams and configuration.
 
 This architecture follows Cloud Native best practices and [The 12 Factor App](https://12factor.net/) methodology. Key concerns addressed:
 
