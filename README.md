@@ -110,6 +110,7 @@ make deps
 | `make ci` | Run full local CI pipeline |
 | `make ci-run` | Run GitHub Actions workflow locally using act |
 | `make release VERSION=x.y.z` | Create a semver release tag |
+| `make maven-settings-ossindex` | Create Maven settings for OSS Index credentials |
 | `make deps` | Check required dependencies |
 | `make deps-install` | Install Java and Maven via SDKMAN |
 | `make deps-maven` | Install Maven if not present (for CI) |
@@ -126,7 +127,9 @@ make deps
 
 ## Architecture
 
-See the full [Reference Architecture](docs/reference-architecture.md) document with diagrams.
+![Microservices Landscape](docs/diagrams/spring-boot-micro-services-landscape.png)
+
+See the full [Reference Architecture](docs/reference-architecture.md) document with all diagrams.
 
 This architecture follows Cloud Native best practices and [The 12 Factor App](https://12factor.net/) methodology. Key concerns addressed:
 
