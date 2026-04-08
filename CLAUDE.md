@@ -44,7 +44,7 @@ make kind-destroy    # Delete Kind cluster
 
 ## CI/CD
 
-- **main.yml** -- `lint` (static-check + Trivy), `builds`, `tests` (coverage), `cve-check` (OWASP) + `docker` (tag-gated)
+- **ci.yml** -- `lint` (static-check + Trivy), `builds`, `tests` (coverage), `cve-check` (OWASP) + `docker` (tag-gated)
 - **cleanup-runs.yml** -- weekly cleanup of old workflow runs
 
 ## Tech Stack
