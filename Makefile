@@ -13,7 +13,7 @@ ifneq ($(SDKMAN_JAVA),)
   export PATH      := $(JAVA_HOME)/bin:$(PATH)
 endif
 
-MVN           := $(shell command -v mvn 2>/dev/null || echo ./mvnw)
+MVN           := $(shell command -v mvn 2>/dev/null)
 
 KIND_CLUSTER_NAME := spring-microservices-k8s
 SERVICES          := employee department organization gateway
@@ -63,7 +63,7 @@ help:
 #deps: @ Check required tools (java 25, mvn)
 deps:
 	@java -version 2>&1 | grep -q '"25\.' || { echo "Error: Java 25 required. Run: make deps-install"; exit 1; }
-	@command -v mvn >/dev/null 2>&1 || test -x ./mvnw || { echo "Error: Maven required. Run: make deps-install"; exit 1; }
+	@command -v mvn >/dev/null 2>&1 || { echo "Error: Maven required. Run: make deps-install"; exit 1; }
 
 #deps-maven: @ Install Maven if not present (for CI containers)
 deps-maven:

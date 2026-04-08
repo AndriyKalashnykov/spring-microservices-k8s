@@ -19,7 +19,6 @@ spring-microservices-k8s/
   e2e/                   # End-to-end test script
   docs/                  # Architecture documentation and diagrams
   Makefile               # Build orchestration (run `make help`)
-  mvnw                   # Maven wrapper (for act CI compatibility)
   pom.xml                # Parent POM (multi-module)
   renovate.json          # Renovate dependency update configuration
 ```
