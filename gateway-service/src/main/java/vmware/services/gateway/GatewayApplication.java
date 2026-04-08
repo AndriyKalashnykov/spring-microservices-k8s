@@ -26,7 +26,9 @@ public class GatewayApplication {
 	private static final Logger LOGGER = LoggerFactory.getLogger(GatewayApplication.class);
 
 	private static final String EMPLOYEE_SERVICE = "employee";
+
 	private static final String DEPARTMENT_SERVICE = "department";
+
 	private static final String ORGANIZATION_SERVICE = "organization";
 
 	public static void main(String[] args) {
@@ -43,9 +45,11 @@ public class GatewayApplication {
 			try {
 				List<ServiceInstance> its = client.getInstances(svc);
 				for (ServiceInstance it : its) {
-					LOGGER.info("Instance: url={}:{}, id={}, service={}", it.getHost(), it.getPort(), it.getInstanceId(), it.getServiceId());
+					LOGGER.info("Instance: url={}:{}, id={}, service={}", it.getHost(), it.getPort(),
+							it.getInstanceId(), it.getServiceId());
 				}
-			} catch (Exception ex) {
+			}
+			catch (Exception ex) {
 				LOGGER.warn("Failed to lookup instance for service {}: {}", svc, ex.toString());
 			}
 		}
@@ -54,27 +58,28 @@ public class GatewayApplication {
 	@Bean
 	public RouterFunction<ServerResponse> employeeRoute() {
 		return route(EMPLOYEE_SERVICE)
-				.route(path("/" + EMPLOYEE_SERVICE, "/" + EMPLOYEE_SERVICE + "/**"), HandlerFunctions.http())
-				.before(stripPrefix(1))
-				.filter(lb(EMPLOYEE_SERVICE))
-				.build();
+			.route(path("/" + EMPLOYEE_SERVICE, "/" + EMPLOYEE_SERVICE + "/**"), HandlerFunctions.http())
+			.before(stripPrefix(1))
+			.filter(lb(EMPLOYEE_SERVICE))
+			.build();
 	}
 
 	@Bean
 	public RouterFunction<ServerResponse> departmentRoute() {
 		return route(DEPARTMENT_SERVICE)
-				.route(path("/" + DEPARTMENT_SERVICE, "/" + DEPARTMENT_SERVICE + "/**"), HandlerFunctions.http())
-				.before(stripPrefix(1))
-				.filter(lb(DEPARTMENT_SERVICE))
-				.build();
+			.route(path("/" + DEPARTMENT_SERVICE, "/" + DEPARTMENT_SERVICE + "/**"), HandlerFunctions.http())
+			.before(stripPrefix(1))
+			.filter(lb(DEPARTMENT_SERVICE))
+			.build();
 	}
 
 	@Bean
 	public RouterFunction<ServerResponse> organizationRoute() {
 		return route(ORGANIZATION_SERVICE)
-				.route(path("/" + ORGANIZATION_SERVICE, "/" + ORGANIZATION_SERVICE + "/**"), HandlerFunctions.http())
-				.before(stripPrefix(1))
-				.filter(lb(ORGANIZATION_SERVICE))
-				.build();
+			.route(path("/" + ORGANIZATION_SERVICE, "/" + ORGANIZATION_SERVICE + "/**"), HandlerFunctions.http())
+			.before(stripPrefix(1))
+			.filter(lb(ORGANIZATION_SERVICE))
+			.build();
 	}
+
 }

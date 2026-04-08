@@ -11,6 +11,10 @@ KIND_VERSION      := 0.31.0
 METALLB_VERSION   := 0.15.3
 # renovate: datasource=github-releases depName=nektos/act
 ACT_VERSION       := 0.2.87
+# renovate: datasource=github-releases depName=hadolint/hadolint
+HADOLINT_VERSION  := 2.14.0
+# renovate: datasource=github-releases depName=zricethezav/gitleaks
+GITLEAKS_VERSION  := 8.30.1
 
 # ---------------------------------------------------------------------------
 # Help
@@ -38,9 +42,25 @@ clean:
 test:
 	@$(MVN) test
 
-#lint: @ Compile with warnings as errors
+#lint: @ Run Checkstyle static analysis
 lint:
-	@$(MVN) compile -Dmaven.compiler.failOnWarning=true
+	@$(MVN) checkstyle:check -Dcheckstyle.failOnViolation=false
+
+#format: @ Auto-format Java source code
+format:
+	@$(MVN) io.spring.javaformat:spring-javaformat-maven-plugin:apply
+
+#format-check: @ Verify code formatting (CI gate)
+format-check:
+	@$(MVN) io.spring.javaformat:spring-javaformat-maven-plugin:validate
+
+#vulncheck: @ Check for known vulnerabilities in dependencies
+vulncheck:
+	@$(MVN) org.owasp:dependency-check-maven:check -DfailBuildOnCVSS=9
+
+#deps-prune: @ Check for unused Maven dependencies
+deps-prune:
+	@$(MVN) dependency:analyze -DignoreNonCompile=true 2>&1 | grep -E 'Unused|Used undeclared' || echo "No unused dependencies found."
 
 # ---------------------------------------------------------------------------
 # Image
@@ -89,6 +109,34 @@ deps-act: deps
 	@command -v act >/dev/null 2>&1 || { echo "Installing act $(ACT_VERSION)..."; \
 		curl -sSfL https://raw.githubusercontent.com/nektos/act/master/install.sh | bash -s -- -b /usr/local/bin v$(ACT_VERSION); \
 	}
+
+#deps-hadolint: @ Install hadolint for Dockerfile linting
+deps-hadolint:
+	@command -v hadolint >/dev/null 2>&1 || { echo "Installing hadolint $(HADOLINT_VERSION)..."; \
+		curl -sSfL -o /tmp/hadolint https://github.com/hadolint/hadolint/releases/download/v$(HADOLINT_VERSION)/hadolint-Linux-x86_64 && \
+		install -m 755 /tmp/hadolint /usr/local/bin/hadolint && \
+		rm -f /tmp/hadolint; \
+	}
+
+#deps-gitleaks: @ Install gitleaks for secret scanning
+deps-gitleaks:
+	@command -v gitleaks >/dev/null 2>&1 || { echo "Installing gitleaks $(GITLEAKS_VERSION)..."; \
+		curl -sSfL https://github.com/zricethezav/gitleaks/releases/download/v$(GITLEAKS_VERSION)/gitleaks_$(GITLEAKS_VERSION)_linux_amd64.tar.gz | \
+		tar xz -C /usr/local/bin gitleaks; \
+	}
+
+#lint-docker: @ Lint all Dockerfiles with hadolint
+lint-docker: deps-hadolint
+	@for svc in $(SERVICES); do \
+		echo "Linting $$svc-service/Dockerfile..."; \
+		hadolint $$svc-service/Dockerfile; \
+		echo "Linting $$svc-service/Dockerfile.debug..."; \
+		hadolint $$svc-service/Dockerfile.debug; \
+	done
+
+#secrets: @ Scan for hardcoded secrets
+secrets: deps-gitleaks
+	@gitleaks detect --source . --verbose --redact --no-git
 
 # ---------------------------------------------------------------------------
 # KinD Cluster
@@ -249,11 +297,19 @@ logs-gateway:
 	@kubectl logs -f -l app=gateway -n gateway
 
 # ---------------------------------------------------------------------------
+# Static Analysis
+# ---------------------------------------------------------------------------
+
+#static-check: @ Run all quality and security checks
+static-check: format-check lint lint-docker secrets
+	@echo "Static check passed."
+
+# ---------------------------------------------------------------------------
 # CI
 # ---------------------------------------------------------------------------
 
 #ci: @ Run full local CI pipeline
-ci: deps clean build lint test
+ci: deps clean build static-check test
 	@echo "Local CI pipeline passed."
 
 #ci-run: @ Run GitHub Actions workflow locally using act
@@ -276,8 +332,10 @@ renovate-validate:
 	fi
 
 .PHONY: help build clean test lint \
+	format format-check vulncheck deps-prune \
 	image-build image-load \
-	deps deps-docker deps-kind deps-act \
+	deps deps-docker deps-kind deps-act deps-hadolint deps-gitleaks \
+	lint-docker secrets static-check \
 	kind-create kind-setup kind-deploy kind-undeploy kind-redeploy kind-destroy \
 	e2e e2e-test populate \
 	gateway-url gateway-open \

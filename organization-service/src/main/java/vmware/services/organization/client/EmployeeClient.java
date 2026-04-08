@@ -7,6 +7,8 @@ import vmware.services.organization.model.Employee;
 import java.util.List;
 
 public interface EmployeeClient {
-    @GetExchange("/organization/{organizationId}")
-    List<Employee> findByOrganization(@PathVariable("organizationId") String organizationId);
+
+	@GetExchange("/organization/{organizationId}")
+	List<Employee> findByOrganization(@PathVariable("organizationId") String organizationId);
+
 }

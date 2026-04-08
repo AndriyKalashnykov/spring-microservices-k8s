@@ -8,5 +8,5 @@ import java.util.List;
 public interface DepartmentRepository extends CrudRepository<Department, String> {
 
 	List<Department> findByOrganizationId(Long organizationId);
-	
+
 }

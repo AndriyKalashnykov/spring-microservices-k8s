@@ -430,6 +430,27 @@ Tests use `@SpringBootTest` with `@ServiceConnection` for automatic MongoDB
 container lifecycle management. Spring Cloud Kubernetes is disabled during
 tests via an `application-test.yml` profile.
 
+## Static Analysis and Code Quality
+
+The project enforces code quality through a composite `static-check` target that runs all checks in sequence:
+
+| Check | Tool | What it catches |
+|-------|------|-----------------|
+| Code formatting | Spring Java Format | Inconsistent formatting |
+| Static analysis | Checkstyle (Google rules) | Style violations, naming conventions |
+| Dockerfile linting | hadolint | Dockerfile anti-patterns |
+| Secret scanning | gitleaks | Accidentally committed credentials |
+
+Run all checks:
+
+```bash
+make static-check    # format-check + checkstyle + hadolint + gitleaks
+make vulncheck       # OWASP dependency vulnerability scan (separate, slower)
+make deps-prune      # check for unused Maven dependencies
+```
+
+The CI workflow runs `static-check` as the first job — format and lint errors are caught before build or tests run.
+
 ## Build Docker Images
 
 The Dockerfile uses a multi-stage build with these best practices:
@@ -694,7 +715,9 @@ GitHub Actions runs on every push to `master`, tags `v*`, and pull requests.
 
 | Job | Triggers | Steps |
 |-----|----------|-------|
-| **ci** | push, PR | Build, Lint, Test via `make ci` |
+| **static-check** | push, PR | Format check, Checkstyle, Dockerfile lint, secret scan |
+| **build** | after static-check | Build all modules with Maven |
+| **test** | after static-check | Run Testcontainers integration tests |
 | **docker** | tag push only | Build and push multi-arch Docker images to DockerHub |
 
 A weekly [cleanup workflow](.github/workflows/cleanup-runs.yml) prunes old

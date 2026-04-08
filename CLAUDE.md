@@ -44,7 +44,7 @@ make kind-destroy    # Delete Kind cluster
 
 ## CI/CD
 
-- **main.yml** -- `ci` job (build/lint/test via `make ci`) + `docker` job (tag-gated multi-arch image builds)
+- **main.yml** -- `static-check`, `build`, `test` jobs + `docker` job (tag-gated multi-arch image builds)
 - **cleanup-runs.yml** -- weekly cleanup of old workflow runs
 
 ## Tech Stack
@@ -57,6 +57,7 @@ make kind-destroy    # Delete Kind cluster
 - Kubernetes (Kind + MetalLB for local dev)
 - MongoDB 7.0
 - Testcontainers (integration tests)
+- Checkstyle + hadolint + gitleaks (static analysis)
 
 ## Skills
 

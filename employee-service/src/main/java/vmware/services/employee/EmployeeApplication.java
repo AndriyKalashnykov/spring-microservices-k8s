@@ -15,7 +15,7 @@ public class EmployeeApplication {
 
 	@Bean
 	MeterRegistryCustomizer<MeterRegistry> meterRegistryCustomizer() {
-		return registry -> registry.config()
-				.commonTags("application", "employee");
+		return registry -> registry.config().commonTags("application", "employee");
 	}
+
 }

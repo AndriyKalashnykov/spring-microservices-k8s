@@ -12,5 +12,28 @@
 		<module>organization-service</module>
 		<module>gateway-service</module>
     </modules>
-	
+
+	<build>
+		<pluginManagement>
+			<plugins>
+				<plugin>
+					<groupId>org.apache.maven.plugins</groupId>
+					<artifactId>maven-checkstyle-plugin</artifactId>
+					<version>3.6.0</version>
+					<configuration>
+						<configLocation>google_checks.xml</configLocation>
+						<consoleOutput>true</consoleOutput>
+						<violationSeverity>warning</violationSeverity>
+						<failOnViolation>false</failOnViolation>
+					</configuration>
+				</plugin>
+				<plugin>
+					<groupId>io.spring.javaformat</groupId>
+					<artifactId>spring-javaformat-maven-plugin</artifactId>
+					<version>0.0.47</version>
+				</plugin>
+			</plugins>
+		</pluginManagement>
+	</build>
+
 </project>

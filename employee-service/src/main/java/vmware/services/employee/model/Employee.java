@@ -8,16 +8,21 @@ public class Employee {
 
 	@Id
 	private String id;
+
 	private Long organizationId;
+
 	private Long departmentId;
+
 	private String name;
+
 	private int age;
+
 	private String position;
 
 	public Employee() {
 
 	}
-	
+
 	public Employee(Long organizationId, Long departmentId, String name, int age, String position) {
 		this.organizationId = organizationId;
 		this.departmentId = departmentId;

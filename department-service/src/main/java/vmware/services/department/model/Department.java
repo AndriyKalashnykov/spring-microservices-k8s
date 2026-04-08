@@ -12,13 +12,16 @@ public class Department {
 
 	@Id
 	private String id;
+
 	private Long organizationId;
+
 	private String name;
+
 	@Transient
 	private List<Employee> employees = new ArrayList<>();
 
 	public Department() {
-		
+
 	}
 
 	public Department(Long organizationId, String name) {

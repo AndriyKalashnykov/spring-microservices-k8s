@@ -41,7 +41,24 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  ci:
+  static-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Static check
+        run: make static-check
+
+  build:
+    needs: [static-check]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -54,12 +71,29 @@ jobs:
           distribution: 'temurin'
           cache: maven
 
-      - name: Build and test
-        run: make ci
+      - name: Build
+        run: make build
+
+  test:
+    needs: [static-check]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Test
+        run: make test
 
   docker:
     if: startsWith(github.ref, 'refs/tags/')
-    needs: ci
+    needs: [build, test]
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:

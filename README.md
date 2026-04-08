@@ -49,6 +49,18 @@ make deps
 | `make clean` | Clean all build artifacts |
 | `make test` | Run tests |
 | `make lint` | Compile with warnings as errors |
+| `make format` | Auto-format Java source code |
+| `make format-check` | Verify code formatting (CI gate) |
+
+### Code Quality
+
+| Target | Description |
+|--------|-------------|
+| `make static-check` | Run all quality and security checks |
+| `make vulncheck` | Check for known vulnerabilities in dependencies |
+| `make lint-docker` | Lint all Dockerfiles with hadolint |
+| `make secrets` | Scan for hardcoded secrets |
+| `make deps-prune` | Check for unused Maven dependencies |
 
 ### Docker
 
@@ -98,6 +110,8 @@ make deps
 | `make deps-docker` | Check Docker and kubectl |
 | `make deps-kind` | Install KinD for local Kubernetes testing |
 | `make deps-act` | Install act for local CI runs |
+| `make deps-hadolint` | Install hadolint for Dockerfile linting |
+| `make deps-gitleaks` | Install gitleaks for secret scanning |
 | `make renovate-validate` | Validate Renovate configuration |
 
 ## Architecture
@@ -115,6 +129,7 @@ This architecture follows Cloud Native best practices and [The 12 Factor App](ht
 - **API documentation** exposed via Swagger UI
 - **Docker images** built with layered JARs using the Spring Boot plugin
 - **Observability** via Prometheus exporters
+- **Static analysis** via Checkstyle, hadolint, and gitleaks
 
 ### Service Communication
 
@@ -133,7 +148,9 @@ GitHub Actions runs on every push to `master`, tags `v*`, and pull requests.
 
 | Job | Triggers | Steps |
 |-----|----------|-------|
-| **ci** | push, PR | Build, Lint, Test via `make ci` |
+| **static-check** | push, PR | Format check, Checkstyle, Dockerfile lint, secret scan |
+| **build** | after static-check | Build all modules with Maven |
+| **test** | after static-check | Run Testcontainers integration tests |
 | **docker** | tag push only | Build and push multi-arch Docker images to DockerHub |
 
 Integration tests use [Testcontainers](https://testcontainers.com/) with MongoDB for fast local testing via `make test`.

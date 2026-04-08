@@ -1,0 +1,4 @@
+ignored:
+  - DL3008  # Pin versions in apt-get install (not applicable — distroless base, no apt)
+  - DL3018  # Pin versions in apk add (not applicable)
+  - SC2035  # Use ./*glob* — intentional *.jar glob in layertools extract

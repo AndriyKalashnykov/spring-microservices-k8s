@@ -1,0 +1,8 @@
+# Gitleaks configuration — allow demo/sample credentials in K8s manifests and docs
+[allowlist]
+  description = "Allow demo credentials in K8s secrets and documentation"
+  paths = [
+    '''k8s/.*-secret\.yaml''',
+    '''k8s/mongodb-secret\.yaml''',
+    '''docs/.*\.md''',
+  ]

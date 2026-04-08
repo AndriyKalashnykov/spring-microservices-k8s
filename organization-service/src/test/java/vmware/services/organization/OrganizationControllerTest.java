@@ -29,55 +29,56 @@ import static org.mockito.Mockito.when;
 @ActiveProfiles("test")
 class OrganizationControllerTest {
 
-    @Container
-    @ServiceConnection
-    static MongoDBContainer mongo = new MongoDBContainer("mongo:7.0");
+	@Container
+	@ServiceConnection
+	static MongoDBContainer mongo = new MongoDBContainer("mongo:7.0");
 
-    @Autowired
-    TestRestTemplate restTemplate;
+	@Autowired
+	TestRestTemplate restTemplate;
 
-    @Autowired
-    OrganizationRepository repository;
+	@Autowired
+	OrganizationRepository repository;
 
-    @MockitoBean
-    EmployeeClient employeeClient;
+	@MockitoBean
+	EmployeeClient employeeClient;
 
-    @MockitoBean
-    DepartmentClient departmentClient;
+	@MockitoBean
+	DepartmentClient departmentClient;
 
-    @BeforeEach
-    void setUp() {
-        repository.deleteAll();
-        when(employeeClient.findByOrganization(anyString())).thenReturn(Collections.emptyList());
-        when(departmentClient.findByOrganization(anyString())).thenReturn(Collections.emptyList());
-        when(departmentClient.findByOrganizationWithEmployees(anyString())).thenReturn(Collections.emptyList());
-    }
+	@BeforeEach
+	void setUp() {
+		repository.deleteAll();
+		when(employeeClient.findByOrganization(anyString())).thenReturn(Collections.emptyList());
+		when(departmentClient.findByOrganization(anyString())).thenReturn(Collections.emptyList());
+		when(departmentClient.findByOrganizationWithEmployees(anyString())).thenReturn(Collections.emptyList());
+	}
 
-    @Test
-    void shouldCreateOrganization() {
-        Organization org = new Organization("MegaCorp", "Main Street");
-        ResponseEntity<Organization> response = restTemplate.postForEntity("/", org, Organization.class);
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(response.getBody()).isNotNull();
-        assertThat(response.getBody().getName()).isEqualTo("MegaCorp");
-    }
+	@Test
+	void shouldCreateOrganization() {
+		Organization org = new Organization("MegaCorp", "Main Street");
+		ResponseEntity<Organization> response = restTemplate.postForEntity("/", org, Organization.class);
+		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+		assertThat(response.getBody()).isNotNull();
+		assertThat(response.getBody().getName()).isEqualTo("MegaCorp");
+	}
 
-    @Test
-    void shouldListAllOrganizations() {
-        repository.save(new Organization("MegaCorp", "Main Street"));
-        repository.save(new Organization("SmallCo", "Side Street"));
+	@Test
+	void shouldListAllOrganizations() {
+		repository.save(new Organization("MegaCorp", "Main Street"));
+		repository.save(new Organization("SmallCo", "Side Street"));
 
-        ResponseEntity<Organization[]> response = restTemplate.getForEntity("/", Organization[].class);
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(response.getBody()).hasSize(2);
-    }
+		ResponseEntity<Organization[]> response = restTemplate.getForEntity("/", Organization[].class);
+		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+		assertThat(response.getBody()).hasSize(2);
+	}
 
-    @Test
-    void shouldFindById() {
-        Organization saved = repository.save(new Organization("MegaCorp", "Main Street"));
+	@Test
+	void shouldFindById() {
+		Organization saved = repository.save(new Organization("MegaCorp", "Main Street"));
 
-        ResponseEntity<Organization> response = restTemplate.getForEntity("/" + saved.getId(), Organization.class);
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(response.getBody().getName()).isEqualTo("MegaCorp");
-    }
+		ResponseEntity<Organization> response = restTemplate.getForEntity("/" + saved.getId(), Organization.class);
+		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+		assertThat(response.getBody().getName()).isEqualTo("MegaCorp");
+	}
+
 }

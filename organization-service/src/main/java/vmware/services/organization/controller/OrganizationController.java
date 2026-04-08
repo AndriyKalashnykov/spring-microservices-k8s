@@ -15,26 +15,28 @@ import java.util.Optional;
 public class OrganizationController {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(OrganizationController.class);
-	
+
 	@Autowired
 	OrganizationRepository repository;
+
 	@Autowired
-    DepartmentClient departmentClient;
+	DepartmentClient departmentClient;
+
 	@Autowired
 	EmployeeClient employeeClient;
-	
+
 	@PostMapping
 	public Organization add(@RequestBody Organization organization) {
 		LOGGER.info("Organization add: {}", organization);
 		return repository.save(organization);
 	}
-	
+
 	@GetMapping
 	public Iterable<Organization> findAll() {
 		LOGGER.info("Organization find");
 		return repository.findAll();
 	}
-	
+
 	@GetMapping("/{id}")
 	public Organization findById(@PathVariable("id") String id) {
 		LOGGER.info("Organization find: id={}", id);
@@ -49,11 +51,12 @@ public class OrganizationController {
 			Organization o = organization.get();
 			o.setDepartments(departmentClient.findByOrganization(o.getId()));
 			return o;
-		} else {
+		}
+		else {
 			return null;
 		}
 	}
-	
+
 	@GetMapping("/{id}/with-departments-and-employees")
 	public Organization findByIdWithDepartmentsAndEmployees(@PathVariable("id") String id) {
 		LOGGER.info("Organization find: id={}", id);
@@ -62,11 +65,12 @@ public class OrganizationController {
 			Organization o = organization.get();
 			o.setDepartments(departmentClient.findByOrganizationWithEmployees(o.getId()));
 			return o;
-		} else {
+		}
+		else {
 			return null;
 		}
 	}
-	
+
 	@GetMapping("/{id}/with-employees")
 	public Organization findByIdWithEmployees(@PathVariable("id") String id) {
 		LOGGER.info("Organization find: id={}", id);
@@ -75,9 +79,10 @@ public class OrganizationController {
 			Organization o = organization.get();
 			o.setEmployees(employeeClient.findByOrganization(o.getId()));
 			return o;
-		} else {
+		}
+		else {
 			return null;
 		}
 	}
-	
+
 }
