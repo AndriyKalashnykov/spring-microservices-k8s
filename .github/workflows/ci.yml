@@ -225,8 +225,13 @@ jobs:
         uses: docker/metadata-action@030e881283bb7a6894de51c315a6bfe6a94e05cf # v6
         with:
           images: ghcr.io/${{ github.repository }}/${{ matrix.service }}
+          # Convention: bare semver on Docker image tags, `v`-prefix on git tags.
+          # The `{{version}}` template strips the `v` from git tag `vX.Y.Z`
+          # automatically, matching how Docker Hub official images are tagged
+          # (mongo:8.0.20, node:24, postgres:17, nginx:1.27, alpine:3.20, etc.).
+          # Git tag stays `vX.Y.Z` (Go module / GitHub release convention).
           tags: |
-            type=semver,pattern=v{{version}}
+            type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}
           flavor: |
