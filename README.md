@@ -24,15 +24,12 @@ This reference architecture demonstrates design, development, and deployment of 
 | Code Quality | Google Java Format, Checkstyle, hadolint, gitleaks, Trivy |
 
 ```mermaid
-%%{init: {'theme': 'base', 'themeVariables': {
-  'primaryColor': '#1e40af',
-  'primaryTextColor': '#ffffff',
-  'primaryBorderColor': '#1e3a5f',
-  'lineColor': '#3b82f6',
-  'secondaryColor': '#dbeafe',
-  'tertiaryColor': '#f0f9ff',
-  'fontFamily': 'arial'
-}}}%%
+%% No `init` block: lets GitHub auto-switch between Mermaid's default
+%% (light) and dark themes based on the viewer's GitHub theme. Custom
+%% classDef brand colors below override the theme for nodes and stay
+%% readable on both backgrounds (saturated mid-tones with forced text
+%% color). Edge labels are rendered by the stock Mermaid theme so they
+%% adapt automatically and don't disappear on dark mode.
 graph TB
     Client([👤 Client]):::client --> Gateway[🌐 Gateway Service<br/>Spring Cloud Gateway MVC<br/>LoadBalancer via MetalLB]
 
@@ -48,10 +45,14 @@ graph TB
     Department --> MongoDB
     Organization --> MongoDB
 
-    classDef client fill:#f59e0b,stroke:#d97706,color:#000
-    classDef gateway fill:#2563eb,stroke:#1e40af,color:#fff
-    classDef service fill:#059669,stroke:#047857,color:#fff
-    classDef db fill:#7c3aed,stroke:#6d28d9,color:#fff
+    %% Theme-adaptive palette: saturated brand colors with explicit text
+    %% colors so contrast holds on both white and #0d1117 backgrounds.
+    %% Amber uses black text (7.4:1 vs amber-500), the rest use white text
+    %% on Tailwind-600 fills (4.3-4.6:1, passes WCAG AA for large text).
+    classDef client fill:#f59e0b,stroke:#b45309,color:#000000
+    classDef gateway fill:#2563eb,stroke:#1e40af,color:#ffffff
+    classDef service fill:#059669,stroke:#065f46,color:#ffffff
+    classDef db fill:#7c3aed,stroke:#5b21b6,color:#ffffff
 
     class Client client
     class Gateway gateway

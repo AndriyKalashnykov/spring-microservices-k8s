@@ -76,10 +76,10 @@ The application is built with these open source components:
   Swagger UI.
 
 ```mermaid
-%%{init: {'theme': 'base', 'themeVariables': {
-  'primaryColor': '#1e40af', 'primaryTextColor': '#fff',
-  'lineColor': '#3b82f6', 'fontFamily': 'arial'
-}}}%%
+%% No `init` block: lets GitHub auto-switch between Mermaid's default
+%% (light) and dark themes based on the viewer's GitHub theme. Custom
+%% classDef brand colors below override the theme for nodes and stay
+%% readable on both backgrounds.
 graph TB
     Client([👤 Client]):::client --> Gateway[🌐 Gateway Service<br/>Spring Cloud Gateway MVC<br/>LoadBalancer via MetalLB]
 
@@ -102,10 +102,13 @@ graph TB
         Organization
     end
 
-    classDef client fill:#f59e0b,stroke:#d97706,color:#000
-    classDef gateway fill:#2563eb,stroke:#1e40af,color:#fff
-    classDef service fill:#059669,stroke:#047857,color:#fff
-    classDef db fill:#7c3aed,stroke:#6d28d9,color:#fff
+    %% Theme-adaptive palette: amber uses black text (7.4:1 vs amber-500),
+    %% Tailwind-600 fills with white text for the rest. Works on both
+    %% white and #0d1117 GitHub backgrounds.
+    classDef client fill:#f59e0b,stroke:#b45309,color:#000000
+    classDef gateway fill:#2563eb,stroke:#1e40af,color:#ffffff
+    classDef service fill:#059669,stroke:#065f46,color:#ffffff
+    classDef db fill:#7c3aed,stroke:#5b21b6,color:#ffffff
 
     class Client client
     class Gateway gateway
@@ -120,10 +123,9 @@ per service replica. The application uses a microservices architecture
 with replicated containers calling each other.
 
 ```mermaid
-%%{init: {'theme': 'base', 'themeVariables': {
-  'primaryColor': '#1e40af', 'primaryTextColor': '#fff',
-  'lineColor': '#3b82f6', 'fontFamily': 'arial'
-}}}%%
+%% Theme-adaptive: no init directive so GitHub auto-switches between
+%% Mermaid's default and dark themes per viewer preference. classDef
+%% brand colors below override the theme for nodes.
 graph TB
     subgraph kind["☸ Kind Cluster"]
         subgraph ns-gw["gateway namespace"]
@@ -151,10 +153,10 @@ graph TB
     DEPT --> MONGO
     ORG --> MONGO
 
-    classDef gateway fill:#2563eb,stroke:#1e40af,color:#fff
-    classDef service fill:#059669,stroke:#047857,color:#fff
-    classDef db fill:#7c3aed,stroke:#6d28d9,color:#fff
-    classDef lb fill:#f59e0b,stroke:#d97706,color:#000
+    classDef gateway fill:#2563eb,stroke:#1e40af,color:#ffffff
+    classDef service fill:#059669,stroke:#065f46,color:#ffffff
+    classDef db fill:#7c3aed,stroke:#5b21b6,color:#ffffff
+    classDef lb fill:#f59e0b,stroke:#b45309,color:#000000
 ```
 
 ## Spring Cloud Kubernetes
@@ -333,10 +335,8 @@ Every Service in the cluster is assigned a DNS name following the pattern
 is reachable at `mongodb.mongo.svc.cluster.local:27017`.
 
 ```mermaid
-%%{init: {'theme': 'base', 'themeVariables': {
-  'primaryColor': '#1e40af', 'primaryTextColor': '#fff',
-  'lineColor': '#3b82f6', 'fontFamily': 'monospace'
-}}}%%
+%% Theme-adaptive: no init directive so GitHub auto-switches between
+%% Mermaid's default and dark themes per viewer preference.
 graph LR
     subgraph dns ["☸ Kubernetes DNS"]
         G["🌐 gateway.gateway.svc.cluster.local:8080"]:::gateway
@@ -346,9 +346,9 @@ graph LR
         M["🗄️ mongodb.mongo.svc.cluster.local:27017"]:::db
     end
 
-    classDef gateway fill:#2563eb,stroke:#1e40af,color:#fff
-    classDef service fill:#059669,stroke:#047857,color:#fff
-    classDef db fill:#7c3aed,stroke:#6d28d9,color:#fff
+    classDef gateway fill:#2563eb,stroke:#1e40af,color:#ffffff
+    classDef service fill:#059669,stroke:#065f46,color:#ffffff
+    classDef db fill:#7c3aed,stroke:#5b21b6,color:#ffffff
 ```
 
 The pattern is `<service>.<namespace>.svc.cluster.local:<port>`.
