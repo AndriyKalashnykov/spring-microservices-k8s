@@ -6,6 +6,11 @@ CURRENTTAG    := $(shell git describe --tags --abbrev=0 2>/dev/null || echo "dev
 SHELL         := /bin/bash
 SDKMAN        := $${SDKMAN_DIR:-$$HOME/.sdkman}/bin/sdkman-init.sh
 
+# Tools installed by deps-* targets land in $HOME/.local/bin (no sudo needed).
+# Export it so subsequent recipe shells (and tools called from other targets,
+# e.g. lint-ci -> actionlint) can find them. Required for `make ci-run` (act).
+export PATH := $(HOME)/.local/bin:$(PATH)
+
 # Auto-detect SDKMAN Java 25 and set JAVA_HOME/PATH
 SDKMAN_JAVA   := $(wildcard $(HOME)/.sdkman/candidates/java/25*-tem)
 ifneq ($(SDKMAN_JAVA),)

@@ -44,7 +44,7 @@ addresses the following concerns:
 | Testcontainers | (managed by Spring Boot BOM) |
 | Spring Cloud LoadBalancer | 4.3.x |
 | SpringDoc OpenAPI | 2.8.16 |
-| MongoDB | 8 (bitnamilegacy/mongodb) |
+| MongoDB | 8.0 (official `mongo` image, non-root UID 999) |
 | Kubernetes | 1.35+ (Kind for local dev) |
 | Kind | 0.31.0 |
 | MetalLB | 0.15.3 |
@@ -369,26 +369,29 @@ spec:
   template:
     spec:
       securityContext:
+        # Official mongo image runs as the `mongodb` user (UID 999).
         runAsNonRoot: true
-        runAsUser: 1001
-        fsGroup: 1001
+        runAsUser: 999
+        runAsGroup: 999
+        fsGroup: 999
       containers:
         - name: mongodb
-          image: bitnamilegacy/mongodb:8.0.13-debian-12-r0
+          image: mongo:8.0.20
           ports:
             - containerPort: 27017
           env:
-            - name: MONGODB_DATABASE
+            # Official mongo image uses MONGO_INITDB_* env vars.
+            - name: MONGO_INITDB_DATABASE
               valueFrom:
                 configMapKeyRef:
                   name: mongodb
                   key: database-name
-            - name: MONGODB_ROOT_USER
+            - name: MONGO_INITDB_ROOT_USERNAME
               valueFrom:
                 secretKeyRef:
                   name: mongodb
                   key: database-user
-            - name: MONGODB_ROOT_PASSWORD
+            - name: MONGO_INITDB_ROOT_PASSWORD
               valueFrom:
                 secretKeyRef:
                   name: mongodb

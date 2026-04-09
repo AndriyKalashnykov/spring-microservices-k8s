@@ -27,7 +27,8 @@ import vmware.services.department.repository.DepartmentRepository;
 @ActiveProfiles("test")
 class DepartmentControllerTest {
 
-  @Container @ServiceConnection static MongoDBContainer mongo = new MongoDBContainer("mongo:7.0");
+  @Container @ServiceConnection
+  static MongoDBContainer mongo = new MongoDBContainer("mongo:8.0.20");
 
   @Autowired TestRestTemplate restTemplate;
 
