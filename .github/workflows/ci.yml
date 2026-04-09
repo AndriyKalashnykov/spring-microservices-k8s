@@ -44,7 +44,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  lint:
+  static-check:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -66,8 +66,8 @@ jobs:
       - name: Static check
         run: make static-check
 
-  tests:
-    needs: [lint]
+  test:
+    needs: [static-check]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -100,8 +100,8 @@ jobs:
           path: '**/target/site/jacoco/'
           retention-days: 14
 
-  builds:
-    needs: [lint]
+  build:
+    needs: [static-check]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -135,7 +135,7 @@ jobs:
           retention-days: 1
 
   cve-check:
-    needs: [lint]
+    needs: [static-check]
     # Run on push to master AND on tag pushes (so the docker job can gate on it).
     # Skipped under local act runs because the OWASP NVD download is slow.
     if: |
@@ -189,8 +189,8 @@ jobs:
   docker:
     if: startsWith(github.ref, 'refs/tags/')
     # Gate releases on the full pre-push hardening pipeline:
-    #   builds + tests + cve-check (already passed) → image scan → smoke test → push (with provenance + SBOM) → cosign sign
-    needs: [builds, tests, cve-check]
+    #   build + test + cve-check (already passed) → image scan → smoke test → push (with provenance + SBOM) → cosign sign
+    needs: [build, test, cve-check]
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
@@ -239,7 +239,7 @@ jobs:
       # once locally for gating, then again multi-arch for the push.
       # The second build is ~95% cache-hit from this one (type=gha).
       # ----------------------------------------------------------------
-      - name: Build image for scan (single-arch, load locally)
+      - name: Build image for scan
         uses: docker/build-push-action@d08e5c354a6adb9ed34480a06d141179aa583294 # v7
         with:
           context: ./${{ matrix.service }}-service
@@ -255,11 +255,11 @@ jobs:
       # GATE 2: Trivy image scan — CRITICAL/HIGH blocks the release.
       # Catches CVEs in the base image (eclipse-temurin:25-jre-noble)
       # and any OS packages added during the build that filesystem-only
-      # scans (already done in the lint job) cannot see.
+      # scans (already done in the static-check job) cannot see.
       # `ignore-unfixed: true` skips CVEs with no upstream fix yet —
       # blocking on those creates churn without resolution.
       # ----------------------------------------------------------------
-      - name: Trivy image scan (CRITICAL/HIGH blocking)
+      - name: Trivy image scan
         uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # 0.35.0
         with:
           image-ref: ${{ matrix.service }}:scan
@@ -277,7 +277,7 @@ jobs:
       # boots, and embedded Tomcat begins listening — without needing
       # any external dependencies.
       # ----------------------------------------------------------------
-      - name: Smoke test (Spring Boot boot marker)
+      - name: Smoke test
         run: |
           set -euo pipefail
           SVC='${{ matrix.service }}'
@@ -301,14 +301,14 @@ jobs:
       # ----------------------------------------------------------------
       # All gates passed → publish multi-arch with attestations.
       # ----------------------------------------------------------------
-      - name: Login to GHCR
+      - name: Log in to GHCR
         uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push (multi-arch + provenance + SBOM)
+      - name: Build and push
         id: push
         uses: docker/build-push-action@d08e5c354a6adb9ed34480a06d141179aa583294 # v7
         with:
@@ -343,7 +343,7 @@ jobs:
       - name: Install cosign
         uses: sigstore/cosign-installer@cad07c2e89fa2edd6e2d7bab4c1aa38e53f76003 # v4.1.1
 
-      - name: Sign image with cosign (keyless)
+      - name: Sign image with cosign
         env:
           TAGS: ${{ steps.meta.outputs.tags }}
           DIGEST: ${{ steps.push.outputs.digest }}
