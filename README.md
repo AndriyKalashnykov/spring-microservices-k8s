@@ -239,7 +239,31 @@ GitHub Actions runs on every push to `master`, tags `v*`, and pull requests.
 | **builds** | after lint | Build all modules with Maven |
 | **tests** | after lint | Run Testcontainers integration tests + coverage (non-blocking) |
 | **cve-check** | push to master AND tag pushes (skipped under `act`) | OWASP dependency vulnerability scan — gates the `docker` job on tag pushes |
-| **docker** | tag push only | Build and push multi-arch (amd64+arm64) Docker images to GHCR — fans out over the 4 services via matrix. Depends on `builds`, `tests`, and `cve-check` so a failing CVE scan blocks the release. |
+| **docker** | tag push only | Pre-push hardening pipeline (per service): build local image → Trivy CVE scan (CRITICAL/HIGH blocking) → Spring Boot boot-marker smoke test → multi-arch (amd64+arm64) build with SLSA provenance + SBOM attestation → push to GHCR → cosign keyless OIDC signing. Fans out over the 4 services via matrix. Depends on `builds`, `tests`, and `cve-check`. |
+
+### Pre-push image hardening
+
+The `docker` job runs the following gates **before** any image is pushed to GHCR. Any failure blocks the release.
+
+| # | Gate | Catches | Tool |
+|---|---|---|---|
+| 1 | Build local single-arch image | Build regressions on the runner architecture | `docker/build-push-action` with `load: true` |
+| 2 | **Trivy image scan** (CRITICAL/HIGH blocking) | CVEs in the base image (`eclipse-temurin:25-jre-noble`), OS packages, and any layers added during the build that the filesystem scan can't see | `aquasecurity/trivy-action` with `image-ref:` |
+| 3 | **Spring Boot boot-marker smoke test** | Image is well-formed: JVM starts, Spring context boots, embedded Tomcat begins listening (greps the container logs for `Started <Service>Application in N.NN seconds` within 90s — no MongoDB needed since we don't gate on `/actuator/health`) | `docker run` + `docker logs` + `grep` |
+| 4 | Multi-arch build + push | Publishes for both `linux/amd64` and `linux/arm64`. Mostly cache-hit from gate 1. | `docker/build-push-action` |
+| 5 | **SLSA L2 build provenance** (`provenance: mode=max`) | Cryptographic record of how the image was built (commit, builder, build args). Verifiable via the OCI manifest. | `docker/build-push-action` native attestation |
+| 6 | **SBOM attestation** (`sbom: true`) | Software Bill of Materials embedded in the image manifest as an attestation, auditable by Trivy/Grype/Syft consumers | `docker/build-push-action` native attestation |
+| 7 | **Cosign keyless OIDC signing** | Sigstore signature on the manifest digest with no long-lived private keys (uses GitHub OIDC → Fulcio → Rekor) | `sigstore/cosign-installer` + `cosign sign --yes` |
+
+Verify a published image's signature with:
+
+```bash
+cosign verify ghcr.io/AndriyKalashnykov/spring-microservices-k8s/employee:2.0.0 \
+  --certificate-identity-regexp 'https://github\.com/AndriyKalashnykov/spring-microservices-k8s/.+' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com
+```
+
+Note: GHCR's Packages UI shows extra `unknown/unknown` rows alongside the platform manifests — these are the attestation manifests (SLSA provenance + SBOM). They're cosmetic; `docker pull` works identically.
 
 Integration tests use [Testcontainers](https://testcontainers.com/) with MongoDB for fast local testing via `make test`.
 End-to-end tests validate the full stack on Kind via `make e2e`.

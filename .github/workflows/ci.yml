@@ -188,14 +188,15 @@ jobs:
 
   docker:
     if: startsWith(github.ref, 'refs/tags/')
-    # Gate releases on the OWASP CVE scan as well as build/test —
-    # don't ship images to GHCR if there are known vulnerable dependencies.
+    # Gate releases on the full pre-push hardening pipeline:
+    #   builds + tests + cve-check (already passed) → image scan → smoke test → push (with provenance + SBOM) → cosign sign
     needs: [builds, tests, cve-check]
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
       contents: read
-      packages: write
+      packages: write       # GHCR push
+      id-token: write       # cosign keyless OIDC signing (Sigstore Fulcio)
     strategy:
       matrix:
         service: [gateway, employee, organization, department]
@@ -212,13 +213,6 @@ jobs:
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4
-
-      - name: Login to GHCR
-        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Docker metadata
         id: meta
@@ -237,7 +231,85 @@ jobs:
           flavor: |
             latest=true
 
-      - name: Build and push
+      # ----------------------------------------------------------------
+      # GATE 1: Build single-arch image locally for security checks.
+      # `load: true` lands the image in the local Docker daemon so the
+      # next steps can scan/run it. Multi-arch + attestations cannot be
+      # combined with `load: true` per Docker's docs, so we build twice:
+      # once locally for gating, then again multi-arch for the push.
+      # The second build is ~95% cache-hit from this one (type=gha).
+      # ----------------------------------------------------------------
+      - name: Build image for scan (single-arch, load locally)
+        uses: docker/build-push-action@d08e5c354a6adb9ed34480a06d141179aa583294 # v7
+        with:
+          context: ./${{ matrix.service }}-service
+          file: ./${{ matrix.service }}-service/Dockerfile
+          build-args: VARIANT=debug
+          platforms: linux/amd64
+          load: true
+          tags: ${{ matrix.service }}:scan
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # ----------------------------------------------------------------
+      # GATE 2: Trivy image scan — CRITICAL/HIGH blocks the release.
+      # Catches CVEs in the base image (eclipse-temurin:25-jre-noble)
+      # and any OS packages added during the build that filesystem-only
+      # scans (already done in the lint job) cannot see.
+      # `ignore-unfixed: true` skips CVEs with no upstream fix yet —
+      # blocking on those creates churn without resolution.
+      # ----------------------------------------------------------------
+      - name: Trivy image scan (CRITICAL/HIGH blocking)
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # 0.35.0
+        with:
+          image-ref: ${{ matrix.service }}:scan
+          scanners: 'vuln,secret,misconfig'
+          severity: 'CRITICAL,HIGH'
+          exit-code: '1'
+          ignore-unfixed: true
+
+      # ----------------------------------------------------------------
+      # GATE 3: Spring Boot boot-marker smoke test.
+      # Spring Boot services need MongoDB to pass /actuator/health, so
+      # a health-endpoint smoke test would always fail. Instead, watch
+      # the container logs for Spring Boot's standard "started" line.
+      # This proves the JAR is well-formed, JVM starts, Spring context
+      # boots, and embedded Tomcat begins listening — without needing
+      # any external dependencies.
+      # ----------------------------------------------------------------
+      - name: Smoke test (Spring Boot boot marker)
+        run: |
+          set -euo pipefail
+          SVC='${{ matrix.service }}'
+          docker run -d --name="${SVC}-smoke" "${SVC}:scan"
+          echo "Waiting up to 90s for Spring Boot to boot..."
+          end=$((SECONDS + 90))
+          while [ $SECONDS -lt $end ]; do
+            if docker logs "${SVC}-smoke" 2>&1 | grep -qE 'Started [A-Z][a-zA-Z]+Application in|Tomcat started on port|Netty started on port'; then
+              echo "PASS: ${SVC} container booted Spring Boot successfully"
+              docker rm -f "${SVC}-smoke" >/dev/null
+              exit 0
+            fi
+            sleep 3
+          done
+          echo "FAIL: ${SVC} did not reach Spring Boot start within 90s"
+          echo "--- container logs ---"
+          docker logs "${SVC}-smoke"
+          docker rm -f "${SVC}-smoke" >/dev/null || true
+          exit 1
+
+      # ----------------------------------------------------------------
+      # All gates passed → publish multi-arch with attestations.
+      # ----------------------------------------------------------------
+      - name: Login to GHCR
+        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push (multi-arch + provenance + SBOM)
+        id: push
         uses: docker/build-push-action@d08e5c354a6adb9ed34480a06d141179aa583294 # v7
         with:
           context: ./${{ matrix.service }}-service
@@ -247,6 +319,40 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          provenance: false
+          # SLSA L2 build provenance (mode=max) + SBOM attestations.
+          # GHCR's UI shows extra "unknown/unknown" entries for the
+          # attestation manifests alongside the real platform manifests
+          # — this is cosmetic; `docker pull` works identically and
+          # consumers gain provable supply-chain origin.
+          provenance: mode=max
+          sbom: true
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      # ----------------------------------------------------------------
+      # Post-push: cosign keyless signing.
+      # Signs the manifest digest with Sigstore via OIDC (no long-lived
+      # private keys). Consumers verify with:
+      #   cosign verify ghcr.io/owner/repo/service:tag \
+      #     --certificate-identity-regexp 'https://github\.com/.+' \
+      #     --certificate-oidc-issuer https://token.actions.githubusercontent.com
+      # Signing the digest covers all tags pointing to it (one signature
+      # per tag in the rekor record for clarity, but they all verify the
+      # same manifest).
+      # ----------------------------------------------------------------
+      - name: Install cosign
+        uses: sigstore/cosign-installer@cad07c2e89fa2edd6e2d7bab4c1aa38e53f76003 # v4.1.1
+
+      - name: Sign image with cosign (keyless)
+        env:
+          TAGS: ${{ steps.meta.outputs.tags }}
+          DIGEST: ${{ steps.push.outputs.digest }}
+        run: |
+          set -euo pipefail
+          echo "Signing manifest digest ${DIGEST} for tags:"
+          echo "${TAGS}"
+          while IFS= read -r tag; do
+            [ -z "$tag" ] && continue
+            echo "→ cosign sign ${tag}@${DIGEST}"
+            cosign sign --yes "${tag}@${DIGEST}"
+          done <<< "${TAGS}"
