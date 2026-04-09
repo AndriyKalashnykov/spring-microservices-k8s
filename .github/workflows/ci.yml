@@ -136,7 +136,13 @@ jobs:
 
   cve-check:
     needs: [lint]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/master' && vars.ACT != 'true'
+    # Run on push to master AND on tag pushes (so the docker job can gate on it).
+    # Skipped under local act runs because the OWASP NVD download is slow.
+    if: |
+      vars.ACT != 'true' && github.event_name == 'push' && (
+        github.ref == 'refs/heads/master' ||
+        startsWith(github.ref, 'refs/tags/')
+      )
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -182,7 +188,9 @@ jobs:
 
   docker:
     if: startsWith(github.ref, 'refs/tags/')
-    needs: [builds, tests]
+    # Gate releases on the OWASP CVE scan as well as build/test —
+    # don't ship images to GHCR if there are known vulnerable dependencies.
+    needs: [builds, tests, cve-check]
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:

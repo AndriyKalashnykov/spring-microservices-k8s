@@ -238,8 +238,8 @@ GitHub Actions runs on every push to `master`, tags `v*`, and pull requests.
 | **lint** | push, PR | `make static-check` (format-check, lint-ci, lint, lint-docker, secrets, trivy-fs, trivy-config) |
 | **builds** | after lint | Build all modules with Maven |
 | **tests** | after lint | Run Testcontainers integration tests + coverage (non-blocking) |
-| **cve-check** | push to master only (skipped under `act`) | OWASP dependency vulnerability scan |
-| **docker** | tag push only | Build and push multi-arch (amd64+arm64) Docker images to GHCR — fans out over the 4 services via matrix |
+| **cve-check** | push to master AND tag pushes (skipped under `act`) | OWASP dependency vulnerability scan — gates the `docker` job on tag pushes |
+| **docker** | tag push only | Build and push multi-arch (amd64+arm64) Docker images to GHCR — fans out over the 4 services via matrix. Depends on `builds`, `tests`, and `cve-check` so a failing CVE scan blocks the release. |
 
 Integration tests use [Testcontainers](https://testcontainers.com/) with MongoDB for fast local testing via `make test`.
 End-to-end tests validate the full stack on Kind via `make e2e`.
