@@ -3,15 +3,22 @@ name: Cleanup old workflow runs
 on:
   schedule:
     - cron: '0 0 * * 0'
+  workflow_call:
   workflow_dispatch:
 
 permissions:
-  actions: write
+  contents: read
+
+concurrency:
+  group: cleanup-${{ github.workflow }}
+  cancel-in-progress: true
 
 jobs:
-  cleanup:
+  cleanup-runs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    permissions:
+      actions: write
     env:
       GH_TOKEN: ${{ github.token }}
       RETAIN_DAYS: 7
@@ -22,5 +29,40 @@ jobs:
           CUTOFF=$(date -u -d "$RETAIN_DAYS days ago" +%Y-%m-%dT%H:%M:%SZ)
           gh run list --repo "${{ github.repository }}" \
             --json databaseId,createdAt --limit 200 \
-            --jq "sort_by(.createdAt) | reverse | .[$KEEP_MINIMUM:] | .[] | select(.createdAt < \\"$CUTOFF\\") | .databaseId" \
+            --jq "sort_by(.createdAt) | reverse | .[$KEEP_MINIMUM:] | .[] | select(.createdAt < \"$CUTOFF\") | .databaseId" \
           | xargs -r -I{} gh run delete {} --repo "${{ github.repository }}"
+
+  cleanup-caches:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: write
+      contents: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - name: Delete caches for stale refs
+        run: |
+          # Build a set of valid refs: master, all tags, all open branches.
+          VALID_REFS=$(mktemp)
+          {
+            echo "refs/heads/master"
+            git ls-remote --tags origin 2>/dev/null | awk '{print $2}' | grep -v '\^{}$' || true
+            gh api repos/${{ github.repository }}/branches --paginate --jq '.[].name' 2>/dev/null \
+              | sed 's|^|refs/heads/|' || true
+          } | sort -u > "$VALID_REFS"
+
+          # List all caches and delete those whose ref is not in the valid set.
+          gh api repos/${{ github.repository }}/actions/caches --paginate \
+            --jq '.actions_caches[] | "\(.id) \(.ref)"' \
+          | while read -r id ref; do
+              if ! grep -Fxq "$ref" "$VALID_REFS"; then
+                echo "Deleting cache $id (ref: $ref)"
+                gh api -X DELETE "repos/${{ github.repository }}/actions/caches/$id" || true
+              fi
+            done
+
+          rm -f "$VALID_REFS"

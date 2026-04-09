@@ -54,7 +54,7 @@ make kind-destroy    # Delete Kind cluster
 - Maven multi-module build
 - Docker (multi-arch via buildx)
 - Kubernetes (Kind + MetalLB for local dev)
-- MongoDB 8
+- MongoDB 8 (bitnamilegacy/mongodb image, version-pinned for Renovate)
 - Testcontainers (integration tests)
 - Checkstyle + hadolint + gitleaks (static analysis)
 
@@ -65,10 +65,9 @@ Use the following skills when working on related files:
 | File(s) | Skill |
 |---------|-------|
 | `Makefile` | `/makefile` |
+| `renovate.json` | `/renovate` |
 | `README.md` | `/readme` |
 | `.github/workflows/*.{yml,yaml}` | `/ci-workflow` |
-| `CLAUDE.md` | `/claude` |
-| `renovate.json` | `/renovate` |
 
 When spawning subagents, always pass conventions from the respective skill into the agent's prompt.
 

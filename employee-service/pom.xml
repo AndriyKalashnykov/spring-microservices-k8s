@@ -24,6 +24,13 @@
 				<type>pom</type>
 				<scope>import</scope>
 			</dependency>
+			<!-- Override transitive jose4j to fix CVE-2024-29371 (DoS via malicious JWE token).
+			     Pulled in transitively by spring-cloud-starter-kubernetes-client-all. -->
+			<dependency>
+				<groupId>org.bitbucket.b_c</groupId>
+				<artifactId>jose4j</artifactId>
+				<version>0.9.6</version>
+			</dependency>
 		</dependencies>
 	</dependencyManagement>
 
@@ -119,6 +126,27 @@
 					<layers>
 						<enabled>true</enabled>
 					</layers>
+				</configuration>
+			</plugin>
+			<!-- Resolves ${org.mockito:mockito-core:jar} for surefire argLine. -->
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-dependency-plugin</artifactId>
+				<executions>
+					<execution>
+						<goals>
+							<goal>properties</goal>
+						</goals>
+					</execution>
+				</executions>
+			</plugin>
+			<!-- Load Mockito's inline mock maker as an explicit Java agent to avoid the
+			     "dynamic agent loading will be disallowed" warning on Java 21+. -->
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-surefire-plugin</artifactId>
+				<configuration>
+					<argLine>-javaagent:${org.mockito:mockito-core:jar}</argLine>
 				</configuration>
 			</plugin>
 		</plugins>

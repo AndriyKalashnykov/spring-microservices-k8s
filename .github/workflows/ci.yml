@@ -1,4 +1,4 @@
-name: ci
+name: CI
 
 on:
   push:
@@ -8,6 +8,7 @@ on:
       - '*.md'
       - '!CLAUDE.md'
       - 'docs/**'
+      - 'specs/**'
       - 'LICENSE'
       - '.gitignore'
       - '.claudeignore'
@@ -22,6 +23,7 @@ on:
       - '*.md'
       - '!CLAUDE.md'
       - 'docs/**'
+      - 'specs/**'
       - 'LICENSE'
       - '.gitignore'
       - '.claudeignore'
@@ -51,10 +53,10 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Set up JDK 21
+      - name: Set up JDK
         uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
         with:
-          java-version: '25'
+          java-version-file: '.java-version'
           distribution: 'temurin'
           cache: maven
 
@@ -64,14 +66,6 @@ jobs:
       - name: Static check
         run: make static-check
 
-      - name: Trivy filesystem scan
-        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # 0.35.0
-        with:
-          scan-type: 'fs'
-          scanners: 'vuln,secret,misconfig'
-          severity: 'CRITICAL,HIGH'
-          exit-code: '0'
-
   tests:
     needs: [lint]
     runs-on: ubuntu-latest
@@ -80,10 +74,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
-      - name: Set up JDK 21
+      - name: Set up JDK
         uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
         with:
-          java-version: '25'
+          java-version-file: '.java-version'
           distribution: 'temurin'
           cache: maven
 
@@ -114,10 +108,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
-      - name: Set up JDK 21
+      - name: Set up JDK
         uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
         with:
-          java-version: '25'
+          java-version-file: '.java-version'
           distribution: 'temurin'
           cache: maven
 
@@ -128,7 +122,9 @@ jobs:
         run: make build
 
       - name: Upload build artifacts
+        if: startsWith(github.ref, 'refs/tags/')
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7
+        continue-on-error: true
         with:
           name: service-jars
           path: |
@@ -147,10 +143,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
-      - name: Set up JDK 21
+      - name: Set up JDK
         uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
         with:
-          java-version: '25'
+          java-version-file: '.java-version'
           distribution: 'temurin'
           cache: maven
 
@@ -223,7 +219,10 @@ jobs:
           images: ghcr.io/${{ github.repository }}/${{ matrix.service }}
           tags: |
             type=semver,pattern=v{{version}}
-            type=raw,value=latest
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+          flavor: |
+            latest=true
 
       - name: Build and push
         uses: docker/build-push-action@d08e5c354a6adb9ed34480a06d141179aa583294 # v7

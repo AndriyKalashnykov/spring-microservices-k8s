@@ -22,7 +22,7 @@
       "description": "Update Makefile tool versions via inline renovate comments",
       "managerFilePatterns": ["/^Makefile$/"],
       "matchStrings": [
-        "# renovate: datasource=(?<datasource>[^\\s]+) depName=(?<depName>[^\\s]+)( versioning=(?<versioning>[^\\s]+))?\\n[A-Z_]+\\s*:=\\s*(?<currentValue>[^\\s]+)"
+        "# renovate: datasource=(?<datasource>[^\\s]+) depName=(?<depName>[^\\s]+)( versioning=(?<versioning>[^\\s]+))?( extractVersion=(?<extractVersion>[^\\s]+))?\\n[A-Z_]+\\s*:=\\s*(?<currentValue>[^\\s]+)"
       ]
     }
   ],
@@ -43,6 +43,11 @@
       "groupName": "GitHub Actions"
     },
     {
+      "description": "Group Dockerfile base image updates",
+      "matchManagers": ["dockerfile"],
+      "groupName": "Docker base images"
+    },
+    {
       "description": "Group Spring Boot dependencies",
       "matchPackageNames": ["/^org\\.springframework\\.boot/"],
       "groupName": "Spring Boot"
@@ -56,6 +61,16 @@
       "description": "Group Spring Cloud dependencies",
       "matchPackageNames": ["/^org\\.springframework\\.cloud/"],
       "groupName": "Spring Cloud"
+    },
+    {
+      "description": "Group Testcontainers dependencies",
+      "matchPackageNames": ["/^org\\.testcontainers/"],
+      "groupName": "Testcontainers"
+    },
+    {
+      "description": "Group Micrometer dependencies",
+      "matchPackageNames": ["/^io\\.micrometer/"],
+      "groupName": "Micrometer"
     },
     {
       "description": "Label Java packages",

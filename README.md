@@ -1,4 +1,4 @@
-[![CI](https://github.com/AndriyKalashnykov/spring-microservices-k8s/actions/workflows/ci.yml/badge.svg)](https://github.com/AndriyKalashnykov/spring-microservices-k8s/actions/workflows/ci.yml)
+[![CI](https://github.com/AndriyKalashnykov/spring-microservices-k8s/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/AndriyKalashnykov/spring-microservices-k8s/actions/workflows/ci.yml)
 [![Hits](https://hits.sh/github.com/AndriyKalashnykov/spring-microservices-k8s.svg?view=today-total&style=plastic)](https://hits.sh/github.com/AndriyKalashnykov/spring-microservices-k8s/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-brightgreen.svg)](https://opensource.org/licenses/MIT)
 [![Renovate enabled](https://img.shields.io/badge/renovate-enabled-brightgreen.svg)](https://app.renovatebot.com/dashboard#github/AndriyKalashnykov/spring-microservices-k8s)
@@ -9,12 +9,12 @@ This reference architecture demonstrates design, development, and deployment of 
 
 | Component | Technology |
 |-----------|-----------|
-| Language | Java 25 LTS |
+| Language | Java 25 |
 | Framework | Spring Boot 3.5, Spring Cloud 2025.0 |
 | API Gateway | Spring Cloud Gateway MVC |
 | Inter-service | RestClient with `@HttpExchange` |
 | Service Discovery | Spring Cloud Kubernetes |
-| Database | MongoDB 8 (Bitnami, non-root) |
+| Database | MongoDB 8 (bitnamilegacy/mongodb, non-root, version-pinned) |
 | API Docs | SpringDoc OpenAPI 2.8 / Swagger UI |
 | Tracing | Micrometer Tracing (Brave) |
 | Testing | Testcontainers (integration), Kind e2e |
@@ -77,43 +77,54 @@ make gateway-open  # open Swagger UI in browser
 |------|---------|---------|
 | [GNU Make](https://www.gnu.org/software/make/) | 3.81+ | Build orchestration |
 | [Git](https://git-scm.com/) | 2.0+ | Version control |
-| [JDK](https://adoptium.net/) | 25 | Java runtime and compiler |
-| [Maven](https://maven.apache.org/) | 3.6+ | Build and dependency management |
+| [JDK](https://adoptium.net/) | 25 | Java runtime and compiler (source of truth: [`.java-version`](.java-version)) |
+| [Maven](https://maven.apache.org/) | 3.9+ | Build and dependency management (pinned: `MAVEN_VER` in [Makefile](Makefile)) |
 | [Docker](https://www.docker.com/) | 20.10+ | Container runtime |
 | [kubectl](https://kubernetes.io/docs/tasks/tools/) | 1.24+ | Kubernetes CLI |
 | [Kind](https://kind.sigs.k8s.io/) | 0.31+ | Local Kubernetes clusters (auto-installed by `make deps-kind`) |
+| [SDKMAN](https://sdkman.io/) | latest | Java/Maven version management (optional, used by `make deps-install`) |
 
-Install and verify required tools:
+Verify required tools are installed:
 
 ```bash
 make deps
 ```
 
+To install Java 25 and Maven via SDKMAN automatically:
+
+```bash
+make deps-install
+```
+
 ## Available Make Targets
 
-### Build
+Run `make help` to see all available targets.
+
+### Build & Run
 
 | Target | Description |
 |--------|-------------|
 | `make build` | Build all modules with Maven (skip tests) |
 | `make clean` | Clean all build artifacts |
 | `make test` | Run tests |
-| `make lint` | Run Checkstyle and compiler warning checks |
-| `make format` | Auto-format Java source code |
+| `make format` | Auto-format Java source code (Google style) |
 | `make format-check` | Verify code formatting (CI gate) |
 
 ### Code Quality
 
 | Target | Description |
 |--------|-------------|
-| `make static-check` | Run all quality and security checks |
-| `make cve-check` | Run OWASP dependency vulnerability scan |
+| `make static-check` | Run all quality and security checks (format-check, lint-ci, lint, lint-docker, secrets, trivy-fs, trivy-config) |
+| `make lint` | Run Maven validate, compiler warnings-as-errors, and Checkstyle (google_checks.xml) |
+| `make lint-ci` | Lint GitHub Actions workflows with actionlint (uses shellcheck) |
 | `make lint-docker` | Lint all Dockerfiles with hadolint |
 | `make secrets` | Scan for hardcoded secrets |
+| `make trivy-fs` | Scan filesystem for vulnerabilities, secrets, and misconfigurations |
+| `make trivy-config` | Scan Kubernetes manifests for security misconfigurations (KSV-*) |
+| `make cve-check` | Run OWASP dependency vulnerability scan |
 | `make coverage-generate` | Generate code coverage report |
 | `make coverage-check` | Verify code coverage meets minimum threshold |
 | `make coverage-open` | Open code coverage report in browser |
-| `make deps-prune` | Check for unused Maven dependencies |
 
 ### Docker
 
@@ -157,21 +168,36 @@ make deps
 
 | Target | Description |
 |--------|-------------|
-| `make ci` | Run full local CI pipeline |
-| `make ci-run` | Run GitHub Actions workflow locally using act |
-| `make release VERSION=x.y.z` | Create a semver release tag |
+| `make ci` | Run full local CI pipeline (deps, static-check, coverage, build, deps-prune-check) |
+| `make ci-run` | Run GitHub Actions workflow locally via [act](https://github.com/nektos/act) |
+| `make release VERSION=x.y.z` | Create a release (usage: `make release VERSION=x.y.z`) |
 | `make maven-settings-ossindex` | Create Maven settings for OSS Index credentials |
-| `make deps` | Check required dependencies |
+
+### Dependencies
+
+| Target | Description |
+|--------|-------------|
+| `make deps` | Check required tools (java 25, mvn) |
 | `make deps-install` | Install Java and Maven via SDKMAN |
-| `make deps-maven` | Install Maven if not present (for CI) |
+| `make deps-maven` | Install Maven if not present (for CI containers) |
 | `make deps-check` | Show required tools and installation status |
 | `make deps-docker` | Check Docker and kubectl |
 | `make deps-kind` | Install KinD for local Kubernetes testing |
 | `make deps-act` | Install act for local CI runs |
 | `make deps-hadolint` | Install hadolint for Dockerfile linting |
 | `make deps-gitleaks` | Install gitleaks for secret scanning |
+| `make deps-trivy` | Install Trivy for vulnerability and misconfig scanning |
+| `make deps-actionlint` | Install actionlint for GitHub Actions linting |
+| `make deps-shellcheck` | Install shellcheck (used by actionlint) |
 | `make deps-updates` | Print project dependencies updates |
 | `make deps-update` | Update project dependencies to latest releases |
+| `make deps-prune` | Check for unused Maven dependencies |
+| `make deps-prune-check` | Fail if unused/undeclared Maven dependencies are present (CI gate) |
+
+### Renovate
+
+| Target | Description |
+|--------|-------------|
 | `make renovate-bootstrap` | Install nvm and npm for Renovate |
 | `make renovate-validate` | Validate Renovate configuration |
 
@@ -209,11 +235,11 @@ GitHub Actions runs on every push to `master`, tags `v*`, and pull requests.
 
 | Job | Triggers | Steps |
 |-----|----------|-------|
-| **lint** | push, PR | Format check, Checkstyle, Dockerfile lint, secret scan, Trivy |
+| **lint** | push, PR | `make static-check` (format-check, lint-ci, lint, lint-docker, secrets, trivy-fs, trivy-config) |
 | **builds** | after lint | Build all modules with Maven |
-| **tests** | after lint | Run Testcontainers integration tests + coverage |
-| **cve-check** | push to master | OWASP dependency vulnerability scan |
-| **docker** | tag push only | Build and push multi-arch Docker images to GHCR |
+| **tests** | after lint | Run Testcontainers integration tests + coverage (non-blocking) |
+| **cve-check** | push to master only (skipped under `act`) | OWASP dependency vulnerability scan |
+| **docker** | tag push only | Build and push multi-arch (amd64+arm64) Docker images to GHCR — fans out over the 4 services via matrix |
 
 Integration tests use [Testcontainers](https://testcontainers.com/) with MongoDB for fast local testing via `make test`.
 End-to-end tests validate the full stack on Kind via `make e2e`.
@@ -225,11 +251,12 @@ End-to-end tests validate the full stack on Kind via `make e2e`.
 | `NVD_API_KEY` | Secret | `cve-check` job | Free API key from [NIST NVD](https://nvd.nist.gov/developers/request-an-api-key). Without it, OWASP dependency-check is heavily rate-limited. |
 | `OSS_INDEX_USER` | Secret | `cve-check` job | Free account at [Sonatype OSS Index](https://ossindex.sonatype.org/user/signin). Your email address. Optional — improves vulnerability data quality. |
 | `OSS_INDEX_TOKEN` | Secret | `cve-check` job | API token from [OSS Index settings](https://ossindex.sonatype.org/user/settings). Optional — paired with `OSS_INDEX_USER`. |
+| `ACT` | Variable | `cve-check` job | Set to `true` to skip the `cve-check` job during local `act` runs (set automatically by `make ci-run`). |
 
 Set secrets via **Settings > Secrets and variables > Actions > New repository secret**.
 Set variables via **Settings > Secrets and variables > Actions > Variables tab > New repository variable**.
 
-A weekly [cleanup workflow](.github/workflows/cleanup-runs.yml) prunes old workflow runs.
+A weekly [cleanup workflow](.github/workflows/cleanup-runs.yml) prunes old workflow runs and stale caches.
 
 [Renovate](https://docs.renovatebot.com/) keeps dependencies up to date with platform automerge enabled.
 

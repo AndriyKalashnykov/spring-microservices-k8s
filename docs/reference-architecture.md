@@ -34,18 +34,19 @@ addresses the following concerns:
 
 | Component | Version |
 |-----------|---------|
-| Java | 21 |
-| Spring Boot | 3.4.13 |
-| Spring Cloud | 2024.0.3 |
-| Spring Cloud Kubernetes | 3.x (via 2024.0.3) |
-| Spring Cloud Gateway MVC | 4.2.x |
-| RestClient + @HttpExchange | Spring 6.1+ (native) |
+| Java | 25 |
+| Spring Boot | 3.5.13 |
+| Spring Cloud | 2025.0.2 |
+| Spring Cloud Kubernetes | 3.x (via 2025.0.2) |
+| Spring Cloud Gateway MVC | 4.3.x |
+| RestClient + @HttpExchange | Spring 6.2+ (native) |
 | Micrometer Tracing | (managed by Spring Boot BOM) |
 | Testcontainers | (managed by Spring Boot BOM) |
-| Spring Cloud LoadBalancer | 4.2.x |
+| Spring Cloud LoadBalancer | 4.3.x |
 | SpringDoc OpenAPI | 2.8.16 |
-| MongoDB | 7.0 |
+| MongoDB | 8 (bitnamilegacy/mongodb) |
 | Kubernetes | 1.35+ (Kind for local dev) |
+| Kind | 0.31.0 |
 | MetalLB | 0.15.3 |
 
 ## Reference Architecture
@@ -367,23 +368,27 @@ spec:
   replicas: 1
   template:
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        fsGroup: 1001
       containers:
         - name: mongodb
-          image: mongo:7.0
+          image: bitnamilegacy/mongodb:8.0.13-debian-12-r0
           ports:
             - containerPort: 27017
           env:
-            - name: MONGO_INITDB_DATABASE
+            - name: MONGODB_DATABASE
               valueFrom:
                 configMapKeyRef:
                   name: mongodb
                   key: database-name
-            - name: MONGO_INITDB_ROOT_USERNAME
+            - name: MONGODB_ROOT_USER
               valueFrom:
                 secretKeyRef:
                   name: mongodb
                   key: database-user
-            - name: MONGO_INITDB_ROOT_PASSWORD
+            - name: MONGODB_ROOT_PASSWORD
               valueFrom:
                 secretKeyRef:
                   name: mongodb

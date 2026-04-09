@@ -13,8 +13,6 @@ ifneq ($(SDKMAN_JAVA),)
   export PATH      := $(JAVA_HOME)/bin:$(PATH)
 endif
 
-MVN           := $(shell command -v mvn 2>/dev/null)
-
 KIND_CLUSTER_NAME := spring-microservices-k8s
 SERVICES          := employee department organization gateway
 IMAGE_TAG         := local
@@ -27,12 +25,15 @@ OPEN_CMD := $(if $(filter Darwin,$(shell uname -s)),open,xdg-open)
 SEMVER_RE := ^[0-9]+\.[0-9]+\.[0-9]+$$
 
 # === Tool Versions (pinned) ===
+# JAVA_VER: SDKMAN identifier — not Renovate-trackable.
+# Source of truth for Java version: .java-version (read by CI via java-version-file)
+# and module pom.xml <java.version>.
 JAVA_VER     := 25-tem
-# renovate: datasource=maven depName=org.apache.maven:apache-maven
+# renovate: datasource=github-tags depName=apache/maven extractVersion=^maven-(?<version>.*)$
 MAVEN_VER    := 3.9.14
-# renovate: datasource=github-releases depName=kubernetes-sigs/kind
+# renovate: datasource=github-releases depName=kubernetes-sigs/kind extractVersion=^v(?<version>.*)$
 KIND_VERSION      := 0.31.0
-# renovate: datasource=github-releases depName=metallb/metallb
+# renovate: datasource=github-releases depName=metallb/metallb extractVersion=^v(?<version>.*)$
 METALLB_VERSION   := 0.15.3
 # renovate: datasource=github-releases depName=nektos/act extractVersion=^v(?<version>.*)$
 ACT_VERSION       := 0.2.87
@@ -42,9 +43,16 @@ HADOLINT_VERSION  := 2.14.0
 GJF_VERSION       := 1.35.0
 # renovate: datasource=github-releases depName=zricethezav/gitleaks extractVersion=^v(?<version>.*)$
 GITLEAKS_VERSION  := 8.30.1
+# renovate: datasource=github-releases depName=aquasecurity/trivy extractVersion=^v(?<version>.*)$
+TRIVY_VERSION     := 0.69.3
+# renovate: datasource=github-releases depName=rhysd/actionlint extractVersion=^v(?<version>.*)$
+ACTIONLINT_VERSION := 1.7.12
+# renovate: datasource=github-releases depName=koalaman/shellcheck extractVersion=^v(?<version>.*)$
+SHELLCHECK_VERSION := 0.11.0
 # renovate: datasource=github-releases depName=nvm-sh/nvm extractVersion=^v(?<version>.*)$
 NVM_VERSION       := 0.40.4
-NODE_VERSION      := 22
+# Source of truth: .nvmrc (major version only, e.g., "22"); not Renovate-trackable.
+NODE_VERSION      := $(shell cat .nvmrc 2>/dev/null || echo 22)
 
 # ---------------------------------------------------------------------------
 # Help
@@ -86,7 +94,7 @@ deps-install:
 #deps-check: @ Show required tools and installation status
 deps-check:
 	@echo "--- Tool status ---"
-	@for tool in java mvn docker kubectl kind act hadolint gitleaks node; do \
+	@for tool in java mvn docker kubectl kind act hadolint gitleaks trivy actionlint shellcheck node; do \
 		printf "  %-16s " "$$tool:"; \
 		command -v $$tool >/dev/null 2>&1 && echo "installed" || echo "NOT installed"; \
 	done
@@ -104,7 +112,10 @@ deps-kind: deps deps-docker
 		if command -v go >/dev/null 2>&1; then \
 			go install sigs.k8s.io/kind@v$(KIND_VERSION); \
 		else \
-			curl -Lo ./kind https://kind.sigs.k8s.io/dl/v$(KIND_VERSION)/kind-linux-amd64 && chmod +x ./kind && sudo mv ./kind /usr/local/bin/kind; \
+			mkdir -p $$HOME/.local/bin && \
+			curl -Lo $$HOME/.local/bin/kind https://kind.sigs.k8s.io/dl/v$(KIND_VERSION)/kind-linux-amd64 && \
+			chmod +x $$HOME/.local/bin/kind && \
+			echo "Installed to $$HOME/.local/bin/kind — ensure ~/.local/bin is on PATH"; \
 		fi; \
 	}
 
@@ -129,18 +140,57 @@ deps-gitleaks:
 		tar xz -C /usr/local/bin gitleaks; \
 	}
 
+#deps-trivy: @ Install Trivy for vulnerability and misconfig scanning
+deps-trivy:
+	@command -v trivy >/dev/null 2>&1 || { echo "Installing trivy $(TRIVY_VERSION)..."; \
+		mkdir -p $$HOME/.local/bin && \
+		curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b $$HOME/.local/bin v$(TRIVY_VERSION) && \
+		echo "Installed to $$HOME/.local/bin/trivy — ensure ~/.local/bin is on PATH"; \
+	}
+
+#deps-actionlint: @ Install actionlint for GitHub Actions linting
+deps-actionlint:
+	@command -v actionlint >/dev/null 2>&1 || { echo "Installing actionlint $(ACTIONLINT_VERSION)..."; \
+		mkdir -p $$HOME/.local/bin && \
+		curl -sSfL -o /tmp/actionlint.tar.gz https://github.com/rhysd/actionlint/releases/download/v$(ACTIONLINT_VERSION)/actionlint_$(ACTIONLINT_VERSION)_linux_amd64.tar.gz && \
+		tar -xzf /tmp/actionlint.tar.gz -C $$HOME/.local/bin actionlint && \
+		rm -f /tmp/actionlint.tar.gz && \
+		echo "Installed to $$HOME/.local/bin/actionlint — ensure ~/.local/bin is on PATH"; \
+	}
+
+#deps-shellcheck: @ Install shellcheck for shell script linting (used by actionlint)
+deps-shellcheck:
+	@command -v shellcheck >/dev/null 2>&1 || { echo "Installing shellcheck $(SHELLCHECK_VERSION)..."; \
+		mkdir -p $$HOME/.local/bin && \
+		curl -sSfL -o /tmp/shellcheck.tar.xz https://github.com/koalaman/shellcheck/releases/download/v$(SHELLCHECK_VERSION)/shellcheck-v$(SHELLCHECK_VERSION).linux.x86_64.tar.xz && \
+		tar -xJf /tmp/shellcheck.tar.xz -C /tmp && \
+		install -m 755 /tmp/shellcheck-v$(SHELLCHECK_VERSION)/shellcheck $$HOME/.local/bin/shellcheck && \
+		rm -rf /tmp/shellcheck-v$(SHELLCHECK_VERSION) /tmp/shellcheck.tar.xz && \
+		echo "Installed to $$HOME/.local/bin/shellcheck — ensure ~/.local/bin is on PATH"; \
+	}
+
 #deps-updates: @ Print project dependencies updates
 deps-updates: deps
-	@$(MVN) -B versions:display-dependency-updates
+	@mvn -B versions:display-dependency-updates
 
 #deps-update: @ Update project dependencies to latest releases
 deps-update: deps-updates
-	@$(MVN) -B versions:use-latest-releases
-	@$(MVN) -B versions:commit
+	@mvn -B versions:use-latest-releases
+	@mvn -B versions:commit
 
 #deps-prune: @ Check for unused Maven dependencies
 deps-prune: deps
-	@$(MVN) -B dependency:analyze -DignoreNonCompile=true 2>&1 | grep -E 'Unused|Used undeclared' || echo "No unused dependencies found."
+	@mvn -B dependency:analyze -DignoreNonCompile=true 2>&1 | grep -E 'Unused|Used undeclared' || echo "No unused dependencies found."
+
+#deps-prune-check: @ Fail if unused or undeclared Maven dependencies are present (CI gate)
+deps-prune-check: deps
+	@out=$$(mvn -B dependency:analyze -DignoreNonCompile=true -DfailOnWarning=false 2>&1); \
+	if echo "$$out" | grep -qE '\[WARNING\] (Unused declared|Used undeclared) dependencies'; then \
+		echo "$$out" | grep -A20 -E '\[WARNING\] (Unused declared|Used undeclared) dependencies'; \
+		echo "ERROR: prunable Maven dependencies found. Run 'make deps-prune' for details."; \
+		exit 1; \
+	fi
+	@echo "No prunable dependencies found."
 
 # ---------------------------------------------------------------------------
 # Build
@@ -148,21 +198,21 @@ deps-prune: deps
 
 #clean: @ Clean all build artifacts
 clean: deps
-	@$(MVN) -B clean -q
+	@mvn -B clean -q
 
 #build: @ Build all modules with Maven (skip tests)
 build: deps
-	@$(MVN) -B install -Dmaven.test.skip=true -Ddependency-check.skip=true
+	@mvn -B install -Dmaven.test.skip=true -Ddependency-check.skip=true
 
 #test: @ Run tests
 test: deps
-	@$(MVN) -B test -Ddependency-check.skip=true
+	@mvn -B test -Ddependency-check.skip=true
 
-#lint: @ Run Checkstyle and compiler warning checks
+#lint: @ Run Maven validate, compiler warnings-as-errors, and Checkstyle (google_checks.xml)
 lint: deps
-	@$(MVN) -B validate -Ddependency-check.skip=true
-	@$(MVN) -B compile -Dmaven.compiler.failOnWarning=true -Ddependency-check.skip=true -q
-	@$(MVN) -B checkstyle:check -Dcheckstyle.config.location=google_checks.xml
+	@mvn -B validate -Ddependency-check.skip=true
+	@mvn -B compile -Dmaven.compiler.failOnWarning=true -Ddependency-check.skip=true -q
+	@mvn -B checkstyle:check -Dcheckstyle.config.location=google_checks.xml
 
 GJF_JAR := $(HOME)/.cache/google-java-format/google-java-format-$(GJF_VERSION)-all-deps.jar
 GJF_URL := https://github.com/google/google-java-format/releases/download/v$(GJF_VERSION)/google-java-format-$(GJF_VERSION)-all-deps.jar
@@ -208,6 +258,19 @@ lint-docker: deps-hadolint
 secrets: deps-gitleaks
 	@gitleaks detect --source . --verbose --redact --no-git
 
+#trivy-fs: @ Scan filesystem for vulnerabilities, secrets, and misconfigurations
+trivy-fs: deps-trivy
+	@trivy fs --scanners vuln,secret,misconfig --severity CRITICAL,HIGH \
+		--skip-dirs target --skip-dirs .git .
+
+#trivy-config: @ Scan Kubernetes manifests for security misconfigurations (KSV-*)
+trivy-config: deps-trivy
+	@trivy config --severity CRITICAL,HIGH k8s/
+
+#lint-ci: @ Lint GitHub Actions workflows with actionlint (uses shellcheck)
+lint-ci: deps-actionlint deps-shellcheck
+	@actionlint
+
 #maven-settings-ossindex: @ Create Maven settings for OSS Index credentials
 maven-settings-ossindex:
 	@if [ -n "$$OSS_INDEX_USER" ] && [ -n "$$OSS_INDEX_TOKEN" ]; then \
@@ -217,12 +280,12 @@ maven-settings-ossindex:
 
 #cve-check: @ Run OWASP dependency vulnerability scan
 cve-check: deps maven-settings-ossindex
-	@$(MVN) -B org.owasp:dependency-check-maven:check \
+	@mvn -B org.owasp:dependency-check-maven:check \
 		$$([ -n "$$NVD_API_KEY" ] && echo "-DnvdApiKey=$$NVD_API_KEY")
 
 #coverage-generate: @ Generate code coverage report
 coverage-generate: deps
-	@$(MVN) -B test -Ddependency-check.skip=true org.jacoco:jacoco-maven-plugin:report
+	@mvn -B test -Ddependency-check.skip=true org.jacoco:jacoco-maven-plugin:report
 
 #coverage-check: @ Verify code coverage meets minimum threshold
 coverage-check: coverage-generate
@@ -233,7 +296,7 @@ coverage-open:
 	@$(OPEN_CMD) ./employee-service/target/site/jacoco/index.html
 
 #static-check: @ Run all quality and security checks
-static-check: format-check lint lint-docker secrets
+static-check: format-check lint-ci lint lint-docker secrets trivy-fs trivy-config
 	@echo "Static check passed."
 
 # ---------------------------------------------------------------------------
@@ -248,7 +311,7 @@ image-build: build
 	done
 
 #image-load: @ Load Docker images into KinD cluster
-image-load:
+image-load: deps-kind
 	@for svc in $(SERVICES); do \
 		echo "Loading $$svc:$(IMAGE_TAG) into cluster..."; \
 		kind load docker-image $$svc:$(IMAGE_TAG) --name $(KIND_CLUSTER_NAME); \
@@ -278,7 +341,7 @@ kind-create: deps-kind
 	sed "s/METALLB_IP_SUB/$$ip_sub/g" k8s/metallb-config.yaml | kubectl apply -f -
 
 #kind-setup: @ Create namespaces, RBAC, service accounts, and deploy MongoDB
-kind-setup:
+kind-setup: deps-docker
 	@echo "Creating namespaces..."
 	@for ns in department employee gateway organization mongo; do \
 		kubectl create namespace $$ns --dry-run=client -o yaml | kubectl apply -f -; \
@@ -301,7 +364,7 @@ kind-setup:
 	@kubectl rollout status deployment/mongodb -n mongo --timeout=120s
 
 #kind-deploy: @ Build, load images, deploy all services, and wait for rollout
-kind-deploy: image-build
+kind-deploy: kind-create kind-setup image-build
 	@$(MAKE) image-load
 	@echo "Deploying services..."
 	@for svc in employee department organization; do \
@@ -330,7 +393,7 @@ kind-deploy: image-build
 	done
 
 #kind-undeploy: @ Remove all services from KinD cluster
-kind-undeploy:
+kind-undeploy: deps-docker
 	@for svc in employee department organization; do \
 		echo "Removing $$svc..."; \
 		kubectl delete -f k8s/$$svc-deployment.yaml -n $$svc --ignore-not-found=true; \
@@ -345,7 +408,7 @@ kind-undeploy:
 kind-redeploy: kind-undeploy kind-deploy
 
 #kind-destroy: @ Delete KinD cluster
-kind-destroy:
+kind-destroy: deps-kind
 	@kind delete cluster --name $(KIND_CLUSTER_NAME) 2>/dev/null || true
 	@echo "KinD cluster '$(KIND_CLUSTER_NAME)' deleted."
 
@@ -362,7 +425,7 @@ e2e-test:
 	@./e2e/e2e-test.sh
 
 #populate: @ Populate test data via gateway
-populate:
+populate: deps-docker
 	@EXTERNAL_IP=$$(kubectl get svc gateway -n gateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}'); \
 	BASE_URL="http://$$EXTERNAL_IP:8080"; \
 	echo "Gateway URL: $$BASE_URL"; \
@@ -387,29 +450,29 @@ populate:
 # ---------------------------------------------------------------------------
 
 #gateway-url: @ Print gateway LoadBalancer URL
-gateway-url:
+gateway-url: deps-docker
 	@EXTERNAL_IP=$$(kubectl get svc gateway -n gateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}'); \
 	echo "http://$$EXTERNAL_IP:8080"
 
 #gateway-open: @ Open Swagger UI in browser
-gateway-open:
+gateway-open: deps-docker
 	@EXTERNAL_IP=$$(kubectl get svc gateway -n gateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}'); \
 	$(OPEN_CMD) "http://$$EXTERNAL_IP:8080/swagger-ui.html"
 
 #logs-employee: @ Tail employee service logs
-logs-employee:
+logs-employee: deps-docker
 	@kubectl logs -f -l app=employee -n employee
 
 #logs-department: @ Tail department service logs
-logs-department:
+logs-department: deps-docker
 	@kubectl logs -f -l app=department -n department
 
 #logs-organization: @ Tail organization service logs
-logs-organization:
+logs-organization: deps-docker
 	@kubectl logs -f -l app=organization -n organization
 
 #logs-gateway: @ Tail gateway service logs
-logs-gateway:
+logs-gateway: deps-docker
 	@kubectl logs -f -l app=gateway -n gateway
 
 # ---------------------------------------------------------------------------
@@ -417,7 +480,7 @@ logs-gateway:
 # ---------------------------------------------------------------------------
 
 #ci: @ Run full local CI pipeline
-ci: deps lint coverage-generate coverage-check build
+ci: deps static-check coverage-generate coverage-check build deps-prune-check
 	@echo "=== CI Complete ==="
 
 #ci-run: @ Run GitHub Actions workflow locally using act
@@ -472,9 +535,11 @@ renovate-validate: renovate-bootstrap
 
 .PHONY: help \
 	deps deps-maven deps-install deps-check deps-docker deps-kind deps-act \
-	deps-hadolint deps-gitleaks deps-updates deps-update deps-prune \
+	deps-hadolint deps-gitleaks deps-trivy deps-actionlint deps-shellcheck \
+	deps-updates deps-update deps-prune deps-prune-check \
 	clean build test lint format format-check \
-	lint-docker secrets maven-settings-ossindex cve-check \
+	lint-ci lint-docker secrets trivy-fs trivy-config \
+	maven-settings-ossindex cve-check \
 	coverage-generate coverage-check coverage-open static-check \
 	image-build image-load \
 	kind-create kind-setup kind-deploy kind-undeploy kind-redeploy kind-destroy \

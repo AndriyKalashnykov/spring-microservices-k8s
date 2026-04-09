@@ -22,7 +22,10 @@ spec:
           type: RuntimeDefault
       containers:
       - name: mongodb
-        image: bitnami/mongodb:latest
+        # bitnamilegacy/mongodb is the free, version-tagged successor after Bitnami's
+        # 2025 paid-catalog migration removed version tags from bitnami/mongodb.
+        # Same UID (1001), env vars, and security model as bitnami/mongodb.
+        image: bitnamilegacy/mongodb:8.0.13-debian-12-r0
         securityContext:
           allowPrivilegeEscalation: false
           readOnlyRootFilesystem: false
