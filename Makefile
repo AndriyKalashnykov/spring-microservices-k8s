@@ -464,6 +464,12 @@ kind-destroy: deps-kind
 	@kind delete cluster --name $(KIND_CLUSTER_NAME) 2>/dev/null || true
 	@echo "KinD cluster '$(KIND_CLUSTER_NAME)' deleted."
 
+#kind-up: @ Full cluster lifecycle (create + setup + deploy) — docker-compose-style alias for kind-deploy
+kind-up: kind-deploy
+
+#kind-down: @ Tear down the Kind cluster — docker-compose-style alias for kind-destroy
+kind-down: kind-destroy
+
 # ---------------------------------------------------------------------------
 # E2E
 # ---------------------------------------------------------------------------
@@ -594,7 +600,7 @@ renovate-validate: renovate-bootstrap
 	maven-settings-ossindex cve-check \
 	coverage-generate coverage-check coverage-open static-check \
 	image-build image-load \
-	kind-create kind-setup kind-deploy kind-undeploy kind-redeploy kind-destroy \
+	kind-create kind-setup kind-deploy kind-undeploy kind-redeploy kind-destroy kind-up kind-down \
 	e2e e2e-test populate \
 	gateway-url gateway-open \
 	logs-employee logs-department logs-organization logs-gateway \
