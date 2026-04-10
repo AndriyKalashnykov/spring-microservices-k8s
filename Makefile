@@ -38,6 +38,11 @@ JAVA_VER     := 25-tem
 MAVEN_VER    := 3.9.14
 # renovate: datasource=github-releases depName=kubernetes-sigs/kind extractVersion=^v(?<version>.*)$
 KIND_VERSION      := 0.31.0
+# renovate: datasource=docker depName=kindest/node
+# Must be one of the Kubernetes versions shipped by the pinned KIND_VERSION.
+# Kind 0.31.0 supports: v1.35.0 (default), v1.34.3, v1.33.7, v1.32.11, v1.31.14.
+# If Renovate proposes a version outside that set, bump KIND_VERSION first.
+KIND_NODE_IMAGE   := v1.35.0
 # renovate: datasource=github-releases depName=metallb/metallb extractVersion=^v(?<version>.*)$
 METALLB_VERSION   := 0.15.3
 # renovate: datasource=github-releases depName=nektos/act extractVersion=^v(?<version>.*)$
@@ -370,8 +375,12 @@ kind-create: deps-kind
 		echo "KinD cluster '$(KIND_CLUSTER_NAME)' already exists..."; \
 		kubectl config use-context kind-$(KIND_CLUSTER_NAME); \
 	else \
-		echo "Creating KinD cluster..."; \
-		kind create cluster --config=k8s/kind-config.yaml --name $(KIND_CLUSTER_NAME) --wait 60s; \
+		echo "Creating KinD cluster with node image kindest/node:$(KIND_NODE_IMAGE)..."; \
+		kind create cluster \
+			--config=k8s/kind-config.yaml \
+			--name $(KIND_CLUSTER_NAME) \
+			--image=kindest/node:$(KIND_NODE_IMAGE) \
+			--wait 60s; \
 	fi
 	@echo "Installing MetalLB $(METALLB_VERSION)..."
 	@kubectl apply -f https://raw.githubusercontent.com/metallb/metallb/v$(METALLB_VERSION)/config/manifests/metallb-native.yaml
