@@ -16,7 +16,7 @@ This reference architecture demonstrates design, development, and deployment of 
 | Service Discovery | Spring Cloud Kubernetes |
 | Database | MongoDB 8.0 (official `mongo` image, non-root UID 999, version-pinned) |
 | API Docs | SpringDoc OpenAPI 2.8 / Swagger UI |
-| Tracing | Micrometer Tracing (Brave) |
+| Tracing | Micrometer Tracing (OpenTelemetry bridge) |
 | Testing | Testcontainers (integration), Kind e2e |
 | Containers | Eclipse Temurin 25, multi-arch (amd64+arm64) |
 | Local K8s | Kind + MetalLB |

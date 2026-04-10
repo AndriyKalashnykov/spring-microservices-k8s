@@ -503,7 +503,7 @@ Dependencies (managed by Spring Boot BOM):
 ```xml
 <dependency>
     <groupId>io.micrometer</groupId>
-    <artifactId>micrometer-tracing-bridge-brave</artifactId>
+    <artifactId>micrometer-tracing-bridge-otel</artifactId>
 </dependency>
 ```
 
