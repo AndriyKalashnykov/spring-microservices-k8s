@@ -122,6 +122,7 @@ Run `make help` to see all available targets.
 | `make secrets` | Scan for hardcoded secrets |
 | `make trivy-fs` | Scan filesystem for vulnerabilities, secrets, and misconfigurations |
 | `make trivy-config` | Scan Kubernetes manifests for security misconfigurations (KSV-*) |
+| `make mermaid-lint` | Validate Mermaid diagrams in markdown files via [mermaid-cli](https://github.com/mermaid-js/mermaid-cli) |
 | `make cve-check` | Run OWASP dependency vulnerability scan |
 | `make coverage-generate` | Generate code coverage report |
 | `make coverage-check` | Verify code coverage meets minimum threshold |
@@ -236,11 +237,14 @@ GitHub Actions runs on every push to `master`, tags `v*`, and pull requests.
 
 | Job | Triggers | Steps |
 |-----|----------|-------|
-| **lint** | push, PR | `make static-check` (format-check, lint-ci, lint, lint-docker, secrets, trivy-fs, trivy-config) |
-| **builds** | after lint | Build all modules with Maven |
-| **tests** | after lint | Run Testcontainers integration tests + coverage (non-blocking) |
+| **static-check** | push, PR | `make static-check` composite gate: format-check, lint-ci (actionlint), lint (Checkstyle + compiler warnings-as-errors), lint-docker (hadolint), secrets (gitleaks), trivy-fs, trivy-config, mermaid-lint |
+| **build** | after static-check | Build all modules with Maven, upload JARs as `service-jars` artifact |
+| **test** | after static-check | Run Testcontainers integration tests + coverage (non-blocking) |
 | **cve-check** | push to master AND tag pushes (skipped under `act`) | OWASP dependency vulnerability scan — gates the `docker` job on tag pushes |
-| **docker** | tag push only | Pre-push hardening pipeline (per service): build local image → Trivy CVE scan (CRITICAL/HIGH blocking) → Spring Boot boot-marker smoke test → multi-arch (amd64+arm64) build with SLSA provenance + SBOM attestation → push to GHCR → cosign keyless OIDC signing. Fans out over the 4 services via matrix. Depends on `builds`, `tests`, and `cve-check`. |
+| **image-scan** | every push (matrix: 4 services) | Per-service Dockerfile validation gates 1–3: build single-arch image → Trivy image scan (CRITICAL/HIGH blocking) → Spring Boot boot-marker smoke test. Catches base-image CVE regressions and Dockerfile breakages on the commit that introduced them, not on release day. |
+| **e2e** | every push (skipped under `act`) | End-to-end test against a full Kind + MetalLB stack: `make e2e` cycles create → setup (MongoDB) → deploy (4 services + gateway LB) → `./e2e/e2e-test.sh` → destroy. |
+| **docker** | tag push only (matrix: 4 services) | Full pre-push hardening: build local image → Trivy image scan → Spring Boot smoke test → multi-arch (amd64+arm64) build with SLSA provenance + SBOM attestation → push to GHCR → cosign keyless OIDC signing. Depends on `build`, `test`, `cve-check`. |
+| **ci-pass** | always | Branch-protection aggregator: single required status check that verifies no upstream job failed. Skipped jobs do not trip the gate. |
 
 ### Pre-push image hardening
 

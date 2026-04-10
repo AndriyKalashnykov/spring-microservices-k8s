@@ -43,7 +43,7 @@ make kind-destroy    # Delete Kind cluster
 
 ## CI/CD
 
-- **ci.yml** -- `lint` (static-check + Trivy), `builds`, `tests` (coverage), `cve-check` (OWASP) + `docker` (tag-gated)
+- **ci.yml** -- `static-check` (composite quality gate), `build`, `test` (coverage), `cve-check` (OWASP, push-to-master + tag only), `image-scan` (per-service Trivy + Spring Boot smoke test on every push), `e2e` (Kind-based full stack on every push), `docker` (tag-gated, 4-service matrix with multi-arch + SLSA provenance + SBOM + cosign keyless signing), `ci-pass` (branch-protection aggregator)
 - **cleanup-runs.yml** -- weekly cleanup of old workflow runs
 
 ## Tech Stack
@@ -56,7 +56,7 @@ make kind-destroy    # Delete Kind cluster
 - Kubernetes (Kind + MetalLB for local dev)
 - MongoDB 8.0 (official `mongo` image, non-root UID 999, version-pinned for Renovate)
 - Testcontainers (integration tests)
-- Checkstyle + hadolint + gitleaks (static analysis)
+- Checkstyle + hadolint + gitleaks + Trivy + mermaid-cli (static analysis composite gate via `make static-check`)
 
 ## Skills
 

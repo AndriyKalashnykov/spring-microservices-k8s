@@ -60,7 +60,7 @@ jobs:
           distribution: 'temurin'
           cache: maven
 
-      - name: Ensure Maven is installed
+      - name: Install Maven
         run: make deps-maven
 
       - name: Static check
@@ -81,7 +81,7 @@ jobs:
           distribution: 'temurin'
           cache: maven
 
-      - name: Ensure Maven is installed
+      - name: Install Maven
         run: make deps-maven
 
       - name: Test with coverage
@@ -115,14 +115,15 @@ jobs:
           distribution: 'temurin'
           cache: maven
 
-      - name: Ensure Maven is installed
+      - name: Install Maven
         run: make deps-maven
 
       - name: Build
         run: make build
 
+      # Upload on every push so the image-scan job (gates 1-3 on every push)
+      # and e2e job can reuse the JARs instead of rebuilding with Maven.
       - name: Upload build artifacts
-        if: startsWith(github.ref, 'refs/tags/')
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7
         continue-on-error: true
         with:
@@ -156,7 +157,7 @@ jobs:
           distribution: 'temurin'
           cache: maven
 
-      - name: Ensure Maven is installed
+      - name: Install Maven
         run: make deps-maven
 
       - name: Cache NVD database
@@ -169,7 +170,7 @@ jobs:
       - name: Create Maven settings for OSS Index
         run: make maven-settings-ossindex
 
-      - name: OWASP dependency check
+      - name: Run OWASP dependency check
         env:
           NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
           OSS_INDEX_USER: ${{ secrets.OSS_INDEX_USER }}
@@ -185,6 +186,131 @@ jobs:
           name: cve-report
           path: '**/target/dependency-check-report.html'
           retention-days: 14
+
+  # Pre-tag Dockerfile validation running gates 1-3 (build + Trivy image scan
+  # + Spring Boot smoke test) on EVERY push. Catches base-image CVE regressions
+  # and Dockerfile breakages on the commit that introduced them, not on release
+  # day. The full tag-gated `docker` job below is a superset (adds multi-arch
+  # build + push + cosign) and is the matrix-exception to the consolidated
+  # `/ci-workflow` "single docker job" pattern: running the full 4-service
+  # multi-arch matrix on every push would be too expensive, so image-scan runs
+  # single-arch gates 1-3 on every push and docker runs the full pipeline on
+  # tag pushes only.
+  image-scan:
+    needs: [build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        service: [gateway, employee, organization, department]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      # Try the upload-artifact → download-artifact fast path first. Under
+      # `nektos/act` this reliably fails (cross-job artifact storage is not
+      # supported) so we fall back to rebuilding the JARs with Maven. The
+      # fallback keeps this job exercised by `make ci-run`.
+      - name: Download build artifacts
+        id: download-jars
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        continue-on-error: true
+        with:
+          name: service-jars
+
+      - name: Set up JDK (fallback)
+        if: steps.download-jars.outcome == 'failure'
+        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
+        with:
+          java-version-file: '.java-version'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Install Maven (fallback)
+        if: steps.download-jars.outcome == 'failure'
+        run: make deps-maven
+
+      - name: Build JARs (fallback)
+        if: steps.download-jars.outcome == 'failure'
+        run: make build
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4
+
+      - name: Build image for scan
+        uses: docker/build-push-action@d08e5c354a6adb9ed34480a06d141179aa583294 # v7
+        with:
+          context: ./${{ matrix.service }}-service
+          file: ./${{ matrix.service }}-service/Dockerfile
+          build-args: VARIANT=debug
+          platforms: linux/amd64
+          load: true
+          tags: ${{ matrix.service }}:scan
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Trivy image scan
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # 0.35.0
+        with:
+          image-ref: ${{ matrix.service }}:scan
+          scanners: 'vuln,secret,misconfig'
+          severity: 'CRITICAL,HIGH'
+          exit-code: '1'
+          ignore-unfixed: true
+
+      - name: Smoke test
+        run: |
+          set -euo pipefail
+          SVC='${{ matrix.service }}'
+          docker run -d --name="${SVC}-smoke" "${SVC}:scan"
+          echo "Waiting up to 90s for Spring Boot to boot..."
+          end=$((SECONDS + 90))
+          while [ $SECONDS -lt $end ]; do
+            if docker logs "${SVC}-smoke" 2>&1 | grep -qE 'Started [A-Z][a-zA-Z]+Application in|Tomcat started on port|Netty started on port'; then
+              echo "PASS: ${SVC} container booted Spring Boot successfully"
+              docker rm -f "${SVC}-smoke" >/dev/null
+              exit 0
+            fi
+            sleep 3
+          done
+          echo "FAIL: ${SVC} did not reach Spring Boot start within 90s"
+          echo "--- container logs ---"
+          docker logs "${SVC}-smoke"
+          docker rm -f "${SVC}-smoke" >/dev/null || true
+          exit 1
+
+      - name: Cleanup smoke container
+        if: always()
+        run: docker rm -f "${{ matrix.service }}-smoke" 2>/dev/null || true
+
+  # End-to-end test job (mandatory per /ci-workflow).
+  # Runs `make e2e` which cycles: kind-create → kind-setup (MongoDB) →
+  # kind-deploy (build+load images) → e2e-test script → kind-destroy.
+  # Skipped under local act runs — nested docker-in-docker + MetalLB does not
+  # work reliably inside act's runner containers. The job is exercised on
+  # GitHub Actions runners on every push/tag/PR.
+  e2e:
+    if: vars.ACT != 'true'
+    needs: [build, test]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - name: Set up JDK
+        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
+        with:
+          java-version-file: '.java-version'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Install Maven
+        run: make deps-maven
+
+      - name: Run end-to-end tests
+        run: make e2e
 
   docker:
     if: startsWith(github.ref, 'refs/tags/')
@@ -356,3 +482,21 @@ jobs:
             echo "→ cosign sign ${tag}@${DIGEST}"
             cosign sign --yes "${tag}@${DIGEST}"
           done <<< "${TAGS}"
+
+  # Branch-protection aggregator. Single required status check — jobs can be
+  # added or renamed without touching Settings. Skipped jobs (cve-check under
+  # act / on non-push branches; e2e under act; docker on non-tag pushes) do NOT
+  # count as failure — only `failure` results trip the gate.
+  ci-pass:
+    if: always()
+    needs: [static-check, test, build, cve-check, image-scan, e2e, docker]
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Verify all jobs passed
+        run: |
+          if [[ "${{ contains(needs.*.result, 'failure') }}" == "true" ]]; then
+            echo "One or more jobs failed"
+            exit 1
+          fi
+          echo "All required jobs passed or were skipped."

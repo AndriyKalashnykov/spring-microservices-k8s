@@ -58,6 +58,12 @@ SHELLCHECK_VERSION := 0.11.0
 NVM_VERSION       := 0.40.4
 # Source of truth: .nvmrc (major version only, e.g., "22"); not Renovate-trackable.
 NODE_VERSION      := $(shell cat .nvmrc 2>/dev/null || echo 22)
+# renovate: datasource=docker depName=minlag/mermaid-cli
+MERMAID_CLI_VERSION := 11.4.2
+
+# Source of truth: .java-version (read by CI via java-version-file); not Renovate-trackable.
+# Used by deps target to verify the installed Java major matches the project.
+JAVA_MAJOR        := $(shell cat .java-version 2>/dev/null || echo 25)
 
 # ---------------------------------------------------------------------------
 # Help
@@ -73,9 +79,9 @@ help:
 # Dependencies
 # ---------------------------------------------------------------------------
 
-#deps: @ Check required tools (java 25, mvn)
+#deps: @ Check required tools (java, mvn)
 deps:
-	@java -version 2>&1 | grep -q '"25\.' || { echo "Error: Java 25 required. Run: make deps-install"; exit 1; }
+	@java -version 2>&1 | grep -q '"$(JAVA_MAJOR)\.' || { echo "Error: Java $(JAVA_MAJOR) required. Run: make deps-install"; exit 1; }
 	@command -v mvn >/dev/null 2>&1 || { echo "Error: Maven required. Run: make deps-install"; exit 1; }
 
 #deps-maven: @ Install Maven if not present (for CI containers)
@@ -127,22 +133,25 @@ deps-kind: deps deps-docker
 #deps-act: @ Install act for local CI runs
 deps-act: deps
 	@command -v act >/dev/null 2>&1 || { echo "Installing act $(ACT_VERSION)..."; \
-		curl -sSfL https://raw.githubusercontent.com/nektos/act/master/install.sh | bash -s -- -b /usr/local/bin v$(ACT_VERSION); \
+		mkdir -p $$HOME/.local/bin && \
+		curl -sSfL https://raw.githubusercontent.com/nektos/act/master/install.sh | bash -s -- -b $$HOME/.local/bin v$(ACT_VERSION); \
 	}
 
 #deps-hadolint: @ Install hadolint for Dockerfile linting
 deps-hadolint:
 	@command -v hadolint >/dev/null 2>&1 || { echo "Installing hadolint $(HADOLINT_VERSION)..."; \
+		mkdir -p $$HOME/.local/bin && \
 		curl -sSfL -o /tmp/hadolint https://github.com/hadolint/hadolint/releases/download/v$(HADOLINT_VERSION)/hadolint-Linux-x86_64 && \
-		install -m 755 /tmp/hadolint /usr/local/bin/hadolint && \
+		install -m 755 /tmp/hadolint $$HOME/.local/bin/hadolint && \
 		rm -f /tmp/hadolint; \
 	}
 
 #deps-gitleaks: @ Install gitleaks for secret scanning
 deps-gitleaks:
 	@command -v gitleaks >/dev/null 2>&1 || { echo "Installing gitleaks $(GITLEAKS_VERSION)..."; \
+		mkdir -p $$HOME/.local/bin && \
 		curl -sSfL https://github.com/zricethezav/gitleaks/releases/download/v$(GITLEAKS_VERSION)/gitleaks_$(GITLEAKS_VERSION)_linux_x64.tar.gz | \
-		tar xz -C /usr/local/bin gitleaks; \
+		tar xz -C $$HOME/.local/bin gitleaks; \
 	}
 
 #deps-trivy: @ Install Trivy for vulnerability and misconfig scanning
@@ -272,6 +281,35 @@ trivy-fs: deps-trivy
 trivy-config: deps-trivy
 	@trivy config --severity CRITICAL,HIGH k8s/
 
+#mermaid-lint: @ Validate Mermaid diagrams in markdown files
+mermaid-lint:
+	@command -v docker >/dev/null 2>&1 || { echo "ERROR: docker is required for mermaid-lint"; exit 1; }
+	@set -euo pipefail; \
+	MD_FILES=$$(grep -lF '```mermaid' README.md CLAUDE.md docs/*.md 2>/dev/null || true); \
+	if [ -z "$$MD_FILES" ]; then \
+		echo "No Mermaid blocks found — skipping."; \
+		exit 0; \
+	fi; \
+	FAILED=0; \
+	for md in $$MD_FILES; do \
+		echo "Validating Mermaid blocks in $$md..."; \
+		LOG=$$(mktemp); \
+		if docker run --rm -v "$$PWD:/data" \
+			minlag/mermaid-cli:$(MERMAID_CLI_VERSION) \
+			-i "/data/$$md" -o "/tmp/$$(basename $$md .md).svg" >"$$LOG" 2>&1; then \
+			echo "  ✓ All blocks rendered cleanly."; \
+		else \
+			echo "  ✗ Parse error in $$md:"; \
+			sed 's/^/    /' "$$LOG"; \
+			FAILED=$$((FAILED + 1)); \
+		fi; \
+		rm -f "$$LOG"; \
+	done; \
+	if [ "$$FAILED" -gt 0 ]; then \
+		echo "Mermaid lint: $$FAILED file(s) had parse errors."; \
+		exit 1; \
+	fi
+
 #lint-ci: @ Lint GitHub Actions workflows with actionlint (uses shellcheck)
 lint-ci: deps-actionlint deps-shellcheck
 	@actionlint
@@ -301,7 +339,7 @@ coverage-open:
 	@$(OPEN_CMD) ./employee-service/target/site/jacoco/index.html
 
 #static-check: @ Run all quality and security checks
-static-check: format-check lint-ci lint lint-docker secrets trivy-fs trivy-config
+static-check: format-check lint-ci lint lint-docker secrets trivy-fs trivy-config mermaid-lint
 	@echo "Static check passed."
 
 # ---------------------------------------------------------------------------
@@ -543,7 +581,7 @@ renovate-validate: renovate-bootstrap
 	deps-hadolint deps-gitleaks deps-trivy deps-actionlint deps-shellcheck \
 	deps-updates deps-update deps-prune deps-prune-check \
 	clean build test lint format format-check \
-	lint-ci lint-docker secrets trivy-fs trivy-config \
+	lint-ci lint-docker secrets trivy-fs trivy-config mermaid-lint \
 	maven-settings-ossindex cve-check \
 	coverage-generate coverage-check coverage-open static-check \
 	image-build image-load \
