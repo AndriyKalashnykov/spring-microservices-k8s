@@ -59,7 +59,7 @@ NVM_VERSION       := 0.40.4
 # Source of truth: .nvmrc (major version only, e.g., "22"); not Renovate-trackable.
 NODE_VERSION      := $(shell cat .nvmrc 2>/dev/null || echo 22)
 # renovate: datasource=docker depName=minlag/mermaid-cli
-MERMAID_CLI_VERSION := 11.4.2
+MERMAID_CLI_VERSION := 11.12.0
 
 # Source of truth: .java-version (read by CI via java-version-file); not Renovate-trackable.
 # Used by deps target to verify the installed Java major matches the project.

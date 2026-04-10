@@ -71,9 +71,13 @@ Use the following skills when working on related files:
 
 When spawning subagents, always pass conventions from the respective skill into the agent's prompt.
 
-## Deferred Upgrades
+## Upgrade Backlog
 
-| Item | Blocker | Revisit |
-|------|---------|---------|
-| SpringDoc 2.x → 3.x | Incompatible with Spring Boot 3.5 (`NoClassDefFoundError` on relocated `ErrorPageRegistrar`) | When SpringDoc releases SB 3.5-compatible version |
-| Spring Boot 4.x | Ecosystem not ready — SpringDoc, Spring Cloud need compatible releases. MongoDB property renames, tracing config changes. | 3-6 months after SB 4.0 GA (October 2026+) |
+| # | Item | Status | Notes |
+|---|------|--------|-------|
+| 1 | **Spring Boot 4.x migration** (SB 3.5.13 → 4.0.5, Spring Cloud 2025.0.2 → 2025.1.1, SpringDoc 2.8.16 → 3.0.2) | **Actionable — EOL deadline 2026-06-30** | Spring Boot 3.5 EOL is 2026-06-30 (~11 weeks). Coordinated major upgrade: all three libraries must move together. Spring Cloud 2025.1.x is the SB 4.0-compatible train; SpringDoc 3.0.x is the SB 4.0-compatible major. Expected breakage: Jakarta EE 11 / Hibernate 7, `@ConfigurationProperties` changes, Micrometer observation config, actuator response shapes. Blocking validation: `make test` + `make e2e` + `make ci-run`. |
+| 2 | Verify jose4j override still needed | Blocked on backlog #1 | Parent `pom.xml` pins `org.bitbucket.b_c:jose4j:0.9.6` to fix CVE-2024-29371 (transitively pulled by `spring-cloud-starter-kubernetes-client-all`). After SB 4.0 upgrade, run `mvn dependency:tree -Dincludes=org.bitbucket.b_c:jose4j` — the override may be dead code if Spring Cloud 2025.1.1 already pulls ≥ 0.9.6. |
+| 3 | `actions/cache` Node 20 deprecation (transitive via `sigstore/cosign-installer`) | Blocked on upstream | Node 20 hard-removed from GitHub Actions runners **2026-09-16**. The cache action is a transitive dep inside `sigstore/cosign-installer@v4.1.1` — we're already on latest. Renovate will ship the next cosign-installer release automatically. No manual action; track so it doesn't surprise us in Sept. |
+| 4 | Pin Kind node image in `k8s/kind-config.yaml` | Nice-to-have | `kind-config.yaml` has no `image:` field, so Kind 0.31.0 uses its default K8s version (~1.32, EOL 2026-02-28 per endoflife.date). For reproducible e2e, add explicit `image: kindest/node:v1.34.x@sha256:…` when a matching Kind release is published. Local-dev only, not production. |
+| 5 | Observability bridge: Brave → OpenTelemetry | Optional | Project uses `micrometer-tracing-bridge-brave` (Zipkin backend). OTel is the industry-standard consolidation target. Consider as part of SB4 migration or defer. |
+| 6 | Consolidate MongoDB version pin | Nice-to-have | `mongo:8.0.20` is pinned in 5 places (`k8s/mongodb-deployment.yaml`, `docs/reference-architecture.md`, 3 × `*ControllerTest.java`). Renovate custom manager tracks all 5, but the `**/*ControllerTest.java` glob silently drops entries if a test file is renamed. Consider a single `MONGODB_VERSION := 8.0.20` Makefile constant referenced everywhere. |
