@@ -35,15 +35,15 @@ addresses the following concerns:
 | Component | Version |
 |-----------|---------|
 | Java | 25 |
-| Spring Boot | 3.5.13 |
-| Spring Cloud | 2025.0.2 |
-| Spring Cloud Kubernetes | 3.x (via 2025.0.2) |
-| Spring Cloud Gateway MVC | 4.3.x |
-| RestClient + @HttpExchange | Spring 6.2+ (native) |
+| Spring Boot | 4.0.5 |
+| Spring Cloud | 2025.1.1 |
+| Spring Cloud Kubernetes | 5.x (via 2025.1.1) |
+| Spring Cloud Gateway Server WebMVC | 5.0.x |
+| RestClient + @HttpExchange | Spring 7.x (native) |
 | Micrometer Tracing | (managed by Spring Boot BOM) |
-| Testcontainers | (managed by Spring Boot BOM) |
-| Spring Cloud LoadBalancer | 4.3.x |
-| SpringDoc OpenAPI | 2.8.16 |
+| Testcontainers | 2.0.x (managed by Spring Boot BOM) |
+| Spring Cloud LoadBalancer | 5.0.x |
+| SpringDoc OpenAPI | 3.0.2 |
 | MongoDB | 8.0 (official `mongo` image, non-root UID 999) |
 | Kubernetes | 1.35+ (Kind for local dev) |
 | Kind | 0.31.0 |

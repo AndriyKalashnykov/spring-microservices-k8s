@@ -10,7 +10,7 @@ This reference architecture demonstrates design, development, and deployment of 
 | Component | Technology |
 |-----------|-----------|
 | Language | Java 25 |
-| Framework | Spring Boot 3.5, Spring Cloud 2025.0 |
+| Framework | Spring Boot 4.0, Spring Cloud 2025.1 |
 | API Gateway | Spring Cloud Gateway MVC |
 | Inter-service | RestClient with `@HttpExchange` |
 | Service Discovery | Spring Cloud Kubernetes |

@@ -4,7 +4,7 @@
 	<parent>
 		<groupId>org.springframework.boot</groupId>
 		<artifactId>spring-boot-starter-parent</artifactId>
-		<version>3.5.13</version>
+		<version>4.0.5</version>
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
 	<artifactId>gateway-service</artifactId>
@@ -34,7 +34,7 @@
 		</dependency>
 		<dependency>
 			<groupId>org.springframework.cloud</groupId>
-			<artifactId>spring-cloud-starter-gateway-mvc</artifactId>
+			<artifactId>spring-cloud-starter-gateway-server-webmvc</artifactId>
 		</dependency>
 		<dependency>
 			<groupId>org.springframework.cloud</groupId>
@@ -47,7 +47,7 @@
 		<dependency>
 			<groupId>org.springdoc</groupId>
 			<artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
-			<version>2.8.16</version>
+			<version>3.0.2</version>
 		</dependency>
 	</dependencies>
 
@@ -56,16 +56,18 @@
 			<dependency>
 				<groupId>org.springframework.cloud</groupId>
 				<artifactId>spring-cloud-dependencies</artifactId>
-				<version>2025.0.2</version>
+				<version>2025.1.1</version>
 				<type>pom</type>
 				<scope>import</scope>
 			</dependency>
-			<!-- Override transitive jose4j to fix CVE-2024-29371 (DoS via malicious JWE token).
-			     Pulled in transitively by spring-cloud-starter-kubernetes-client-all. -->
+			<!-- Override transitive jackson-core to fix GHSA-2m67-wjpj-xhg9
+			     (HIGH: document length constraint bypass in blocking/async/DataInput
+			     parsers). Spring Boot 4.0.5 pins 3.1.0; fix is in 3.1.1. Remove
+			     when Spring Boot 4.0.6 ships with jackson-core 3.1.1 managed. -->
 			<dependency>
-				<groupId>org.bitbucket.b_c</groupId>
-				<artifactId>jose4j</artifactId>
-				<version>0.9.6</version>
+				<groupId>tools.jackson.core</groupId>
+				<artifactId>jackson-core</artifactId>
+				<version>3.1.1</version>
 			</dependency>
 		</dependencies>
 	</dependencyManagement>
@@ -110,6 +112,36 @@
 					<layers>
 						<enabled>true</enabled>
 					</layers>
+				</configuration>
+			</plugin>
+			<!-- Ignore starter JARs that `dependency:analyze` reports as "unused
+			     declared" because they are consumed via auto-configuration rather
+			     than direct classpath use. -->
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-dependency-plugin</artifactId>
+				<configuration>
+					<ignoredUnusedDeclaredDependencies>
+						<ignoredUnusedDeclaredDependency>org.springframework.boot:spring-boot-starter-*</ignoredUnusedDeclaredDependency>
+						<ignoredUnusedDeclaredDependency>org.springframework.cloud:spring-cloud-starter-*</ignoredUnusedDeclaredDependency>
+						<ignoredUnusedDeclaredDependency>org.springdoc:springdoc-openapi-starter-*</ignoredUnusedDeclaredDependency>
+						<ignoredUnusedDeclaredDependency>io.micrometer:micrometer-registry-*</ignoredUnusedDeclaredDependency>
+						<ignoredUnusedDeclaredDependency>io.micrometer:micrometer-tracing-bridge-*</ignoredUnusedDeclaredDependency>
+					</ignoredUnusedDeclaredDependencies>
+					<!-- Framework classes consumed through starter abstractions are transitive;
+					     do not force explicit declaration. -->
+					<ignoredUsedUndeclaredDependencies>
+						<ignoredUsedUndeclaredDependency>org.springframework:*</ignoredUsedUndeclaredDependency>
+						<ignoredUsedUndeclaredDependency>org.springframework.boot:*</ignoredUsedUndeclaredDependency>
+						<ignoredUsedUndeclaredDependency>org.springframework.cloud:*</ignoredUsedUndeclaredDependency>
+						<ignoredUsedUndeclaredDependency>org.springframework.data:*</ignoredUsedUndeclaredDependency>
+						<ignoredUsedUndeclaredDependency>io.micrometer:*</ignoredUsedUndeclaredDependency>
+						<ignoredUsedUndeclaredDependency>org.slf4j:*</ignoredUsedUndeclaredDependency>
+						<ignoredUsedUndeclaredDependency>jakarta.annotation:jakarta.annotation-api</ignoredUsedUndeclaredDependency>
+						<ignoredUsedUndeclaredDependency>org.assertj:assertj-core</ignoredUsedUndeclaredDependency>
+						<ignoredUsedUndeclaredDependency>org.junit.jupiter:junit-jupiter-api</ignoredUsedUndeclaredDependency>
+						<ignoredUsedUndeclaredDependency>org.mockito:mockito-core</ignoredUsedUndeclaredDependency>
+					</ignoredUsedUndeclaredDependencies>
 				</configuration>
 			</plugin>
 		</plugins>
