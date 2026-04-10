@@ -12,7 +12,7 @@ cluster with MongoDB backing.
 spring-microservices-k8s/
   department-service/    # Department microservice (Spring Boot)
   employee-service/      # Employee microservice (Spring Boot)
-  gateway-service/       # API gateway (Spring Cloud Gateway MVC)
+  gateway-service/       # API gateway (Spring Cloud Gateway Server WebMVC)
   organization-service/  # Organization microservice (Spring Boot)
   .github/workflows/     # CI/CD (GitHub Actions)
   k8s/                   # Kubernetes manifests, Kind + MetalLB configs
@@ -27,18 +27,24 @@ spring-microservices-k8s/
 
 ```bash
 make build         # Build all modules
+make kind-up       # Full cluster lifecycle: deps-kind + kind-create + MetalLB + kind-setup + image-build + kind-deploy
+make populate      # Seed test data
+make gateway-open  # Open Swagger UI
+```
+
+Granular alternatives (for debugging / partial workflows):
+
+```bash
 make kind-create   # Create local Kind cluster with MetalLB
 make kind-setup    # Configure namespaces, RBAC, deploy MongoDB
 make kind-deploy   # Build, load, and deploy all services
-make populate      # Seed test data
-make gateway-open  # Open Swagger UI
 ```
 
 ## Teardown
 
 ```bash
-make kind-undeploy   # Remove services
-make kind-destroy    # Delete Kind cluster
+make kind-down     # Tear down the entire Kind cluster (alias for kind-destroy)
+make kind-undeploy # Remove services but keep the cluster running
 ```
 
 ## CI/CD

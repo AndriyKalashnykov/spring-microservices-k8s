@@ -40,12 +40,12 @@ addresses the following concerns:
 | Spring Cloud Kubernetes | 5.x (via 2025.1.1) |
 | Spring Cloud Gateway Server WebMVC | 5.0.x |
 | RestClient + @HttpExchange | Spring 7.x (native) |
-| Micrometer Tracing | (managed by Spring Boot BOM) |
+| Micrometer Tracing | OpenTelemetry bridge (`micrometer-tracing-bridge-otel`) |
 | Testcontainers | 2.0.x (managed by Spring Boot BOM) |
 | Spring Cloud LoadBalancer | 5.0.x |
 | SpringDoc OpenAPI | 3.0.2 |
-| MongoDB | 8.0 (official `mongo` image, non-root UID 999) |
-| Kubernetes | 1.35+ (Kind for local dev) |
+| MongoDB | 8.0.20 (official `mongo` image, non-root UID 999) |
+| Kubernetes | 1.35.0 (Kind node image, pinned) |
 | Kind | 0.31.0 |
 | MetalLB | 0.15.3 |
 
@@ -67,8 +67,9 @@ The application is built with these open source components:
 - [Spring Cloud Kubernetes](https://github.com/spring-cloud/spring-cloud-kubernetes):
   Integration with the Kubernetes API server for service discovery,
   configuration and load balancing.
-- [Spring Cloud Gateway MVC](https://docs.spring.io/spring-cloud-gateway/reference/spring-cloud-gateway-server-mvc.html):
-  Servlet-based API gateway for routing requests to microservices.
+- [Spring Cloud Gateway Server WebMVC](https://docs.spring.io/spring-cloud-gateway/reference/spring-cloud-gateway-server-webmvc.html):
+  Servlet-based API gateway for routing requests to microservices (renamed from
+  "Spring Cloud Gateway MVC" in SC Gateway 5.0).
 - [RestClient](https://docs.spring.io/spring-framework/reference/integration/rest-clients.html#rest-http-interface) with `@HttpExchange`: Native Spring declarative HTTP client for inter-service communication, integrated with Spring Cloud LoadBalancer.
 - [Spring Cloud LoadBalancer](https://docs.spring.io/spring-cloud-commons/reference/spring-cloud-commons/loadbalancer.html):
   Client-side load balancing via Kubernetes service discovery.
@@ -81,7 +82,7 @@ The application is built with these open source components:
 %% classDef brand colors below override the theme for nodes and stay
 %% readable on both backgrounds.
 graph TB
-    Client([👤 Client]):::client --> Gateway[🌐 Gateway Service<br/>Spring Cloud Gateway MVC<br/>LoadBalancer via MetalLB]
+    Client([👤 Client]):::client --> Gateway[🌐 Gateway Service<br/>Spring Cloud Gateway Server WebMVC<br/>LoadBalancer via MetalLB]
 
     Gateway -->|/employee/**| Employee[👤 Employee Service<br/>RestController + MongoDB]
     Gateway -->|/department/**| Department[🏢 Department Service<br/>RestController + MongoDB]
@@ -163,12 +164,41 @@ graph TB
 
 Spring Cloud Kubernetes provides Spring Cloud implementations of common
 interfaces that consume Kubernetes native services. This Reference Architecture
-demonstrates the use of the following features:
+uses only **one** feature from the library, deliberately keeping the surface
+small:
 
-- Discovering services across all namespaces using DiscoveryClient
-- Using ConfigMap and Secrets as Spring Boot property sources with
-  `spring.config.import: "optional:kubernetes:"`
-- Implementing health checks using Spring Cloud Kubernetes pod health indicator
+- Cross-namespace service discovery via `DiscoveryClient`, consumed by the
+  gateway's `lb()` filter (see "Configure Gateway Service") and by inter-service
+  `@HttpExchange` clients
+
+Two features documented in earlier revisions of this doc were **removed**
+during the Spring Boot 4 / Spring Cloud 2025.1 migration because they are
+broken under SC Kubernetes 5.x or no longer needed:
+
+- **ConfigMap property sourcing via `spring.config.import: "optional:kubernetes:"`** —
+  the informer-based loader does not publish the PropertySource before the
+  `MongoClient` bean is instantiated, so `spring.mongodb.*` properties were
+  silently falling back to defaults. Configuration that used to live in
+  ConfigMaps is now injected directly into the Deployment via `envFrom` /
+  `valueFrom.configMapKeyRef` — see "Configure Spring Cloud Kubernetes"
+  below for the current pattern.
+- **Secret file mounts via `spring.cloud.kubernetes.secrets.paths`** — same
+  timing issue as ConfigMaps, plus mounted secret files are strictly worse
+  than `valueFrom.secretKeyRef` for attack-surface reasons. Credentials are
+  now injected as env vars — see "Configure MongoDB" below.
+
+The small set of Spring Cloud Kubernetes features the project still uses
+fits in three lines of `application.yml`:
+
+```yaml
+spring:
+  application:
+    name: employee
+  cloud:
+    kubernetes:
+      discovery:
+        all-namespaces: true
+```
 
 ## Source Code Directory Structure
 
@@ -194,19 +224,24 @@ spring-microservices-k8s/
 
 ```bash
 make deps          # check required tools
-make build         # build all modules with Maven
-make kind-create   # create local Kind cluster with MetalLB
-make kind-setup    # configure namespaces, RBAC, deploy MongoDB
-make kind-deploy   # build images, load into Kind, deploy services
+make kind-up       # full lifecycle: Kind + MetalLB + MongoDB + 4 services
 make e2e-test      # run end-to-end API tests
 make gateway-open  # open Swagger UI in browser
+make kind-down     # tear everything down
 ```
+
+`kind-up` is a docker-compose-style alias for `kind-deploy` that chains
+`kind-create` → `kind-setup` → `image-build` → `image-load` → service
+deployment in one command. See the per-step targets below if you need
+granular control.
 
 ## Enable Spring Cloud Kubernetes
 
-Add the following dependency to enable Spring Cloud Kubernetes features. The
-library provides service discovery, ConfigMap property sources, and load
-balancing integration.
+Add the following dependency to enable Spring Cloud Kubernetes cross-namespace
+discovery. The `kubernetes-client-all` starter uses the official
+[`kubernetes-client`](https://github.com/kubernetes-client/java) Java library
+(as opposed to the fabric8 variant) and pulls in the `DiscoveryClient`
+implementation.
 
 ```xml
 <dependency>
@@ -215,27 +250,24 @@ balancing integration.
 </dependency>
 ```
 
-In Spring Boot 3.x, ConfigMap and Secret property loading requires explicit
-opt-in via `spring.config.import`:
+The service-level `application.yml` opts into cross-namespace discovery via a
+single property:
 
 ```yaml
 # application.yml
 spring:
   application:
     name: department
-  config:
-    import: "optional:kubernetes:"
   cloud:
     kubernetes:
-      config:
-        enabled: true
       discovery:
         all-namespaces: true
-      secrets:
-        enabled: true
-        paths:
-          - /etc/secretspot
 ```
+
+That is the entirety of the Spring Cloud Kubernetes configuration. Everything
+else (MongoDB connection URLs, credentials, metrics/tracing knobs) is injected
+via plain Kubernetes `env` on the Deployment — see "Configure MongoDB" below
+for the `valueFrom` pattern.
 
 ## Enable Service Discovery Across All Namespaces
 
@@ -243,9 +275,9 @@ The `all-namespaces: true` setting in `application.yml` enables cross-namespace
 discovery. This allows the gateway and inter-service RestClient calls to find
 services deployed in different namespaces.
 
-Application classes are streamlined in Spring Boot 3.x — annotations like
-`@EnableDiscoveryClient`, `@EnableMongoRepositories`, and `@EnableSwagger2`
-are no longer needed (auto-configured).
+Application classes are minimal under Spring Boot auto-configuration — no
+`@EnableDiscoveryClient`, `@EnableMongoRepositories`, or `@EnableSwagger2`
+annotations are needed.
 
 `/department-service/src/main/java/.../DepartmentApplication.java`
 
@@ -280,8 +312,13 @@ public interface EmployeeClient {
 }
 ```
 
-ConfigMap properties are loaded automatically when the ConfigMap name matches
-`spring.application.name`:
+ConfigMaps are still used to hold the non-secret runtime values (MongoDB host,
+database name, observability knobs), but they are **consumed by the Deployment
+via `valueFrom.configMapKeyRef`** rather than by Spring Cloud Kubernetes's
+built-in ConfigMap loader. This bypasses a known timing bug in the SC
+Kubernetes 5.x informer-based loader where `MongoClient` instantiates before
+the PropertySource is registered. See the "Configure MongoDB" section below
+for the Deployment-side wiring.
 
 `/k8s/department-configmap.yaml`
 
@@ -291,7 +328,10 @@ apiVersion: v1
 metadata:
   name: department
 data:
-  spring.cloud.kubernetes.discovery.all-namespaces: "true"
+  # Keys retain the Spring Boot 3.x `spring.data.mongodb.*` prefix so they
+  # read naturally; the Deployment's `valueFrom.configMapKeyRef` looks them
+  # up by this exact key and maps them to env-var names that Spring Boot 4's
+  # relaxed binding resolves to `spring.mongodb.*` (the new SB4 prefix).
   spring.data.mongodb.database: "admin"
   spring.data.mongodb.host: "mongodb.mongo.svc.cluster.local"
   management.endpoints.web.exposure.include: "health,info,metrics,prometheus"
@@ -419,40 +459,66 @@ data:
   database-password: bW9uZ28tYWRtaW4tcGFzc3dvcmQ=  # mongo-admin-password
 ```
 
-## Use Secret Through Mounted Volume
+## Inject MongoDB Connection via Environment Variables
 
-> **Production recommendation**: Containers should share secrets through mounted
-> volumes. Limit access to Secrets using
-> [RBAC authorization](https://kubernetes.io/docs/concepts/configuration/secret/#best-practices).
-> Secrets are not secure by themselves — they are merely obfuscation.
+Each backend service's Deployment wires the MongoDB host, database, and
+credentials as plain Kubernetes environment variables using
+`valueFrom.configMapKeyRef` + `valueFrom.secretKeyRef`. Spring Boot's relaxed
+binding then maps each `SPRING_MONGODB_*` env var onto the corresponding
+`spring.mongodb.*` property that `MongoProperties` reads at startup.
 
-The MongoDB credentials Secret is mounted to `/etc/secretspot` in each service
-container. Spring Cloud Kubernetes reads the key-value pairs from this path:
+Why env-var injection instead of the Spring Cloud Kubernetes ConfigMap /
+Secret loaders:
+
+1. **Timing**: SC Kubernetes 5.x registers its ConfigMap / Secret
+   `PropertySource` asynchronously after the informer cache warms up. On a
+   cold start, the `MongoClient` bean is instantiated before the properties
+   become visible, silently falling back to `localhost:27017`.
+2. **Property prefix change**: Spring Boot 4 split `MongoProperties` into
+   two `@ConfigurationProperties` classes. Connection settings moved from
+   `spring.data.mongodb.*` to **`spring.mongodb.*`**, while Spring Data's
+   own knobs (auto-index creation, gridfs, …) stayed under the old prefix.
+   Injecting env vars is the simplest way to target the new prefix without
+   renaming existing ConfigMap/Secret keys.
+3. **Attack surface**: env-var injection from a Secret is strictly less
+   surface than mounting the Secret as files into the container filesystem
+   — nothing else in the image can read the credentials.
+
+`/k8s/department-deployment.yaml` (abbreviated)
 
 ```yaml
-# application.yml
-spring:
-  cloud:
-    kubernetes:
-      secrets:
-        enabled: true
-        paths:
-          - /etc/secretspot
-```
-
-```yaml
-# deployment manifest (abbreviated)
 spec:
   containers:
     - name: department
-      volumeMounts:
-        - name: mongodb
-          mountPath: /etc/secretspot
-  volumes:
-    - name: mongodb
-      secret:
-        secretName: department
+      image: department:local
+      env:
+        - name: SPRING_MONGODB_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: department
+              key: spring.data.mongodb.host
+        - name: SPRING_MONGODB_DATABASE
+          valueFrom:
+            configMapKeyRef:
+              name: department
+              key: spring.data.mongodb.database
+        - name: SPRING_MONGODB_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: department
+              key: spring.data.mongodb.username
+        - name: SPRING_MONGODB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: department
+              key: spring.data.mongodb.password
 ```
+
+The ConfigMap key names still use the Spring Boot 3.x `spring.data.mongodb.*`
+prefix because they're just lookup keys — they are never interpreted as
+property names. The **env var names** (`SPRING_MONGODB_*`) are what Spring
+Boot's relaxed binding reads, and those target the Spring Boot 4
+`spring.mongodb.*` prefix.
 
 ## Use Spring Boot Actuator to Export Metrics for Prometheus
 
@@ -495,10 +561,10 @@ Endpoints: `/actuator/metrics` and `/actuator/prometheus`.
 ## Distributed Tracing with Micrometer
 
 Micrometer Tracing (replacing Spring Cloud Sleuth) provides distributed trace
-propagation across services. Trace IDs are automatically propagated via HTTP
-headers through RestClient and Spring MVC.
+context propagation across services. Trace IDs are automatically propagated
+via HTTP headers through RestClient and Spring MVC.
 
-Dependencies (managed by Spring Boot BOM):
+Dependency (managed by Spring Boot BOM):
 
 ```xml
 <dependency>
@@ -507,11 +573,25 @@ Dependencies (managed by Spring Boot BOM):
 </dependency>
 ```
 
-Configured via ConfigMap:
+The project uses the **OpenTelemetry bridge** (`micrometer-tracing-bridge-otel`)
+rather than the legacy Brave / Zipkin bridge. This is the industry-standard
+target for observability consolidation and works with any OTLP-compatible
+backend (Tempo, Jaeger, Honeycomb, Datadog, …).
+
+No tracing backend is currently wired up — spans are created in-process and
+discarded. To export them, add an OTLP exporter dependency and point it at a
+collector via env vars on each Deployment:
 
 ```yaml
-management.tracing.sampling.probability: "1.0"
+env:
+  - name: MANAGEMENT_OTLP_TRACING_ENDPOINT
+    value: http://otel-collector.observability.svc.cluster.local:4318/v1/traces
+  - name: MANAGEMENT_TRACING_SAMPLING_PROBABILITY
+    value: "1.0"
 ```
+
+The env-var injection pattern mirrors the MongoDB configuration — see
+"Inject MongoDB Connection via Environment Variables" above.
 
 ## Integration Testing with Testcontainers
 
@@ -530,58 +610,80 @@ tests via an `application-test.yml` profile.
 
 ## Static Analysis and Code Quality
 
-The project enforces code quality through a composite `static-check` target that runs all checks in sequence:
+The project enforces code quality through a composite `static-check` target
+that runs all checks in sequence. Each check is also available as an
+individual target.
 
 | Check | Tool | What it catches |
 |-------|------|-----------------|
-| Code formatting | Spring Java Format | Inconsistent formatting |
-| Static analysis | Checkstyle (Google rules) | Style violations, naming conventions |
-| Dockerfile linting | hadolint | Dockerfile anti-patterns |
-| Secret scanning | gitleaks | Accidentally committed credentials |
+| Code formatting | [google-java-format](https://github.com/google/google-java-format) | Inconsistent formatting (matched to `google_checks.xml`) |
+| Compiler warnings | `maven-compiler-plugin` with `failOnWarning=true` | Unused imports, raw types, deprecation |
+| Java style | Checkstyle with `google_checks.xml` | Style violations, naming conventions |
+| Dockerfile linting | [hadolint](https://github.com/hadolint/hadolint) | Dockerfile anti-patterns |
+| Secret scanning | [gitleaks](https://github.com/zricethezav/gitleaks) | Accidentally committed credentials |
+| GitHub Actions linting | [actionlint](https://github.com/rhysd/actionlint) (with shellcheck) | YAML schema errors, shell scripts inside `run:` blocks |
+| Filesystem CVE scan | [Trivy](https://github.com/aquasecurity/trivy) (fs scanner) | Vulnerabilities, secrets, and misconfigurations in source + deps |
+| K8s manifest scan | Trivy (config scanner) | KSV-* Kubernetes security misconfigurations |
+| Mermaid diagram lint | `minlag/mermaid-cli` | Broken Mermaid blocks that silently break GitHub-rendered markdown |
 
 Run all checks:
 
 ```bash
-make static-check    # format-check + checkstyle + hadolint + gitleaks
-make cve-check       # OWASP dependency vulnerability scan (separate, slower)
+make static-check    # format-check + lint-ci + lint + lint-docker + secrets + trivy-fs + trivy-config + mermaid-lint
+make cve-check       # OWASP Dependency-Check — slower, runs in its own CI job
 make deps-prune      # check for unused Maven dependencies
+make deps-prune-check # CI gate version — fails on unused or undeclared deps
 ```
 
-The CI workflow runs `lint` as the first job (which calls `make static-check`) — format and lint errors are caught before build or tests run.
+The CI workflow runs `static-check` as the first job — format, lint, security,
+and diagram errors are caught before `build` or `test` run.
 
 ## Build Docker Images
 
-The Dockerfile uses a multi-stage build with these best practices:
+Each service has its own `Dockerfile` that consumes a **pre-built** Spring
+Boot JAR (produced by `mvn install` running on the host or in the `build`
+CI job). The Dockerfile itself does not run Maven — that decouples image
+build time from Maven repository availability and keeps the image layer
+layout focused on runtime concerns.
 
-- **Separate build dependencies from runtime** via multi-stage builds
-- **Cache Maven dependencies** in their own layer (`mvn dependency:go-offline`)
-- **Layer the application JAR** for efficient image pushes
-- **Run as non-root** using the distroless image
+Key properties of the runtime image:
+
+- **Multi-stage build** — the first stage runs `java -Djarmode=layertools`
+  to extract the Spring Boot layered JAR; the second stage copies those
+  layers into a clean runtime image
+- **Eclipse Temurin 25 JRE on Ubuntu Noble** (`eclipse-temurin:25-jre-noble`)
+  — the `-jre-noble` variant ships a minimal Ubuntu 24.04 LTS base with only
+  the JRE, keeping the image size modest while still providing a usable
+  shell for debugging
+- **Non-root with a numeric UID** (`useradd -r -u 10001`) — Kubernetes's
+  restricted Pod Security Standard requires `runAsNonRoot: true` to be
+  verifiable from the manifest, which needs a numeric UID in the image
+- **Spring Boot layered JAR** — application code is in its own layer so
+  cache churn is dominated by `dependencies` (rarely changes) rather than
+  `application` (changes every build)
+
+`gateway-service/Dockerfile` (all 4 services are structurally identical):
 
 ```dockerfile
-FROM maven:3.9-eclipse-temurin-21 AS build
+# Runtime Dockerfile — uses pre-built JAR from Maven build
+# For local builds: run `make build` first, then `make image-build`
+# For CI: the builds job produces JARs before Docker builds
 
-WORKDIR /build
-COPY pom.xml .
-RUN mvn dependency:go-offline
+FROM eclipse-temurin:25-jre AS extract
+WORKDIR /tmp
+COPY target/*.jar app.jar
+RUN java -Djarmode=layertools -jar app.jar extract
 
-COPY ./pom.xml /tmp/
-COPY ./src /tmp/src/
-WORKDIR /tmp/
-RUN mvn clean package
+FROM eclipse-temurin:25-jre-noble AS runtime
 
-WORKDIR /tmp/target
-RUN java -Djarmode=layertools -jar *.jar extract
-
-FROM gcr.io/distroless/java21-debian12:debug AS runtime
-
-USER nonroot:nonroot
+RUN groupadd -r appuser && useradd -r -g appuser -u 10001 -d /application appuser
+USER 10001
 WORKDIR /application
 
-COPY --from=build --chown=nonroot:nonroot /tmp/target/dependencies/ ./
-COPY --from=build --chown=nonroot:nonroot /tmp/target/snapshot-dependencies/ ./
-COPY --from=build --chown=nonroot:nonroot /tmp/target/spring-boot-loader/ ./
-COPY --from=build --chown=nonroot:nonroot /tmp/target/application/ ./
+COPY --from=extract --chown=appuser:appuser /tmp/dependencies/ ./
+COPY --from=extract --chown=appuser:appuser /tmp/snapshot-dependencies/ ./
+COPY --from=extract --chown=appuser:appuser /tmp/spring-boot-loader/ ./
+COPY --from=extract --chown=appuser:appuser /tmp/application/ ./
 
 EXPOSE 8080
 
@@ -591,23 +693,29 @@ ENV _JAVA_OPTIONS="-XX:MinRAMPercentage=60.0 -XX:MaxRAMPercentage=90.0 \
 -Dspring.output.ansi.enabled=ALWAYS \
 -Dspring.profiles.active=default"
 
+# HEALTHCHECK: not needed — Kubernetes startup/readiness/liveness probes
+# handle health checks. For standalone Docker use, add:
+# HEALTHCHECK CMD ["curl","-sf","http://localhost:8080/actuator/health"]
 ENTRYPOINT ["java", "org.springframework.boot.loader.launch.JarLauncher"]
 ```
 
 Build all service images with:
 
 ```bash
-make image-build
+make build         # mvn install — produces the layered JAR in each */target/
+make image-build   # docker buildx build for all 4 services
 ```
 
-Spring Boot layered JARs produce these layers (smallest to largest change frequency):
+Spring Boot's layered-JAR extractor produces these four layers, ordered from
+rarest-churn to most-frequent-churn:
 
 - `dependencies` — third-party libraries (rarely change)
-- `snapshot-dependencies` — snapshot versions
-- `spring-boot-loader` — Spring Boot launcher
-- `application` — your code (changes most often)
+- `snapshot-dependencies` — snapshot versions (rare for release builds)
+- `spring-boot-loader` — Spring Boot launcher (changes only on SB version bumps)
+- `application` — your code (changes every build)
 
-Use [Dive](https://github.com/wagoodman/dive) to analyze image layers: `dive employee:local`
+Use [Dive](https://github.com/wagoodman/dive) to analyze image layers:
+`dive gateway:local`.
 
 ## Deploy a Spring Boot Application
 
@@ -676,9 +784,9 @@ View deployed resources with `kubectl get all -n department`.
 
 ## Configure Gateway Service
 
-The gateway service uses Spring Cloud Gateway MVC (servlet-based) to route
-requests to backend microservices. Routes are defined programmatically using
-`RouterFunction` beans with load balancer integration:
+The gateway service uses Spring Cloud Gateway Server WebMVC (servlet-based) to
+route requests to backend microservices. Routes are defined programmatically
+using `RouterFunction` beans with load balancer integration:
 
 `/gateway-service/src/main/java/.../GatewayApplication.java`
 
@@ -749,18 +857,33 @@ Open Swagger UI with `make gateway-open` or navigate to `http://<gateway-ip>:808
 
 The project uses [Kind](https://kind.sigs.k8s.io/) (Kubernetes in Docker) with
 [MetalLB](https://metallb.universe.tf/) for local LoadBalancer support, replacing
-the previous Minikube + VirtualBox setup.
+the previous Minikube + VirtualBox setup. The Kind node image is pinned
+(`KIND_NODE_IMAGE := v1.35.0` in the Makefile, Renovate-tracked) so every
+`make kind-up` gets identical Kubernetes across machines and CI runners.
+
+Two tiers of targets — `kind-up` / `kind-down` for the common "just bring
+the stack up" and "tear it down" flows, and granular targets for
+step-through debugging:
 
 ```bash
+# Common flow
+make kind-up       # create cluster + MetalLB + setup + image-build + deploy
+make e2e-test      # run the end-to-end HTTP test suite via the gateway LB
+make kind-down     # tear the whole cluster down
+
+# Granular (for debugging, partial rebuilds, etc.)
 make kind-create   # creates Kind cluster + installs MetalLB
 make kind-setup    # namespaces, RBAC, service accounts, MongoDB
 make kind-deploy   # builds images, loads into Kind, deploys all services
-make e2e-test      # validates all APIs and cross-service calls
-make kind-destroy  # tears down the cluster
+make kind-redeploy # kind-undeploy + kind-deploy (reapply app manifests only)
+make kind-undeploy # remove service manifests but keep the cluster running
+make kind-destroy  # delete the cluster
 ```
 
-The full lifecycle (`make e2e`) runs create → setup → deploy → test → destroy
-in sequence.
+The fully-scripted end-to-end cycle (`make e2e`) runs
+`kind-create` → `kind-setup` → `kind-deploy` → `e2e-test` → `kind-destroy`
+in sequence — useful for one-shot CI validation where the cluster should
+not survive the test run.
 
 ## End-to-End Testing
 
@@ -805,12 +928,26 @@ GitHub Actions runs on every push to `master`, tags `v*`, and pull requests.
 
 | Job | Triggers | Steps |
 |-----|----------|-------|
-| **lint** | push, PR | Format check, Checkstyle, Dockerfile lint, secret scan, Trivy |
-| **builds** | after lint | Build all modules with Maven |
-| **tests** | after lint | Run Testcontainers integration tests + coverage |
-| **cve-check** | push to master | OWASP dependency vulnerability scan |
-| **docker** | tag push only | Build and push multi-arch Docker images to GHCR |
+| **static-check** | push, PR | `make static-check` composite gate: format-check, lint-ci (actionlint), lint (Checkstyle + compiler warnings-as-errors), lint-docker (hadolint), secrets (gitleaks), trivy-fs, trivy-config, mermaid-lint |
+| **build** | after static-check | Build all modules with Maven, upload JARs as `service-jars` artifact |
+| **test** | after static-check | Run Testcontainers integration tests + coverage |
+| **cve-check** | push to master AND tag pushes (skipped under `act`) | OWASP dependency vulnerability scan — gates the `docker` job on tag pushes |
+| **image-scan** | every push (matrix: 4 services) | Per-service Dockerfile validation gates 1–3: build single-arch image → Trivy image scan (CRITICAL/HIGH blocking) → Spring Boot boot-marker smoke test |
+| **e2e** | every push (skipped under `act`) | End-to-end test against a full Kind + MetalLB stack: `make e2e` cycles create → setup (MongoDB) → deploy (4 services + gateway LB) → `./e2e/e2e-test.sh` → destroy |
+| **docker** | tag push only (matrix: 4 services) | Full pre-push hardening: build local image → Trivy image scan → Spring Boot smoke test → multi-arch (amd64+arm64) build with SLSA provenance + SBOM attestation → push to GHCR → cosign keyless OIDC signing |
+| **ci-pass** | always | Branch-protection aggregator: single required status check that verifies no upstream job failed. Skipped jobs do not trip the gate. |
+
+The release-time `docker` job is documented in detail in the
+[README](../README.md#pre-push-image-hardening) under "Pre-push image
+hardening". Verify a published image's cosign signature with:
+
+```bash
+cosign verify ghcr.io/AndriyKalashnykov/spring-microservices-k8s/gateway:<tag> \
+  --certificate-identity-regexp 'https://github\.com/AndriyKalashnykov/spring-microservices-k8s/.+' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com
+```
 
 A weekly [cleanup workflow](.github/workflows/cleanup-runs.yml) prunes old
-workflow runs. [Renovate](https://docs.renovatebot.com/) keeps dependencies
-up to date with platform automerge enabled.
+workflow runs and stale caches.
+[Renovate](https://docs.renovatebot.com/) keeps dependencies up to date with
+platform automerge enabled.

@@ -11,17 +11,17 @@ This reference architecture demonstrates design, development, and deployment of 
 |-----------|-----------|
 | Language | Java 25 |
 | Framework | Spring Boot 4.0, Spring Cloud 2025.1 |
-| API Gateway | Spring Cloud Gateway MVC |
+| API Gateway | Spring Cloud Gateway Server WebMVC |
 | Inter-service | RestClient with `@HttpExchange` |
 | Service Discovery | Spring Cloud Kubernetes |
 | Database | MongoDB 8.0 (official `mongo` image, non-root UID 999, version-pinned) |
-| API Docs | SpringDoc OpenAPI 2.8 / Swagger UI |
+| API Docs | SpringDoc OpenAPI 3.0 / Swagger UI |
 | Tracing | Micrometer Tracing (OpenTelemetry bridge) |
 | Testing | Testcontainers (integration), Kind e2e |
 | Containers | Eclipse Temurin 25, multi-arch (amd64+arm64) |
 | Local K8s | Kind + MetalLB |
 | CI/CD | GitHub Actions, Renovate, GHCR |
-| Code Quality | Google Java Format, Checkstyle, hadolint, gitleaks, Trivy |
+| Code Quality | google-java-format, Checkstyle, hadolint, gitleaks, actionlint, Trivy, mermaid-cli |
 
 ```mermaid
 %% No `init` block: lets GitHub auto-switch between Mermaid's default
@@ -31,7 +31,7 @@ This reference architecture demonstrates design, development, and deployment of 
 %% color). Edge labels are rendered by the stock Mermaid theme so they
 %% adapt automatically and don't disappear on dark mode.
 graph TB
-    Client([👤 Client]):::client --> Gateway[🌐 Gateway Service<br/>Spring Cloud Gateway MVC<br/>LoadBalancer via MetalLB]
+    Client([👤 Client]):::client --> Gateway[🌐 Gateway Service<br/>Spring Cloud Gateway Server WebMVC<br/>LoadBalancer via MetalLB]
 
     Gateway -->|/employee/**| Employee[👤 Employee Service]
     Gateway -->|/department/**| Department[🏢 Department Service]
@@ -64,13 +64,17 @@ graph TB
 
 ```bash
 make deps          # check required tools
-make build         # build all modules with Maven
-make kind-create   # create local Kind cluster with MetalLB
-make kind-setup    # configure namespaces, RBAC, deploy MongoDB
-make kind-deploy   # build images, load into Kind, deploy services
+make kind-up       # full cluster lifecycle: Kind + MetalLB + MongoDB + 4 services
 make e2e-test      # run end-to-end API tests
 make gateway-open  # open Swagger UI in browser
+make kind-down     # tear everything down when finished
 ```
+
+`make kind-up` is an alias for `make kind-deploy` that chains
+`kind-create` → `kind-setup` → `image-build` → `image-load` → service
+deployment. See the [granular targets](#kind-cluster) below if you need to
+run individual steps (e.g., to skip the image rebuild during iterative
+development).
 
 ## Prerequisites
 
@@ -139,12 +143,14 @@ Run `make help` to see all available targets.
 
 | Target | Description |
 |--------|-------------|
-| `make kind-create` | Create local KinD cluster with MetalLB |
-| `make kind-setup` | Create namespaces, RBAC, service accounts, and deploy MongoDB |
-| `make kind-deploy` | Build, load images, deploy all services, and wait for rollout |
-| `make kind-undeploy` | Remove all services from KinD cluster |
+| `make kind-up` | **Full cluster lifecycle** (alias for `kind-deploy`): create + MetalLB + setup + image build + deploy |
+| `make kind-down` | **Tear down** the Kind cluster (alias for `kind-destroy`) |
+| `make kind-create` | Create local KinD cluster with MetalLB (granular) |
+| `make kind-setup` | Create namespaces, RBAC, service accounts, and deploy MongoDB (granular) |
+| `make kind-deploy` | Build, load images, deploy all services, and wait for rollout (granular) |
+| `make kind-undeploy` | Remove all services from KinD cluster (keeps cluster running) |
 | `make kind-redeploy` | Undeploy then deploy all services |
-| `make kind-destroy` | Delete KinD cluster |
+| `make kind-destroy` | Delete KinD cluster (granular) |
 
 ### E2E Testing
 
@@ -218,12 +224,12 @@ This architecture follows Cloud Native best practices and [The 12 Factor App](ht
 - **API documentation** exposed via Swagger UI
 - **Docker images** built with layered JARs using the Spring Boot plugin
 - **Observability** via Prometheus exporters
-- **Static analysis** via Checkstyle, hadolint, and gitleaks
+- **Static analysis** via google-java-format, Checkstyle, hadolint, gitleaks, actionlint, Trivy (filesystem + K8s config), and mermaid-cli — all wired into the `make static-check` composite gate
 
 ### Service Communication
 
 ```
-Client -> Gateway (Spring Cloud Gateway MVC, LoadBalancer via MetalLB)
+Client -> Gateway (Spring Cloud Gateway Server WebMVC, LoadBalancer via MetalLB)
   |-- /employee/**     -> Employee Service (MongoDB)
   |-- /department/**   -> Department Service (MongoDB, calls Employee via RestClient)
   +-- /organization/** -> Organization Service (MongoDB, calls Department + Employee via RestClient)
@@ -263,7 +269,8 @@ The `docker` job runs the following gates **before** any image is pushed to GHCR
 Verify a published image's signature with:
 
 ```bash
-cosign verify ghcr.io/AndriyKalashnykov/spring-microservices-k8s/employee:2.0.0 \
+# Replace <tag> with a published tag (e.g. 2.2.0, 2.2, 2, latest)
+cosign verify ghcr.io/AndriyKalashnykov/spring-microservices-k8s/employee:<tag> \
   --certificate-identity-regexp 'https://github\.com/AndriyKalashnykov/spring-microservices-k8s/.+' \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com
 ```
