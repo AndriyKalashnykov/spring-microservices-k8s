@@ -84,19 +84,9 @@ spec:
         volumeMounts:
           - name: tmp
             mountPath: /tmp
-          - name: mongodb
-            mountPath: /etc/secretspot
-#          - name: config
-#            mountPath: /etc/appconfig
       volumes:
         - name: tmp
           emptyDir: {}
-        - name: mongodb
-          secret:
-            secretName: organization
-#        - name: config
-#          configMap:
-#            name: organization
       serviceAccountName: api-service-account
 ---
 apiVersion: v1
