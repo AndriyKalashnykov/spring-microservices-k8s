@@ -1,15 +1,7 @@
 spring:
   application:
     name: employee
-  config:
-    import: "optional:kubernetes:"
   cloud:
     kubernetes:
-      config:
-        enabled: true
       discovery:
         all-namespaces: true
-      secrets:
-        enabled: true
-        paths:
-          - /etc/secretspot
