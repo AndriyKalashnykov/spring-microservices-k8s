@@ -38,10 +38,19 @@
     },
     {
       "customType": "regex",
-      "description": "Track Testcontainers MongoDBContainer image versions in Java test files (kept in sync with k8s/mongodb-deployment.yaml)",
-      "managerFilePatterns": ["**/*ControllerTest.java"],
+      "description": "Track Testcontainers MongoDBContainer image versions in ANY Java file (glob is intentionally broad — renaming a test file should not silently drop Renovate tracking)",
+      "managerFilePatterns": ["**/*.java"],
       "matchStrings": [
         "new\\s+MongoDBContainer\\(\\s*\"(?<depName>[^:\"]+):(?<currentValue>[^\"]+)\"\\s*\\)"
+      ],
+      "datasourceTemplate": "docker"
+    },
+    {
+      "customType": "regex",
+      "description": "Track mongo image version in docs/reference-architecture.md fenced YAML examples (kept in sync with k8s/mongodb-deployment.yaml)",
+      "managerFilePatterns": ["^docs/.+\\.md$"],
+      "matchStrings": [
+        "image:\\s+(?<depName>mongo):(?<currentValue>[0-9]+\\.[0-9]+\\.[0-9]+)"
       ],
       "datasourceTemplate": "docker"
     }
