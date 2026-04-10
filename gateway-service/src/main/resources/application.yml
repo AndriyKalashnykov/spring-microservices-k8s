@@ -1,15 +1,10 @@
 spring:
   application:
     name: gateway
-  config:
-    import: "optional:kubernetes:"
   cloud:
     kubernetes:
-      config:
-        enabled: true
       discovery:
         all-namespaces: true
-
 springdoc:
   swagger-ui:
     urls:

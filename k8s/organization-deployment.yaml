@@ -30,6 +30,27 @@ spec:
               - ALL
         ports:
           - containerPort: 8080
+        env:
+          - name: SPRING_MONGODB_HOST
+            valueFrom:
+              configMapKeyRef:
+                name: organization
+                key: spring.data.mongodb.host
+          - name: SPRING_MONGODB_DATABASE
+            valueFrom:
+              configMapKeyRef:
+                name: organization
+                key: spring.data.mongodb.database
+          - name: SPRING_MONGODB_USERNAME
+            valueFrom:
+              secretKeyRef:
+                name: organization
+                key: spring.data.mongodb.username
+          - name: SPRING_MONGODB_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: organization
+                key: spring.data.mongodb.password
         resources:
           requests:
             cpu: "0.2"
