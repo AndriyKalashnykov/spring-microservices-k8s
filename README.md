@@ -5,7 +5,9 @@
 
 # Java Microservices with Spring Boot and Spring Cloud Kubernetes
 
-This reference architecture demonstrates design, development, and deployment of Spring Boot microservices on Kubernetes. It implements a hierarchical domain model (Organization > Department > Employee) with four services deployed across isolated namespaces, using Spring Cloud Kubernetes for service discovery, configuration, and secrets management.
+Production-grade Spring Boot + Spring Cloud Kubernetes microservices — not a tutorial, a working system.
+
+Four services (gateway, organization, department, employee) deploy to isolated namespaces on a local Kind cluster with one command. The stack is fully wired: cross-namespace service discovery, inter-service REST calls via `@HttpExchange`, MongoDB persistence, distributed tracing, and an API gateway with Swagger UI. CI runs 7 pipeline stages including Trivy CVE scans, Testcontainers integration tests, Kind-based e2e tests, and multi-arch Docker builds with SLSA provenance + cosign signing. Everything is `make`-driven — `make kind-up` to run it, `make ci` to validate it, `make kind-down` to tear it down.
 
 | Component | Technology |
 |-----------|-----------|
