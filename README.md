@@ -3,7 +3,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-brightgreen.svg)](https://opensource.org/licenses/MIT)
 [![Renovate enabled](https://img.shields.io/badge/renovate-enabled-brightgreen.svg)](https://app.renovatebot.com/dashboard#github/AndriyKalashnykov/spring-microservices-k8s)
 
-# Spring Boot 4 microservices on Kubernetes with Spring Cloud, MongoDB, and Kind dev cluster
+# Spring Boot microservices on Kubernetes with Spring Cloud, MongoDB, and Kind dev cluster
 
 Production-grade Spring Boot + Spring Cloud Kubernetes microservices — not a tutorial, a working system.
 
