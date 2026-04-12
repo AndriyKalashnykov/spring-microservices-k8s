@@ -188,7 +188,8 @@ broken under SC Kubernetes 5.x or no longer needed:
   now injected as env vars — see "Configure MongoDB" below.
 
 The small set of Spring Cloud Kubernetes features the project still uses
-fits in three lines of `application.yml`:
+fits in three lines of `application.yml` (shown here for the employee
+service — every backend service has the same block):
 
 ```yaml
 spring:
@@ -199,6 +200,12 @@ spring:
       discovery:
         all-namespaces: true
 ```
+
+The same `all-namespaces` flag is also present in each service's ConfigMap
+(e.g., `spring.cloud.kubernetes.discovery.all-namespaces: "true"` in
+`department-configmap.yaml`) — the ConfigMap value acts as an environment
+override, ensuring discovery works even if the `application.yml` property
+is overridden or missing at runtime.
 
 ## Source Code Directory Structure
 
@@ -308,7 +315,7 @@ Spring Cloud LoadBalancer.
 ```java
 public interface EmployeeClient {
     @GetExchange("/department/{departmentId}")
-    List<Employee> findByDepartment(@PathVariable String departmentId);
+    List<Employee> findByDepartment(@PathVariable("departmentId") String departmentId);
 }
 ```
 
@@ -328,14 +335,20 @@ apiVersion: v1
 metadata:
   name: department
 data:
-  # Keys retain the Spring Boot 3.x `spring.data.mongodb.*` prefix so they
-  # read naturally; the Deployment's `valueFrom.configMapKeyRef` looks them
-  # up by this exact key and maps them to env-var names that Spring Boot 4's
-  # relaxed binding resolves to `spring.mongodb.*` (the new SB4 prefix).
+  logging.pattern.console: "%clr(%d{yy-MM-dd E HH:mm:ss.SSS}){blue} ..."
+  spring.cloud.kubernetes.discovery.all-namespaces: "true"
+  # Keys retain the Spring Boot 3.x `spring.data.mongodb.*` prefix — they
+  # are lookup keys for the Deployment's `valueFrom.configMapKeyRef`, not
+  # property names. The env-var names (`SPRING_MONGODB_*`) target the new
+  # Spring Boot 4 `spring.mongodb.*` prefix via relaxed binding.
   spring.data.mongodb.database: "admin"
   spring.data.mongodb.host: "mongodb.mongo.svc.cluster.local"
+  spring.output.ansi.enabled: "ALWAYS"
   management.endpoints.web.exposure.include: "health,info,metrics,prometheus"
   management.metrics.enable.all: "true"
+  management.metrics.distribution.percentiles-histogram.http.server.requests: "true"
+  management.metrics.distribution.slo.http.server.requests: "1ms,5ms"
+  management.tracing.sampling.probability: "1.0"
 ```
 
 ## Configure Spring Cloud Kubernetes to Access Kubernetes API
@@ -414,9 +427,17 @@ spec:
         runAsUser: 999
         runAsGroup: 999
         fsGroup: 999
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: mongodb
           image: mongo:8.0.20
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+            capabilities:
+              drop:
+                - ALL
           ports:
             - containerPort: 27017
           env:
@@ -737,10 +758,20 @@ spec:
   replicas: 1
   template:
     spec:
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: department
           image: department:local
           imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
           ports:
             - containerPort: 8080
           resources:
@@ -761,6 +792,7 @@ spec:
             httpGet:
               port: 8080
               path: /actuator/health
+            initialDelaySeconds: 0
             timeoutSeconds: 5
             periodSeconds: 10
             failureThreshold: 3
@@ -768,9 +800,16 @@ spec:
             httpGet:
               port: 8080
               path: /actuator/info
+            initialDelaySeconds: 0
             timeoutSeconds: 5
-            periodSeconds: 30
-            failureThreshold: 3
+            periodSeconds: 20
+            failureThreshold: 5
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
       serviceAccountName: api-service-account
 ```
 
@@ -794,39 +833,38 @@ using `RouterFunction` beans with load balancer integration:
 @SpringBootApplication
 public class GatewayApplication {
 
+    private static final String EMPLOYEE_SERVICE = "employee";
+    private static final String DEPARTMENT_SERVICE = "department";
+    private static final String ORGANIZATION_SERVICE = "organization";
+
+    @Autowired DiscoveryClient client;
+
+    @PostConstruct
+    public void init() {
+        LOGGER.info("Services: {}", client.getServices());
+        // logs each service instance's host, port, and ID at startup
+    }
+
     @Bean
     public RouterFunction<ServerResponse> employeeRoute() {
-        return route("employee")
-                .route(path("/employee", "/employee/**"), HandlerFunctions.http())
+        return route(EMPLOYEE_SERVICE)
+                .route(path("/" + EMPLOYEE_SERVICE, "/" + EMPLOYEE_SERVICE + "/**"),
+                       HandlerFunctions.http())
                 .before(stripPrefix(1))
-                .filter(lb("employee"))
+                .filter(lb(EMPLOYEE_SERVICE))
                 .build();
     }
 
-    @Bean
-    public RouterFunction<ServerResponse> departmentRoute() {
-        return route("department")
-                .route(path("/department", "/department/**"), HandlerFunctions.http())
-                .before(stripPrefix(1))
-                .filter(lb("department"))
-                .build();
-    }
-
-    @Bean
-    public RouterFunction<ServerResponse> organizationRoute() {
-        return route("organization")
-                .route(path("/organization", "/organization/**"), HandlerFunctions.http())
-                .before(stripPrefix(1))
-                .filter(lb("organization"))
-                .build();
-    }
+    // departmentRoute() and organizationRoute() follow the same pattern
 }
 ```
 
 - `path(...)` matches incoming request paths
 - `stripPrefix(1)` removes the service prefix (e.g., `/employee/1` → `/1`)
-- `lb("employee")` resolves the service via Spring Cloud LoadBalancer using
-  Kubernetes DiscoveryClient
+- `lb(EMPLOYEE_SERVICE)` resolves the service via Spring Cloud LoadBalancer
+  using Kubernetes DiscoveryClient
+- The `@PostConstruct init()` logs all discovered service instances at startup
+  — useful for debugging cross-namespace discovery
 
 SpringDoc aggregates API docs from all backend services:
 

@@ -79,8 +79,8 @@ spec:
             path: /actuator/info
           initialDelaySeconds: 0
           timeoutSeconds: 5
-          periodSeconds: 30
-          failureThreshold: 3
+          periodSeconds: 20
+          failureThreshold: 5
         volumeMounts:
           - name: tmp
             mountPath: /tmp
