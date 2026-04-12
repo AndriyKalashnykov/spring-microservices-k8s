@@ -5,7 +5,6 @@ metadata:
 data:
   logging.pattern.console: "%clr(%d{yy-MM-dd E HH:mm:ss.SSS}){blue} %clr(%-5p) %clr(${PID}){faint} %clr(---){faint} %clr([%8.15t]){cyan} %clr(%-40.40logger{0}){blue} %clr(:){red} %clr(%m){faint}%n"
   spring.cloud.kubernetes.discovery.all-namespaces: "true"
-  spring.output.ansi.enabled: "ALWAYS"
   management.endpoints.web.exposure.include: "health,info,metrics,prometheus"
   management.metrics.enable.all: "true"
   management.metrics.distribution.percentiles-histogram.http.server.requests: "true"

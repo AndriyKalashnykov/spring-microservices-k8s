@@ -343,7 +343,6 @@ data:
   # Spring Boot 4 `spring.mongodb.*` prefix via relaxed binding.
   spring.data.mongodb.database: "admin"
   spring.data.mongodb.host: "mongodb.mongo.svc.cluster.local"
-  spring.output.ansi.enabled: "ALWAYS"
   management.endpoints.web.exposure.include: "health,info,metrics,prometheus"
   management.metrics.enable.all: "true"
   management.metrics.distribution.percentiles-histogram.http.server.requests: "true"
@@ -690,7 +689,7 @@ Key properties of the runtime image:
 # For local builds: run `make build` first, then `make image-build`
 # For CI: the builds job produces JARs before Docker builds
 
-FROM eclipse-temurin:25-jre AS extract
+FROM eclipse-temurin:25-jre-noble AS extract
 WORKDIR /tmp
 COPY target/*.jar app.jar
 RUN java -Djarmode=layertools -jar app.jar extract
@@ -708,11 +707,9 @@ COPY --from=extract --chown=appuser:appuser /tmp/application/ ./
 
 EXPOSE 8080
 
-ENV _JAVA_OPTIONS="-XX:MinRAMPercentage=60.0 -XX:MaxRAMPercentage=90.0 \
--Djava.security.egd=file:/dev/./urandom \
+ENV JAVA_TOOL_OPTIONS="-XX:MinRAMPercentage=60.0 -XX:MaxRAMPercentage=90.0 \
 -Djava.awt.headless=true -Dfile.encoding=UTF-8 \
--Dspring.output.ansi.enabled=ALWAYS \
--Dspring.profiles.active=default"
+-Dspring.output.ansi.enabled=ALWAYS"
 
 # HEALTHCHECK: not needed — Kubernetes startup/readiness/liveness probes
 # handle health checks. For standalone Docker use, add:
