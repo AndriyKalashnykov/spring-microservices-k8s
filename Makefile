@@ -368,9 +368,9 @@ cve-check: deps maven-settings-ossindex
 coverage-generate: deps
 	@mvn -B test -Ddependency-check.skip=true org.jacoco:jacoco-maven-plugin:report
 
-#coverage-check: @ Verify code coverage meets minimum threshold
+#coverage-check: @ Verify code coverage meets minimum threshold (BUNDLE INSTRUCTION >= 30%)
 coverage-check: coverage-generate
-	@echo "Coverage reports generated. Review in target/site/jacoco/"
+	@mvn -B org.jacoco:jacoco-maven-plugin:check -Ddependency-check.skip=true
 
 #coverage-open: @ Open code coverage report in browser
 coverage-open:

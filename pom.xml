@@ -64,14 +64,20 @@
 								<goal>check</goal>
 							</goals>
 							<configuration>
+								<!-- Per-module (BUNDLE) floor on instruction coverage.
+								     Calibrated to the lowest module (organization at
+								     ~37% on unit tests alone). Acts as a regression
+								     guard — if tests are deleted coverage drops below
+								     this floor and the build fails. Tighten as the
+								     integration-test suite adds coverage. -->
 								<rules>
 									<rule>
 										<element>BUNDLE</element>
 										<limits>
 											<limit>
-												<counter>LINE</counter>
+												<counter>INSTRUCTION</counter>
 												<value>COVEREDRATIO</value>
-												<minimum>0.0</minimum>
+												<minimum>0.30</minimum>
 											</limit>
 										</limits>
 									</rule>
