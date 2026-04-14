@@ -370,7 +370,7 @@ coverage-generate: deps
 
 #coverage-check: @ Verify code coverage meets minimum threshold (BUNDLE INSTRUCTION >= 30%)
 coverage-check: coverage-generate
-	@mvn -B org.jacoco:jacoco-maven-plugin:check -Ddependency-check.skip=true
+	@mvn -B org.jacoco:jacoco-maven-plugin:check@check -Ddependency-check.skip=true
 
 #coverage-open: @ Open code coverage report in browser
 coverage-open:
