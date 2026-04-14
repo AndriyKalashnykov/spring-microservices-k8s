@@ -76,55 +76,9 @@ The application is built with these open source components:
 - [SpringDoc OpenAPI](https://springdoc.org/): OpenAPI 3 documentation with
   Swagger UI.
 
-```mermaid
-%% No `init` block: lets GitHub auto-switch between Mermaid's default
-%% (light) and dark themes based on the viewer's GitHub theme. Custom
-%% classDef brand colors below override the theme for nodes and stay
-%% readable on both backgrounds.
-graph TB
-    Client([👤 Client]):::client --> Gateway[🌐 Gateway Service<br/>Spring Cloud Gateway Server WebMVC<br/>LoadBalancer via MetalLB]
+<p align="center"><img src="diagrams/out/c4-container.png" alt="C4 Container diagram" width="720"></p>
 
-    Gateway -->|/employee/**| Employee[👤 Employee Service<br/>RestController + MongoDB]
-    Gateway -->|/department/**| Department[🏢 Department Service<br/>RestController + MongoDB]
-    Gateway -->|/organization/**| Organization[🏛️ Organization Service<br/>RestController + MongoDB]
-
-    Department -.->|RestClient| Employee
-    Organization -.->|RestClient| Employee
-    Organization -.->|RestClient| Department
-
-    Employee --> MongoDB[(🗄️ MongoDB 8)]
-    Department --> MongoDB
-    Organization --> MongoDB
-
-    subgraph k8s ["☸ Spring Cloud Kubernetes"]
-        Gateway
-        Employee
-        Department
-        Organization
-    end
-
-    %% Theme-adaptive palette: amber uses black text (7.4:1 vs amber-500),
-    %% Tailwind-600 fills with white text for the rest. Works on both
-    %% white and #0d1117 GitHub backgrounds.
-    classDef client fill:#f59e0b,stroke:#b45309,color:#000000
-    classDef gateway fill:#2563eb,stroke:#1e40af,color:#ffffff
-    classDef service fill:#059669,stroke:#065f46,color:#ffffff
-    classDef db fill:#7c3aed,stroke:#5b21b6,color:#ffffff
-
-    class Client client
-    class Gateway gateway
-    class Employee,Department,Organization service
-    class MongoDB db
-```
-
-<details>
-<summary><strong>Same Container view rendered via PlantUML + C4-PlantUML (for visual comparison)</strong></summary>
-
-<p align="center"><img src="diagrams/out/c4-container.png" alt="C4 Container diagram (PlantUML)" width="720"></p>
-
-Source: [`docs/diagrams/c4-container.puml`](diagrams/c4-container.puml)
-
-</details>
+Source: [`diagrams/c4-container.puml`](diagrams/c4-container.puml) — PlantUML + C4-PlantUML, modern flat theme.
 
 ## Reference Architecture Environment
 
@@ -132,51 +86,9 @@ Each microservice runs in its own container, one container per pod and one pod
 per service replica. The application uses a microservices architecture
 with replicated containers calling each other.
 
-```mermaid
-%% Theme-adaptive: no init directive so GitHub auto-switches between
-%% Mermaid's default and dark themes per viewer preference. classDef
-%% brand colors below override the theme for nodes.
-graph TB
-    subgraph kind["☸ Kind Cluster"]
-        subgraph ns-gw["gateway namespace"]
-            GW[🌐 gateway pod<br/>:8080 LoadBalancer]:::gateway
-        end
-        subgraph ns-emp["employee namespace"]
-            EMP[👤 employee pod<br/>:8080 ClusterIP]:::service
-        end
-        subgraph ns-dept["department namespace"]
-            DEPT[🏢 department pod<br/>:8080 ClusterIP]:::service
-        end
-        subgraph ns-org["organization namespace"]
-            ORG[🏛️ organization pod<br/>:8080 ClusterIP]:::service
-        end
-        subgraph ns-mongo["mongo namespace"]
-            MONGO[(🗄️ mongodb pod<br/>:27017)]:::db
-        end
-        subgraph metallb["⚖️ MetalLB"]
-            LB[LoadBalancer IP]:::lb
-        end
-    end
+<p align="center"><img src="diagrams/out/c4-deployment.png" alt="C4 Deployment diagram — Kind cluster" width="720"></p>
 
-    LB --> GW
-    EMP --> MONGO
-    DEPT --> MONGO
-    ORG --> MONGO
-
-    classDef gateway fill:#2563eb,stroke:#1e40af,color:#ffffff
-    classDef service fill:#059669,stroke:#065f46,color:#ffffff
-    classDef db fill:#7c3aed,stroke:#5b21b6,color:#ffffff
-    classDef lb fill:#f59e0b,stroke:#b45309,color:#000000
-```
-
-<details>
-<summary><strong>Same Deployment view rendered via PlantUML + C4-PlantUML (for visual comparison)</strong></summary>
-
-<p align="center"><img src="diagrams/out/c4-deployment.png" alt="C4 Deployment diagram (PlantUML)" width="720"></p>
-
-Source: [`docs/diagrams/c4-deployment.puml`](diagrams/c4-deployment.puml)
-
-</details>
+Source: [`diagrams/c4-deployment.puml`](diagrams/c4-deployment.puml) — PlantUML + C4-PlantUML, modern flat theme.
 
 ## Spring Cloud Kubernetes
 
@@ -404,31 +316,9 @@ Every Service in the cluster is assigned a DNS name following the pattern
 `<service>.<namespace>.svc.cluster.local`. For example, the MongoDB service
 is reachable at `mongodb.mongo.svc.cluster.local:27017`.
 
-```mermaid
-%% Theme-adaptive: no init directive so GitHub auto-switches between
-%% Mermaid's default and dark themes per viewer preference.
-graph LR
-    subgraph dns ["☸ Kubernetes DNS"]
-        G["🌐 gateway.gateway.svc.cluster.local:8080"]:::gateway
-        E["👤 employee.employee.svc.cluster.local:8080"]:::service
-        D["🏢 department.department.svc.cluster.local:8080"]:::service
-        O["🏛️ organization.organization.svc.cluster.local:8080"]:::service
-        M["🗄️ mongodb.mongo.svc.cluster.local:27017"]:::db
-    end
+<p align="center"><img src="diagrams/out/c4-dns.png" alt="Kubernetes DNS — Service FQDN layout" width="720"></p>
 
-    classDef gateway fill:#2563eb,stroke:#1e40af,color:#ffffff
-    classDef service fill:#059669,stroke:#065f46,color:#ffffff
-    classDef db fill:#7c3aed,stroke:#5b21b6,color:#ffffff
-```
-
-<details>
-<summary><strong>Same DNS layout rendered via PlantUML + C4-PlantUML (for visual comparison)</strong></summary>
-
-<p align="center"><img src="diagrams/out/c4-dns.png" alt="Kubernetes DNS diagram (PlantUML)" width="720"></p>
-
-Source: [`docs/diagrams/c4-dns.puml`](diagrams/c4-dns.puml)
-
-</details>
+Source: [`diagrams/c4-dns.puml`](diagrams/c4-dns.puml) — PlantUML + C4-PlantUML, modern flat theme.
 
 The pattern is `<service>.<namespace>.svc.cluster.local:<port>`.
 
@@ -671,12 +561,12 @@ individual target.
 | GitHub Actions linting | [actionlint](https://github.com/rhysd/actionlint) (with shellcheck) | YAML schema errors, shell scripts inside `run:` blocks |
 | Filesystem CVE scan | [Trivy](https://github.com/aquasecurity/trivy) (fs scanner) | Vulnerabilities, secrets, and misconfigurations in source + deps |
 | K8s manifest scan | Trivy (config scanner) | KSV-* Kubernetes security misconfigurations |
-| Mermaid diagram lint | `minlag/mermaid-cli` | Broken Mermaid blocks that silently break GitHub-rendered markdown |
+| PlantUML drift check | `plantuml/plantuml` | Committed PNGs in `docs/diagrams/out/` drift from `.puml` source when contributors edit the source without re-rendering |
 
 Run all checks:
 
 ```bash
-make static-check    # format-check + lint-ci + lint + lint-docker + secrets + trivy-fs + trivy-config + mermaid-lint
+make static-check    # format-check + lint-ci + lint + lint-docker + secrets + trivy-fs + trivy-config + diagrams-check
 make cve-check       # OWASP Dependency-Check — slower, runs in its own CI job
 make deps-prune      # check for unused Maven dependencies
 make deps-prune-check # CI gate version — fails on unused or undeclared deps
@@ -990,7 +880,7 @@ GitHub Actions runs on every push to `master`, tags `v*`, and pull requests.
 
 | Job | Triggers | Steps |
 |-----|----------|-------|
-| **static-check** | push, PR | `make static-check` composite gate: format-check, lint-ci (actionlint), lint (Checkstyle + compiler warnings-as-errors), lint-docker (hadolint), secrets (gitleaks), trivy-fs, trivy-config, mermaid-lint |
+| **static-check** | push, PR | `make static-check` composite gate: format-check, lint-ci (actionlint), lint (Checkstyle + compiler warnings-as-errors), lint-docker (hadolint), secrets (gitleaks), trivy-fs, trivy-config, diagrams-check |
 | **build** | after static-check | Build all modules with Maven, upload JARs as `service-jars` artifact |
 | **test** | after static-check | Run Testcontainers integration tests + coverage |
 | **cve-check** | push to master AND tag pushes (skipped under `act`) | OWASP dependency vulnerability scan — gates the `docker` job on tag pushes |

@@ -23,59 +23,11 @@ Four services (gateway, organization, department, employee) deploy to isolated n
 | Containers | Eclipse Temurin 25, multi-arch (amd64+arm64) |
 | Local K8s | Kind + MetalLB |
 | CI/CD | GitHub Actions, Renovate, GHCR |
-| Code Quality | google-java-format, Checkstyle, hadolint, gitleaks, actionlint, Trivy, mermaid-cli |
+| Code Quality | google-java-format, Checkstyle, hadolint, gitleaks, actionlint, Trivy, PlantUML |
 
-```mermaid
-%% No `init` block: lets GitHub auto-switch between Mermaid's default
-%% (light) and dark themes based on the viewer's GitHub theme. Custom
-%% classDef brand colors below override the theme for nodes and stay
-%% readable on both backgrounds (saturated mid-tones with forced text
-%% color). Edge labels are rendered by the stock Mermaid theme so they
-%% adapt automatically and don't disappear on dark mode.
-graph TB
-    Client([👤 Client]):::client --> Gateway[🌐 Gateway Service<br/>Spring Cloud Gateway Server WebMVC<br/>LoadBalancer via MetalLB]
+<p align="center"><img src="docs/diagrams/out/c4-container.png" alt="C4 Container diagram — Spring Microservices on Kubernetes" width="720"></p>
 
-    Gateway -->|/employee/**| Employee[👤 Employee Service]
-    Gateway -->|/department/**| Department[🏢 Department Service]
-    Gateway -->|/organization/**| Organization[🏛️ Organization Service]
-
-    Department -.->|RestClient| Employee
-    Organization -.->|RestClient| Employee
-    Organization -.->|RestClient| Department
-
-    Employee --> MongoDB[(🗄️ MongoDB 8)]
-    Department --> MongoDB
-    Organization --> MongoDB
-
-    %% Theme-adaptive palette: saturated brand colors with explicit text
-    %% colors so contrast holds on both white and #0d1117 backgrounds.
-    %% Amber uses black text (7.4:1 vs amber-500), the rest use white text
-    %% on Tailwind-600 fills (4.3-4.6:1, passes WCAG AA for large text).
-    classDef client fill:#f59e0b,stroke:#b45309,color:#000000
-    classDef gateway fill:#2563eb,stroke:#1e40af,color:#ffffff
-    classDef service fill:#059669,stroke:#065f46,color:#ffffff
-    classDef db fill:#7c3aed,stroke:#5b21b6,color:#ffffff
-
-    class Client client
-    class Gateway gateway
-    class Employee,Department,Organization service
-    class MongoDB db
-```
-
-<details>
-<summary><strong>Same diagram rendered via PlantUML + C4-PlantUML (modern flat theme)</strong></summary>
-
-<p align="center"><img src="docs/diagrams/out/c4-container.png" alt="C4 Container diagram (modern flat)" width="720"></p>
-
-Source: [`docs/diagrams/c4-container.puml`](docs/diagrams/c4-container.puml) — skinparam overrides for no shadows, sharp corners, Inter font, teal/indigo/violet palette.
-
-**Alternative theme — sketchy / hand-drawn** (`!theme sketchy-outline`): whiteboard look, good for "still iterating" diagrams.
-
-<p align="center"><img src="docs/diagrams/out/c4-container-sketch.png" alt="C4 Container diagram (sketchy)" width="720"></p>
-
-Source: [`docs/diagrams/c4-container-sketch.puml`](docs/diagrams/c4-container-sketch.puml)
-
-</details>
+Source: [`docs/diagrams/c4-container.puml`](docs/diagrams/c4-container.puml) — PlantUML + [C4-PlantUML](https://github.com/plantuml-stdlib/C4-PlantUML) with a modern flat skinparam block (no shadows, sharp corners, Inter font, teal/indigo/violet palette). Regenerate with `make diagrams`.
 
 ## Quick Start
 
@@ -137,7 +89,8 @@ Run `make help` to see all available targets.
 | `make secrets` | Scan for hardcoded secrets |
 | `make trivy-fs` | Scan filesystem for vulnerabilities, secrets, and misconfigurations |
 | `make trivy-config` | Scan Kubernetes manifests for security misconfigurations (KSV-*) |
-| `make mermaid-lint` | Validate Mermaid diagrams in markdown files via [mermaid-cli](https://github.com/mermaid-js/mermaid-cli) |
+| `make diagrams` | Render PlantUML architecture diagrams under `docs/diagrams/` to PNG |
+| `make diagrams-check` | Verify committed PNGs match current `.puml` source (drift check for CI) |
 | `make cve-check` | Run OWASP dependency vulnerability scan |
 | `make coverage-generate` | Generate code coverage report |
 | `make coverage-check` | Verify code coverage meets minimum threshold |
@@ -235,7 +188,7 @@ This architecture follows Cloud Native best practices and [The 12 Factor App](ht
 - **API documentation** exposed via Swagger UI
 - **Docker images** built with layered JARs using the Spring Boot plugin
 - **Observability** via Prometheus exporters
-- **Static analysis** via google-java-format, Checkstyle, hadolint, gitleaks, actionlint, Trivy (filesystem + K8s config), and mermaid-cli — all wired into the `make static-check` composite gate
+- **Static analysis** via google-java-format, Checkstyle, hadolint, gitleaks, actionlint, Trivy (filesystem + K8s config), and PlantUML diagram drift check — all wired into the `make static-check` composite gate
 
 ### Service Communication
 
@@ -254,7 +207,7 @@ GitHub Actions runs on every push to `master`, tags `v*`, and pull requests.
 
 | Job | Triggers | Steps |
 |-----|----------|-------|
-| **static-check** | push, PR | `make static-check` composite gate: format-check, lint-ci (actionlint), lint (Checkstyle + compiler warnings-as-errors), lint-docker (hadolint), secrets (gitleaks), trivy-fs, trivy-config, mermaid-lint |
+| **static-check** | push, PR | `make static-check` composite gate: format-check, lint-ci (actionlint), lint (Checkstyle + compiler warnings-as-errors), lint-docker (hadolint), secrets (gitleaks), trivy-fs, trivy-config, diagrams-check |
 | **build** | after static-check | Build all modules with Maven, upload JARs as `service-jars` artifact |
 | **test** | after static-check | Run Testcontainers integration tests + coverage (non-blocking) |
 | **cve-check** | push to master AND tag pushes (skipped under `act`) | OWASP dependency vulnerability scan — gates the `docker` job on tag pushes |

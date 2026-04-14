@@ -62,8 +62,8 @@ SHELLCHECK_VERSION := 0.11.0
 NVM_VERSION       := 0.40.4
 # Source of truth: .nvmrc (major version only, e.g., "22"); not Renovate-trackable.
 NODE_VERSION      := $(shell cat .nvmrc 2>/dev/null || echo 22)
-# renovate: datasource=docker depName=minlag/mermaid-cli
-MERMAID_CLI_VERSION := 11.12.0
+# renovate: datasource=docker depName=plantuml/plantuml
+PLANTUML_VERSION    := 1.2025.4
 
 # Source of truth: .java-version (read by CI via java-version-file); not Renovate-trackable.
 # Used by deps target to verify the installed Java major matches the project.
@@ -289,33 +289,34 @@ trivy-fs: deps-trivy
 trivy-config: deps-trivy
 	@trivy config --severity CRITICAL,HIGH k8s/
 
-#mermaid-lint: @ Validate Mermaid diagrams in markdown files
-mermaid-lint: deps-docker
-	@set -euo pipefail; \
-	MD_FILES=$$(grep -lF '```mermaid' README.md CLAUDE.md docs/*.md 2>/dev/null || true); \
-	if [ -z "$$MD_FILES" ]; then \
-		echo "No Mermaid blocks found — skipping."; \
-		exit 0; \
-	fi; \
-	FAILED=0; \
-	for md in $$MD_FILES; do \
-		echo "Validating Mermaid blocks in $$md..."; \
-		LOG=$$(mktemp); \
-		if docker run --rm -v "$$PWD:/data" \
-			minlag/mermaid-cli:$(MERMAID_CLI_VERSION) \
-			-i "/data/$$md" -o "/tmp/$$(basename $$md .md).svg" >"$$LOG" 2>&1; then \
-			echo "  ✓ All blocks rendered cleanly."; \
-		else \
-			echo "  ✗ Parse error in $$md:"; \
-			sed 's/^/    /' "$$LOG"; \
-			FAILED=$$((FAILED + 1)); \
-		fi; \
-		rm -f "$$LOG"; \
-	done; \
-	if [ "$$FAILED" -gt 0 ]; then \
-		echo "Mermaid lint: $$FAILED file(s) had parse errors."; \
+DIAGRAM_DIR := docs/diagrams
+DIAGRAM_SRC := $(wildcard $(DIAGRAM_DIR)/*.puml)
+DIAGRAM_OUT := $(patsubst $(DIAGRAM_DIR)/%.puml,$(DIAGRAM_DIR)/out/%.png,$(DIAGRAM_SRC))
+
+#diagrams: @ Render PlantUML architecture diagrams to PNG
+diagrams: deps-docker $(DIAGRAM_OUT)
+
+$(DIAGRAM_DIR)/out/%.png: $(DIAGRAM_DIR)/%.puml
+	@mkdir -p $(DIAGRAM_DIR)/out
+	@docker run --rm -v "$(CURDIR)/$(DIAGRAM_DIR):/work" -w /work \
+		-e HOME=/tmp -e _JAVA_OPTIONS=-Duser.home=/tmp \
+		plantuml/plantuml:$(PLANTUML_VERSION) \
+		-tpng -o out $(notdir $<)
+	@docker run --rm -v "$(CURDIR)/$(DIAGRAM_DIR):/work" --entrypoint /bin/sh \
+		plantuml/plantuml:$(PLANTUML_VERSION) \
+		-c "chown -R $$(id -u):$$(id -g) /work/out" >/dev/null 2>&1 || true
+
+#diagrams-check: @ Verify committed diagram PNGs match current .puml source (CI drift check)
+diagrams-check: diagrams
+	@git diff --exit-code -- $(DIAGRAM_DIR)/out >/dev/null || { \
+		echo "ERROR: Diagram source changed but rendered PNGs not updated. Run 'make diagrams' and commit docs/diagrams/out/."; \
 		exit 1; \
-	fi
+	}
+	@echo "Diagrams in sync with source."
+
+#diagrams-clean: @ Remove rendered diagram PNGs
+diagrams-clean:
+	rm -rf $(DIAGRAM_DIR)/out
 
 #lint-ci: @ Lint GitHub Actions workflows with actionlint (uses shellcheck)
 lint-ci: deps-actionlint deps-shellcheck
@@ -346,7 +347,7 @@ coverage-open:
 	@$(OPEN_CMD) ./employee-service/target/site/jacoco/index.html
 
 #static-check: @ Run all quality and security checks
-static-check: format-check lint-ci lint lint-docker secrets trivy-fs trivy-config mermaid-lint
+static-check: format-check lint-ci lint lint-docker secrets trivy-fs trivy-config diagrams-check
 	@echo "Static check passed."
 
 # ---------------------------------------------------------------------------
@@ -598,7 +599,8 @@ renovate-validate: renovate-bootstrap
 	deps-hadolint deps-gitleaks deps-trivy deps-actionlint deps-shellcheck \
 	deps-updates deps-update deps-prune deps-prune-check \
 	clean build test integration-test lint format format-check \
-	lint-ci lint-docker secrets trivy-fs trivy-config mermaid-lint \
+	lint-ci lint-docker secrets trivy-fs trivy-config \
+	diagrams diagrams-check diagrams-clean \
 	maven-settings-ossindex cve-check \
 	coverage-generate coverage-check coverage-open static-check \
 	image-build image-load \

@@ -70,7 +70,7 @@ make kind-undeploy # Remove services but keep the cluster running
 - Kubernetes (Kind + MetalLB for local dev)
 - MongoDB 8.0 (official `mongo` image, non-root UID 999, version-pinned for Renovate)
 - Testcontainers (integration tests)
-- Checkstyle + hadolint + gitleaks + Trivy + mermaid-cli (static analysis composite gate via `make static-check`)
+- Checkstyle + hadolint + gitleaks + Trivy + PlantUML drift check (static analysis composite gate via `make static-check`)
 
 ## Upgrade Backlog
 
