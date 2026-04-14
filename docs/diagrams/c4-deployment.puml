@@ -23,16 +23,16 @@ Deployment_Node(host, "Developer Workstation", "Linux / macOS") {
         Deployment_Node(metallb, "MetalLB", "Layer-2 LoadBalancer controller — assigns external IP to the gateway Service")
 
         Deployment_Node(ns_gw, "namespace: gateway") {
-            Container(gateway_pod, "gateway pod", "Spring Boot 4.0, Java 25", ":8080 — Service type LoadBalancer")
+            Container(gateway_pod, "gateway pod", "Spring Boot 4.0.5, Java 25", ":8080 — Service type LoadBalancer")
         }
         Deployment_Node(ns_emp, "namespace: employee") {
-            Container(employee_pod, "employee pod", "Spring Boot 4.0, Java 25", ":8080 — Service type ClusterIP")
+            Container(employee_pod, "employee pod", "Spring Boot 4.0.5, Java 25", ":8080 — Service type ClusterIP")
         }
         Deployment_Node(ns_dept, "namespace: department") {
-            Container(department_pod, "department pod", "Spring Boot 4.0, Java 25", ":8080 — Service type ClusterIP")
+            Container(department_pod, "department pod", "Spring Boot 4.0.5, Java 25", ":8080 — Service type ClusterIP")
         }
         Deployment_Node(ns_org, "namespace: organization") {
-            Container(organization_pod, "organization pod", "Spring Boot 4.0, Java 25", ":8080 — Service type ClusterIP")
+            Container(organization_pod, "organization pod", "Spring Boot 4.0.5, Java 25", ":8080 — Service type ClusterIP")
         }
         Deployment_Node(ns_mongo, "namespace: mongo") {
             ContainerDb(mongo_pod, "mongodb pod", "MongoDB 8.0", ":27017 — Service type ClusterIP")
