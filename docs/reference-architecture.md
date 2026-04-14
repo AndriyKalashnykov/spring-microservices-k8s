@@ -316,9 +316,13 @@ Every Service in the cluster is assigned a DNS name following the pattern
 `<service>.<namespace>.svc.cluster.local`. For example, the MongoDB service
 is reachable at `mongodb.mongo.svc.cluster.local:27017`.
 
-<p align="center"><img src="diagrams/out/c4-dns.png" alt="Kubernetes DNS — Service FQDN layout" width="720"></p>
-
-Source: [`diagrams/c4-dns.puml`](diagrams/c4-dns.puml) — PlantUML + C4-PlantUML, modern flat theme.
+| Service | FQDN | Port | Type |
+|---------|------|-----:|------|
+| gateway | `gateway.gateway.svc.cluster.local` | 8080 | LoadBalancer |
+| employee | `employee.employee.svc.cluster.local` | 8080 | ClusterIP |
+| department | `department.department.svc.cluster.local` | 8080 | ClusterIP |
+| organization | `organization.organization.svc.cluster.local` | 8080 | ClusterIP |
+| mongodb | `mongodb.mongo.svc.cluster.local` | 27017 | ClusterIP |
 
 The pattern is `<service>.<namespace>.svc.cluster.local:<port>`.
 

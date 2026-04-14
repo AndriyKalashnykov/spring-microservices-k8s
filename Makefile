@@ -316,7 +316,7 @@ diagrams-check: diagrams
 
 #diagrams-clean: @ Remove rendered diagram PNGs
 diagrams-clean:
-	rm -rf $(DIAGRAM_DIR)/out
+	@rm -rf $(DIAGRAM_DIR)/out
 
 #lint-ci: @ Lint GitHub Actions workflows with actionlint (uses shellcheck)
 lint-ci: deps-actionlint deps-shellcheck
@@ -347,7 +347,7 @@ coverage-open:
 	@$(OPEN_CMD) ./employee-service/target/site/jacoco/index.html
 
 #static-check: @ Run all quality and security checks
-static-check: format-check lint-ci lint lint-docker secrets trivy-fs trivy-config diagrams-check
+static-check: format-check diagrams-check lint-ci lint lint-docker secrets trivy-fs trivy-config
 	@echo "Static check passed."
 
 # ---------------------------------------------------------------------------

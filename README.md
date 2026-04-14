@@ -9,25 +9,25 @@ Production-grade Spring Boot + Spring Cloud Kubernetes microservices — not a t
 
 Four services (gateway, organization, department, employee) deploy to isolated namespaces on a local Kind cluster with one command. The stack is fully wired: cross-namespace service discovery, inter-service REST calls via `@HttpExchange`, MongoDB persistence, distributed tracing, and an API gateway with Swagger UI. CI runs 7 pipeline stages including Trivy CVE scans, Testcontainers integration tests, Kind-based e2e tests, and multi-arch Docker builds with SLSA provenance + cosign signing. Everything is `make`-driven — `make kind-up` to run it, `make ci` to validate it, `make kind-down` to tear it down.
 
-| Component | Technology |
-|-----------|-----------|
-| Language | Java 25 |
-| Framework | Spring Boot 4.0, Spring Cloud 2025.1 |
-| API Gateway | Spring Cloud Gateway Server WebMVC |
-| Inter-service | RestClient with `@HttpExchange` |
-| Service Discovery | Spring Cloud Kubernetes |
-| Database | MongoDB 8.0 (official `mongo` image, non-root UID 999, version-pinned) |
-| API Docs | SpringDoc OpenAPI 3.0 / Swagger UI |
-| Tracing | Micrometer Tracing (OpenTelemetry bridge) |
-| Testing | Testcontainers (integration), Kind e2e |
-| Containers | Eclipse Temurin 25, multi-arch (amd64+arm64) |
-| Local K8s | Kind + MetalLB |
-| CI/CD | GitHub Actions, Renovate, GHCR |
-| Code Quality | google-java-format, Checkstyle, hadolint, gitleaks, actionlint, Trivy, PlantUML |
-
 <p align="center"><img src="docs/diagrams/out/c4-container.png" alt="C4 Container diagram — Spring Microservices on Kubernetes" width="720"></p>
 
 Source: [`docs/diagrams/c4-container.puml`](docs/diagrams/c4-container.puml) — PlantUML + [C4-PlantUML](https://github.com/plantuml-stdlib/C4-PlantUML) with a modern flat skinparam block (no shadows, sharp corners, Inter font, teal/indigo/violet palette). Regenerate with `make diagrams`.
+
+| Component | Technology | Rationale |
+|-----------|-----------|-----------|
+| Language | Java 25 | Current LTS-grade release; virtual threads + pattern matching + records make Spring Boot 4 code terser and more concurrent |
+| Framework | Spring Boot 4.0, Spring Cloud 2025.1 | Mainstream Java microservices stack; Spring Boot 4 drops Spring Boot 2.x compat, adopts Jakarta EE 10, cleaner auto-configuration |
+| API Gateway | Spring Cloud Gateway Server WebMVC | Servlet-stack gateway (not reactive WebFlux) — simpler mental model, easier to instrument, matches the blocking RestClient used elsewhere |
+| Inter-service | RestClient with `@HttpExchange` | Native Spring declarative HTTP client; replaces Feign without pulling Netflix OSS; works with Spring Cloud LoadBalancer for service-discovery-aware calls |
+| Service Discovery | Spring Cloud Kubernetes | Uses the Kubernetes API as the registry — no Eureka/Consul to operate; `all-namespaces: true` enables cross-namespace discovery |
+| Database | MongoDB 8.0 (official `mongo` image, non-root UID 999, version-pinned) | Document model fits the Organization → Department → Employee aggregates without a migration toolchain; official image pinned for Renovate tracking |
+| API Docs | SpringDoc OpenAPI 3.0 / Swagger UI | Auto-generates OpenAPI 3 from `@RestController` annotations; gateway surfaces a unified Swagger UI across all services |
+| Tracing | Micrometer Tracing (OpenTelemetry bridge) | Tracer-agnostic abstraction; bridges to OTel collector without locking onto Zipkin or Brave directly |
+| Testing | Testcontainers (integration), Kind e2e | Real MongoDB per test class (no mocking) + real cluster for e2e — catches schema drift and manifest bugs that in-process tests miss |
+| Containers | Eclipse Temurin 25, multi-arch (amd64+arm64) | Temurin is the reference OpenJDK build; multi-arch covers Apple Silicon dev + x86 servers from a single manifest |
+| Local K8s | Kind + MetalLB | Kind runs a real Kubernetes API in Docker — higher fidelity than Minikube; MetalLB gives LoadBalancer Services a reachable IP on localhost |
+| CI/CD | GitHub Actions, Renovate, GHCR | GitHub-native, zero extra infrastructure; Renovate auto-merges minor/patch dependency updates; GHCR avoids Docker Hub pull-rate limits |
+| Code Quality | google-java-format, Checkstyle, hadolint, gitleaks, actionlint, Trivy, PlantUML | Composite `make static-check` gate — format + lint + Dockerfile lint + secret scan + workflow lint + filesystem/K8s config CVE scan + diagram drift — fails the build on any single violation |
 
 ## Quick Start
 
@@ -63,6 +63,69 @@ Verify required tools are installed:
 ```bash
 make deps
 ```
+
+## Architecture
+
+This architecture follows Cloud Native best practices and [The 12 Factor App](https://12factor.net/) methodology. Key concerns addressed:
+
+- **Externalized configuration** using ConfigMaps, Secrets, and PropertySource
+- **Kubernetes API access** using ServiceAccounts, Roles, and RoleBindings
+- **Health checks** using readiness, liveness, and startup probes
+- **Application state** reported via Spring Boot Actuators
+- **Service discovery** across namespaces using Spring Cloud Kubernetes DiscoveryClient
+- **Inter-service communication** via RestClient (`@HttpExchange`)
+- **API documentation** exposed via Swagger UI
+- **Docker images** built with layered JARs using the Spring Boot plugin
+- **Observability** via Prometheus exporters
+- **Static analysis** via google-java-format, Checkstyle, hadolint, gitleaks, actionlint, Trivy (filesystem + K8s config), and PlantUML diagram drift check — all wired into the `make static-check` composite gate
+
+### Service Communication
+
+```text
+Client -> Gateway (Spring Cloud Gateway Server WebMVC, LoadBalancer via MetalLB)
+  |-- /employee/**     -> Employee Service (MongoDB)
+  |-- /department/**   -> Department Service (MongoDB, calls Employee via RestClient)
+  +-- /organization/** -> Organization Service (MongoDB, calls Department + Employee via RestClient)
+```
+
+Each service runs in its own Kubernetes namespace with dedicated service accounts and RBAC role bindings for cross-namespace discovery.
+
+See the full [Reference Architecture](docs/reference-architecture.md) for the Deployment diagram, Kubernetes DNS table, and per-manifest configuration details.
+
+## Deployment
+
+Local Kubernetes deployment is driven by the Makefile — `make kind-up` spins up the full stack in one command:
+
+```bash
+make kind-up       # Kind cluster + MetalLB + MongoDB + 4 services (~2–3 min)
+make gateway-url   # print LoadBalancer IP assigned by MetalLB
+make gateway-open  # open Swagger UI in a browser
+make kind-down     # tear everything down
+```
+
+Under the hood `kind-up` chains `kind-create` (cluster + MetalLB) → `kind-setup` (namespaces, RBAC, MongoDB) → `image-build` → `image-load` → `kind-deploy` (rollout all 4 services). See [Kind Cluster targets](#kind-cluster) for running each step in isolation during iterative development.
+
+Production deployment is out of scope for this reference — the manifests under [`k8s/`](k8s/) are tuned for a single-node local Kind cluster. See [`docs/reference-architecture.md`](docs/reference-architecture.md) for the annotated manifests and the rationale behind each ConfigMap / Secret / RBAC binding.
+
+## API
+
+The gateway exposes a unified surface on `http://<GATEWAY_IP>:8080` (MetalLB-assigned). Fetch the IP with `make gateway-url`, then:
+
+```bash
+GATEWAY=$(make --silent gateway-url)
+
+# Seed some data
+make populate
+
+# Employees CRUD
+curl -s "http://$GATEWAY:8080/employee/"
+curl -s "http://$GATEWAY:8080/employee/department/1"
+
+# Cross-service fan-out — organization 1, fully expanded with departments + employees
+curl -s "http://$GATEWAY:8080/organization/1/with-departments-and-employees" | jq
+```
+
+A complete OpenAPI 3 spec plus Swagger UI is served through the gateway — run `make gateway-open` to launch it, or point a browser at `http://<GATEWAY_IP>:8080/swagger-ui/index.html`. See [`e2e/e2e-test.sh`](e2e/e2e-test.sh) for exhaustive end-to-end assertions across every route.
 
 ## Available Make Targets
 
@@ -172,34 +235,6 @@ Run `make help` to see all available targets.
 |--------|-------------|
 | `make renovate-bootstrap` | Install nvm and npm for Renovate |
 | `make renovate-validate` | Validate Renovate configuration |
-
-## Architecture
-
-> See the full [Reference Architecture](docs/reference-architecture.md) for detailed diagrams and configuration.
-
-This architecture follows Cloud Native best practices and [The 12 Factor App](https://12factor.net/) methodology. Key concerns addressed:
-
-- **Externalized configuration** using ConfigMaps, Secrets, and PropertySource
-- **Kubernetes API access** using ServiceAccounts, Roles, and RoleBindings
-- **Health checks** using readiness, liveness, and startup probes
-- **Application state** reported via Spring Boot Actuators
-- **Service discovery** across namespaces using Spring Cloud Kubernetes DiscoveryClient
-- **Inter-service communication** via RestClient (`@HttpExchange`)
-- **API documentation** exposed via Swagger UI
-- **Docker images** built with layered JARs using the Spring Boot plugin
-- **Observability** via Prometheus exporters
-- **Static analysis** via google-java-format, Checkstyle, hadolint, gitleaks, actionlint, Trivy (filesystem + K8s config), and PlantUML diagram drift check — all wired into the `make static-check` composite gate
-
-### Service Communication
-
-```text
-Client -> Gateway (Spring Cloud Gateway Server WebMVC, LoadBalancer via MetalLB)
-  |-- /employee/**     -> Employee Service (MongoDB)
-  |-- /department/**   -> Department Service (MongoDB, calls Employee via RestClient)
-  +-- /organization/** -> Organization Service (MongoDB, calls Department + Employee via RestClient)
-```
-
-Each service runs in its own Kubernetes namespace with dedicated service accounts and RBAC role bindings for cross-namespace discovery.
 
 ## CI/CD
 
