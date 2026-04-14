@@ -1,0 +1,43 @@
+@startuml c4-container-modern
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/v2.11.0/C4_Container.puml
+
+' Modern flat override: no shadows, sharper corners, bigger/cleaner fonts.
+skinparam backgroundColor #FAFAFA
+skinparam shadowing false
+skinparam roundCorner 4
+skinparam defaultFontName "Inter, Helvetica, Arial, sans-serif"
+skinparam defaultFontSize 13
+skinparam ArrowColor #37474F
+skinparam ArrowThickness 1.2
+skinparam rectangleBorderThickness 1.3
+
+UpdateElementStyle("person",     $fontColor="#FFFFFF", $bgColor="#0F766E", $borderColor="#134E4A")
+UpdateElementStyle("container",  $fontColor="#FFFFFF", $bgColor="#2563EB", $borderColor="#1E3A8A")
+UpdateElementStyle("container_db",$fontColor="#FFFFFF", $bgColor="#7C3AED", $borderColor="#4C1D95")
+UpdateBoundaryStyle($bgColor="#F1F5F9", $borderColor="#94A3B8", $fontColor="#1E293B")
+
+title Container diagram — Spring Microservices on Kubernetes (modern flat)
+
+Person(client, "Client", "Browser, curl, Swagger UI")
+
+System_Boundary(platform, "Spring Microservices Platform") {
+    Container(gateway, "Gateway Service", "Spring Boot 4, Spring Cloud Gateway Server WebMVC", "LoadBalancer via MetalLB")
+    Container(employee, "Employee Service", "Spring Boot 4", "Employees CRUD")
+    Container(department, "Department Service", "Spring Boot 4", "Calls Employee via @HttpExchange")
+    Container(organization, "Organization Service", "Spring Boot 4", "Calls Department + Employee")
+    ContainerDb(mongo, "MongoDB 8", "MongoDB", "Shared datastore")
+}
+
+Rel(client, gateway, "HTTPS")
+Rel(gateway, employee,     "routes /employee/**")
+Rel(gateway, department,   "routes /department/**")
+Rel(gateway, organization, "routes /organization/**")
+Rel_D(department,   employee, "RestClient")
+Rel_D(organization, employee, "RestClient")
+Rel_D(organization, department, "RestClient")
+Rel(employee,     mongo, "reads/writes")
+Rel(department,   mongo, "reads/writes")
+Rel(organization, mongo, "reads/writes")
+
+SHOW_LEGEND()
+@enduml

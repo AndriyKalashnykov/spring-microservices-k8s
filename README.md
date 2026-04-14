@@ -63,11 +63,25 @@ graph TB
 ```
 
 <details>
-<summary><strong>Same diagram rendered via PlantUML + C4-PlantUML (for visual comparison)</strong></summary>
+<summary><strong>Same diagram rendered via PlantUML + C4-PlantUML (theme comparison)</strong></summary>
 
-<p align="center"><img src="docs/diagrams/out/c4-container.png" alt="C4 Container diagram (PlantUML)" width="720"></p>
+**1. Default C4-PlantUML theme** — canonical blue palette, classic look.
+
+<p align="center"><img src="docs/diagrams/out/c4-container.png" alt="C4 Container diagram (default)" width="720"></p>
 
 Source: [`docs/diagrams/c4-container.puml`](docs/diagrams/c4-container.puml)
+
+**2. Modern flat theme** — skinparam overrides (no shadows, sharper corners, Inter font, teal/indigo/violet palette).
+
+<p align="center"><img src="docs/diagrams/out/c4-container-modern.png" alt="C4 Container diagram (modern flat)" width="720"></p>
+
+Source: [`docs/diagrams/c4-container-modern.puml`](docs/diagrams/c4-container-modern.puml)
+
+**3. Sketchy / hand-drawn theme** — `!theme sketchy-outline` for a whiteboard-style look (good for "we're still iterating" diagrams).
+
+<p align="center"><img src="docs/diagrams/out/c4-container-sketch.png" alt="C4 Container diagram (sketchy)" width="720"></p>
+
+Source: [`docs/diagrams/c4-container-sketch.puml`](docs/diagrams/c4-container-sketch.puml)
 
 </details>
 
