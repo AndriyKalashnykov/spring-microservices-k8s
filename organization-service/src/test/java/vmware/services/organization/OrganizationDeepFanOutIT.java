@@ -36,11 +36,10 @@ import vmware.services.organization.repository.OrganizationRepository;
  * Integration test for the organization-service DEEP fan-out endpoint {@code GET
  * /{id}/with-departments-and-employees}. Verifies the real {@link DepartmentClient} and {@link
  * EmployeeClient} @HttpExchange wire formats against a WireMock-stubbed peer cluster (department +
- * employee services), and asserts the three-level response shape (org → departments →
- * employees).
+ * employee services), and asserts the three-level response shape (org → departments → employees).
  *
- * <p>Uses Testcontainers Mongo for the organization repository + WireMock for the downstream
- * peers. Both clients are repointed at WireMock via a {@code @TestConfiguration} that shadows the
+ * <p>Uses Testcontainers Mongo for the organization repository + WireMock for the downstream peers.
+ * Both clients are repointed at WireMock via a {@code @TestConfiguration} that shadows the
  * {@code @LoadBalanced} beans from {@code RestClientConfig}.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -59,8 +58,8 @@ class OrganizationDeepFanOutIT {
 
   /**
    * Replaces both {@code @LoadBalanced} clients with WireMock-pointed variants. Both downstream
-   * "hosts" collapse onto the same WireMock server — the @HttpExchange path templates are
-   * distinct, so stubs never collide.
+   * "hosts" collapse onto the same WireMock server — the @HttpExchange path templates are distinct,
+   * so stubs never collide.
    */
   @TestConfiguration
   static class WireMockClientConfig {

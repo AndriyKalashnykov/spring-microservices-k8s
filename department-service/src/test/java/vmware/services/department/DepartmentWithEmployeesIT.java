@@ -93,10 +93,7 @@ class DepartmentWithEmployeesIT {
                         "[{\"id\":10,\"name\":\"Smith\",\"age\":25,\"position\":\"engineer\"}]")));
     stubFor(
         get(urlEqualTo("/department/" + saved2.getId()))
-            .willReturn(
-                aResponse()
-                    .withHeader("Content-Type", "application/json")
-                    .withBody("[]")));
+            .willReturn(aResponse().withHeader("Content-Type", "application/json").withBody("[]")));
 
     ResponseEntity<Department[]> response =
         restTemplate.getForEntity("/organization/1/with-employees", Department[].class);
