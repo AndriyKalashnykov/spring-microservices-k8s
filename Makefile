@@ -228,7 +228,7 @@ test: deps
 
 #integration-test: @ Run integration tests (Testcontainers + WireMock, tens of seconds)
 integration-test: deps deps-docker
-	@. $(SDKMAN) && sdk use java $(JAVA_VER) > /dev/null && mvn -B verify -P integration-test -Ddependency-check.skip=true
+	@mvn -B verify -P integration-test -Ddependency-check.skip=true
 
 #lint: @ Run Maven validate, compiler warnings-as-errors, and Checkstyle (google_checks.xml)
 lint: deps
