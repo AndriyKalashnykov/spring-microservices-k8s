@@ -98,13 +98,6 @@
 			<artifactId>testcontainers-junit-jupiter</artifactId>
 			<scope>test</scope>
 		</dependency>
-		<!-- WireMock for stubbing the employee-service HTTP contract in integration
-		     tests (exercises @HttpExchange wire format without needing the real peer). -->
-		<dependency>
-			<groupId>org.springframework.cloud</groupId>
-			<artifactId>spring-cloud-contract-wiremock</artifactId>
-			<scope>test</scope>
-		</dependency>
 	</dependencies>
 
 	<repositories>
