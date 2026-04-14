@@ -12,3 +12,4 @@ dependency-reduced-pom.xml
 *.idea
 *.log
 Thumbs.db
+.claude/
