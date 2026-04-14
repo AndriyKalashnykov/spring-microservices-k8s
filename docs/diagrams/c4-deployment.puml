@@ -1,0 +1,37 @@
+@startuml c4-deployment
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/v2.11.0/C4_Deployment.puml
+
+title Deployment diagram — Kind cluster (local dev)
+
+Deployment_Node(host, "Developer Workstation", "Linux / macOS") {
+    Deployment_Node(kind, "Kind Cluster", "Kubernetes via KinD") {
+
+        Deployment_Node(metallb, "MetalLB", "Layer-2 LoadBalancer controller") {
+            Container(lb, "LoadBalancer IP", "MetalLB L2", "assigns external IP to gateway Service")
+        }
+
+        Deployment_Node(ns_gw, "namespace: gateway") {
+            Container(gateway_pod, "gateway pod", "Spring Boot 4", ":8080 — Service type LoadBalancer")
+        }
+        Deployment_Node(ns_emp, "namespace: employee") {
+            Container(employee_pod, "employee pod", "Spring Boot 4", ":8080 — Service type ClusterIP")
+        }
+        Deployment_Node(ns_dept, "namespace: department") {
+            Container(department_pod, "department pod", "Spring Boot 4", ":8080 — Service type ClusterIP")
+        }
+        Deployment_Node(ns_org, "namespace: organization") {
+            Container(organization_pod, "organization pod", "Spring Boot 4", ":8080 — Service type ClusterIP")
+        }
+        Deployment_Node(ns_mongo, "namespace: mongo") {
+            ContainerDb(mongo_pod, "mongodb pod", "MongoDB 8", ":27017 — Service type ClusterIP")
+        }
+    }
+}
+
+Rel(lb, gateway_pod, "traffic", "TCP :8080")
+Rel_D(employee_pod,     mongo_pod, "reads/writes", "MongoDB wire")
+Rel_D(department_pod,   mongo_pod, "reads/writes", "MongoDB wire")
+Rel_D(organization_pod, mongo_pod, "reads/writes", "MongoDB wire")
+
+SHOW_LEGEND()
+@enduml

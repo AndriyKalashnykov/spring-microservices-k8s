@@ -1,0 +1,13 @@
+@startuml c4-dns
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/v2.11.0/C4_Container.puml
+
+title Kubernetes DNS — Service FQDN layout
+
+System_Boundary(dns, "Kubernetes DNS  (pattern: <service>.<namespace>.svc.cluster.local)") {
+    Container(gw, "gateway", "gateway.gateway.svc.cluster.local:8080", "LoadBalancer")
+    Container(emp, "employee", "employee.employee.svc.cluster.local:8080", "ClusterIP")
+    Container(dept, "department", "department.department.svc.cluster.local:8080", "ClusterIP")
+    Container(org, "organization", "organization.organization.svc.cluster.local:8080", "ClusterIP")
+    ContainerDb(mongo, "mongodb", "mongodb.mongo.svc.cluster.local:27017", "ClusterIP")
+}
+@enduml

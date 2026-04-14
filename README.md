@@ -62,6 +62,15 @@ graph TB
     class MongoDB db
 ```
 
+<details>
+<summary><strong>Same diagram rendered via PlantUML + C4-PlantUML (for visual comparison)</strong></summary>
+
+<p align="center"><img src="docs/diagrams/out/c4-container.png" alt="C4 Container diagram (PlantUML)" width="720"></p>
+
+Source: [`docs/diagrams/c4-container.puml`](docs/diagrams/c4-container.puml)
+
+</details>
+
 ## Quick Start
 
 ```bash

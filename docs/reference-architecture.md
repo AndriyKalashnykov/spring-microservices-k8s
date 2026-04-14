@@ -117,6 +117,15 @@ graph TB
     class MongoDB db
 ```
 
+<details>
+<summary><strong>Same Container view rendered via PlantUML + C4-PlantUML (for visual comparison)</strong></summary>
+
+<p align="center"><img src="diagrams/out/c4-container.png" alt="C4 Container diagram (PlantUML)" width="720"></p>
+
+Source: [`docs/diagrams/c4-container.puml`](diagrams/c4-container.puml)
+
+</details>
+
 ## Reference Architecture Environment
 
 Each microservice runs in its own container, one container per pod and one pod
@@ -159,6 +168,15 @@ graph TB
     classDef db fill:#7c3aed,stroke:#5b21b6,color:#ffffff
     classDef lb fill:#f59e0b,stroke:#b45309,color:#000000
 ```
+
+<details>
+<summary><strong>Same Deployment view rendered via PlantUML + C4-PlantUML (for visual comparison)</strong></summary>
+
+<p align="center"><img src="diagrams/out/c4-deployment.png" alt="C4 Deployment diagram (PlantUML)" width="720"></p>
+
+Source: [`docs/diagrams/c4-deployment.puml`](diagrams/c4-deployment.puml)
+
+</details>
 
 ## Spring Cloud Kubernetes
 
@@ -402,6 +420,15 @@ graph LR
     classDef service fill:#059669,stroke:#065f46,color:#ffffff
     classDef db fill:#7c3aed,stroke:#5b21b6,color:#ffffff
 ```
+
+<details>
+<summary><strong>Same DNS layout rendered via PlantUML + C4-PlantUML (for visual comparison)</strong></summary>
+
+<p align="center"><img src="diagrams/out/c4-dns.png" alt="Kubernetes DNS diagram (PlantUML)" width="720"></p>
+
+Source: [`docs/diagrams/c4-dns.puml`](diagrams/c4-dns.puml)
+
+</details>
 
 The pattern is `<service>.<namespace>.svc.cluster.local:<port>`.
 

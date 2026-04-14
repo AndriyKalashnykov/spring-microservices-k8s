@@ -1,0 +1,32 @@
+@startuml c4-container
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/v2.11.0/C4_Container.puml
+
+title Container diagram — Spring Microservices on Kubernetes
+
+Person(client, "Client", "Browser, curl, Swagger UI")
+
+System_Boundary(platform, "Spring Microservices Platform") {
+    Container(gateway, "Gateway Service", "Spring Boot 4, Spring Cloud Gateway Server WebMVC", "LoadBalancer via MetalLB; routes /employee/**, /department/**, /organization/**")
+
+    Container(employee, "Employee Service", "Spring Boot 4, RestController", "Employees CRUD")
+    Container(department, "Department Service", "Spring Boot 4, RestController", "Departments CRUD; calls Employee via @HttpExchange")
+    Container(organization, "Organization Service", "Spring Boot 4, RestController", "Organizations CRUD; calls Department + Employee via @HttpExchange")
+
+    ContainerDb(mongo, "MongoDB 8", "MongoDB", "Shared datastore; per-service database")
+}
+
+Rel(client, gateway, "HTTPS")
+Rel(gateway, employee,     "routes /employee/**",     "HTTP")
+Rel(gateway, department,   "routes /department/**",   "HTTP")
+Rel(gateway, organization, "routes /organization/**", "HTTP")
+
+Rel_D(department,   employee, "RestClient @HttpExchange", "HTTP")
+Rel_D(organization, employee, "RestClient @HttpExchange", "HTTP")
+Rel_D(organization, department, "RestClient @HttpExchange", "HTTP")
+
+Rel(employee,     mongo, "reads/writes", "MongoDB wire")
+Rel(department,   mongo, "reads/writes", "MongoDB wire")
+Rel(organization, mongo, "reads/writes", "MongoDB wire")
+
+SHOW_LEGEND()
+@enduml
