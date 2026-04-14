@@ -4,17 +4,12 @@
     "config:best-practices",
     ":semanticCommitType(chore)"
   ],
-  "enabledManagers": ["maven", "github-actions", "dockerfile", "kubernetes", "nvm", "custom.regex"],
+  "enabledManagers": ["maven", "github-actions", "dockerfile", "kubernetes", "custom.regex"],
   "kubernetes": {
     "managerFilePatterns": ["/^k8s/.+\\.ya?ml$/"]
   },
   "ignorePaths": [
-    "**/node_modules/**",
-    "**/bower_components/**",
-    "**/vendor/**",
-    "**/examples/**",
-    "**/__tests__/**",
-    "**/__fixtures__/**"
+    "**/target/**"
   ],
   "commitMessagePrefix": "chore(all): ",
   "commitMessageAction": "update",
@@ -39,7 +34,7 @@
     {
       "customType": "regex",
       "description": "Track Testcontainers MongoDBContainer image versions in ANY Java file (glob is intentionally broad — renaming a test file should not silently drop Renovate tracking)",
-      "managerFilePatterns": ["**/*.java"],
+      "managerFilePatterns": ["/\\.java$/"],
       "matchStrings": [
         "new\\s+MongoDBContainer\\(\\s*\"(?<depName>[^:\"]+):(?<currentValue>[^\"]+)\"\\s*\\)"
       ],
@@ -48,7 +43,7 @@
     {
       "customType": "regex",
       "description": "Track mongo image version in docs/reference-architecture.md fenced YAML examples (kept in sync with k8s/mongodb-deployment.yaml)",
-      "managerFilePatterns": ["^docs/.+\\.md$"],
+      "managerFilePatterns": ["/^docs/.+\\.md$/"],
       "matchStrings": [
         "image:\\s+(?<depName>mongo):(?<currentValue>[0-9]+\\.[0-9]+\\.[0-9]+)"
       ],

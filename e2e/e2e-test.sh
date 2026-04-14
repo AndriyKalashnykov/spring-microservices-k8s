@@ -42,6 +42,55 @@ check_response() {
   fi
 }
 
+# Assert HTTP status code for a request.
+check_status() {
+  local test_name="$1"
+  local method="$2"
+  local url="$3"
+  local expected="$4"
+  local body="${5:-}"
+  local opts=(-s -o /dev/null -w '%{http_code}' -X "${method}" --max-time 30)
+  if [[ -n "${body}" ]]; then
+    opts+=(-H 'Content-Type: application/json' -d "${body}")
+  fi
+  local actual
+  actual=$(curl "${opts[@]}" "${url}" 2>/dev/null || true)
+  if [[ "${actual}" == "${expected}" ]]; then
+    echo "  PASS: ${test_name} (HTTP ${actual})"
+    PASS=$((PASS + 1))
+  else
+    echo "  FAIL: ${test_name}"
+    echo "        expected HTTP:      ${expected}"
+    echo "        actual HTTP:        ${actual}"
+    FAIL=$((FAIL + 1))
+  fi
+}
+
+# Assert a jq expression against a JSON payload. Requires `jq` on PATH.
+check_jq() {
+  local test_name="$1"
+  local payload="$2"
+  local jq_expr="$3"
+  local expected="$4"
+  if ! command -v jq >/dev/null 2>&1; then
+    echo "  SKIP: ${test_name} (jq not installed)"
+    return
+  fi
+  local actual
+  actual=$(echo "${payload}" | jq -r "${jq_expr}" 2>/dev/null || true)
+  if [[ "${actual}" == "${expected}" ]]; then
+    echo "  PASS: ${test_name} (${jq_expr} == ${expected})"
+    PASS=$((PASS + 1))
+  else
+    echo "  FAIL: ${test_name}"
+    echo "        jq expression:      ${jq_expr}"
+    echo "        expected:           ${expected}"
+    echo "        actual:             ${actual}"
+    echo "        payload:            ${payload}"
+    FAIL=$((FAIL + 1))
+  fi
+}
+
 # --- Wait for gateway readiness --------------------------------------------
 
 echo ""
@@ -137,6 +186,38 @@ check_response "GET /organization/1/with-employees — contains MegaCorp" "${RES
 echo "[Test 9] Get organization with departments (cross-service)"
 RESP=$(curl -s --max-time 30 "${BASE_URL}/organization/1/with-departments") || true
 check_response "GET /organization/1/with-departments — contains MegaCorp" "${RESP}" "MegaCorp"
+
+# Test 10: Deep fan-out (org -> dept -> employees) ----------------------------
+# Exercises the three-service chain through the gateway:
+# organization-service -> department-service -> employee-service.
+echo "[Test 10] Get organization with departments and employees (deep fan-out)"
+RESP=$(curl -s --max-time 30 "${BASE_URL}/organization/1/with-departments-and-employees") || true
+check_response "GET /organization/1/with-departments-and-employees — contains MegaCorp" \
+  "${RESP}" "MegaCorp"
+check_response "GET /organization/1/with-departments-and-employees — contains RD Dept." \
+  "${RESP}" "RD Dept."
+# Assert the nested response shape: organization has at least one department, and
+# that department exposes an employees[] array (hydrated by the deep fan-out).
+check_jq "deep fan-out response has organization name" "${RESP}" '.name' "MegaCorp"
+check_jq "deep fan-out response has at least one department" "${RESP}" \
+  '.departments | length > 0' "true"
+check_jq "deep fan-out response first department has employees[] array" "${RESP}" \
+  '.departments[0].employees | type' "array"
+
+# Test 11: Negative — GET unknown employee id ---------------------------------
+# The employee controller calls Optional.get() without explicit 404 handling, so
+# today this surfaces as 500. Assert the current actual behavior (500) rather
+# than the ideal (404) so the test reflects reality; flip to 404 when the
+# controller is hardened to return a proper ResponseStatusException.
+echo "[Test 11] Negative: GET /employee/nonexistent — expect error status"
+check_status "GET /employee/nonexistent-id returns 5xx" \
+  GET "${BASE_URL}/employee/nonexistent-id" 500
+
+# Test 12: Negative — POST employee with malformed JSON body ------------------
+# Jackson rejects invalid JSON with 400 Bad Request before the controller runs.
+echo "[Test 12] Negative: POST /employee/ with invalid body"
+check_status "POST /employee/ with invalid JSON returns 400" \
+  POST "${BASE_URL}/employee/" 400 '{not valid json'
 
 # ===========================================================================
 # Summary

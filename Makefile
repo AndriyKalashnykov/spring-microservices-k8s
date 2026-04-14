@@ -38,10 +38,9 @@ JAVA_VER     := 25-tem
 MAVEN_VER    := 3.9.14
 # renovate: datasource=github-releases depName=kubernetes-sigs/kind extractVersion=^v(?<version>.*)$
 KIND_VERSION      := 0.31.0
-# renovate: datasource=docker depName=kindest/node
-# Must be one of the Kubernetes versions shipped by the pinned KIND_VERSION.
+# Not Renovate-tracked: must match a Kubernetes version shipped by the pinned KIND_VERSION.
 # Kind 0.31.0 supports: v1.35.0 (default), v1.34.3, v1.33.7, v1.32.11, v1.31.14.
-# If Renovate proposes a version outside that set, bump KIND_VERSION first.
+# Bump together with KIND_VERSION per kind release notes.
 KIND_NODE_IMAGE   := v1.35.0
 # renovate: datasource=github-releases depName=metallb/metallb extractVersion=^v(?<version>.*)$
 METALLB_VERSION   := 0.15.3
@@ -227,6 +226,10 @@ build: deps
 test: deps
 	@mvn -B test -Ddependency-check.skip=true
 
+#integration-test: @ Run integration tests (Testcontainers + WireMock, tens of seconds)
+integration-test: deps deps-docker
+	@. $(SDKMAN) && sdk use java $(JAVA_VER) > /dev/null && mvn -B verify -P integration-test -Ddependency-check.skip=true
+
 #lint: @ Run Maven validate, compiler warnings-as-errors, and Checkstyle (google_checks.xml)
 lint: deps
 	@mvn -B validate -Ddependency-check.skip=true
@@ -242,7 +245,7 @@ $(GJF_JAR):
 	@curl -sSfL -o $(GJF_JAR) $(GJF_URL)
 
 #format: @ Auto-format Java source code (Google style)
-format: $(GJF_JAR)
+format: deps $(GJF_JAR)
 	@find . -path '*/src/main/java/*.java' -o -path '*/src/test/java/*.java' | \
 		xargs java --add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED \
 			--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED \
@@ -253,7 +256,7 @@ format: $(GJF_JAR)
 	@echo "Formatted all Java files with Google style."
 
 #format-check: @ Verify code formatting (CI gate)
-format-check: $(GJF_JAR)
+format-check: deps $(GJF_JAR)
 	@find . -path '*/src/main/java/*.java' -o -path '*/src/test/java/*.java' | \
 		xargs java --add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED \
 			--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED \
@@ -287,8 +290,7 @@ trivy-config: deps-trivy
 	@trivy config --severity CRITICAL,HIGH k8s/
 
 #mermaid-lint: @ Validate Mermaid diagrams in markdown files
-mermaid-lint:
-	@command -v docker >/dev/null 2>&1 || { echo "ERROR: docker is required for mermaid-lint"; exit 1; }
+mermaid-lint: deps-docker
 	@set -euo pipefail; \
 	MD_FILES=$$(grep -lF '```mermaid' README.md CLAUDE.md docs/*.md 2>/dev/null || true); \
 	if [ -z "$$MD_FILES" ]; then \
@@ -352,7 +354,7 @@ static-check: format-check lint-ci lint lint-docker secrets trivy-fs trivy-confi
 # ---------------------------------------------------------------------------
 
 #image-build: @ Build Docker images for all services
-image-build: build
+image-build: deps-docker build
 	@for svc in $(SERVICES); do \
 		echo "Building $$svc:$(IMAGE_TAG)..."; \
 		BUILDX_BUILDER=default docker buildx build --load --build-arg VARIANT=debug -t $$svc:$(IMAGE_TAG) -f $$svc-service/Dockerfile $$svc-service/; \
@@ -538,7 +540,7 @@ logs-gateway: deps-docker
 # ---------------------------------------------------------------------------
 
 #ci: @ Run full local CI pipeline
-ci: deps static-check coverage-generate coverage-check build deps-prune-check
+ci: deps static-check test integration-test coverage-generate coverage-check build deps-prune-check
 	@echo "=== CI Complete ==="
 
 #ci-run: @ Run GitHub Actions workflow locally using act
@@ -595,7 +597,7 @@ renovate-validate: renovate-bootstrap
 	deps deps-maven deps-install deps-check deps-docker deps-kind deps-act \
 	deps-hadolint deps-gitleaks deps-trivy deps-actionlint deps-shellcheck \
 	deps-updates deps-update deps-prune deps-prune-check \
-	clean build test lint format format-check \
+	clean build test integration-test lint format format-check \
 	lint-ci lint-docker secrets trivy-fs trivy-config mermaid-lint \
 	maven-settings-ossindex cve-check \
 	coverage-generate coverage-check coverage-open static-check \

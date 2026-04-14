@@ -100,6 +100,36 @@ jobs:
           path: '**/target/site/jacoco/'
           retention-days: 14
 
+  integration-test:
+    needs: [static-check]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - name: Set up JDK
+        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
+        with:
+          java-version-file: '.java-version'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Install Maven
+        run: make deps-maven
+
+      - name: Integration test
+        run: make integration-test
+
+      - name: Upload Failsafe reports
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        continue-on-error: true
+        with:
+          name: failsafe-reports
+          path: '**/target/failsafe-reports/'
+          retention-days: 14
+
   build:
     needs: [static-check]
     runs-on: ubuntu-latest
@@ -219,7 +249,8 @@ jobs:
         with:
           name: service-jars
 
-      - name: Set up JDK (fallback)
+      # Fallback rebuild path: only runs if download-artifact failed (local act runs).
+      - name: Set up JDK
         if: steps.download-jars.outcome == 'failure'
         uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
         with:
@@ -227,11 +258,11 @@ jobs:
           distribution: 'temurin'
           cache: maven
 
-      - name: Install Maven (fallback)
+      - name: Install Maven
         if: steps.download-jars.outcome == 'failure'
         run: make deps-maven
 
-      - name: Build JARs (fallback)
+      - name: Build JARs
         if: steps.download-jars.outcome == 'failure'
         run: make build
 
@@ -489,7 +520,7 @@ jobs:
   # count as failure — only `failure` results trip the gate.
   ci-pass:
     if: always()
-    needs: [static-check, test, build, cve-check, image-scan, e2e, docker]
+    needs: [static-check, test, integration-test, build, cve-check, image-scan, e2e, docker]
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:

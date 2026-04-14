@@ -97,12 +97,6 @@ Verify required tools are installed:
 make deps
 ```
 
-To install Java 25 and Maven via SDKMAN automatically:
-
-```bash
-make deps-install
-```
-
 ## Available Make Targets
 
 Run `make help` to see all available targets.
@@ -230,7 +224,7 @@ This architecture follows Cloud Native best practices and [The 12 Factor App](ht
 
 ### Service Communication
 
-```
+```text
 Client -> Gateway (Spring Cloud Gateway Server WebMVC, LoadBalancer via MetalLB)
   |-- /employee/**     -> Employee Service (MongoDB)
   |-- /department/**   -> Department Service (MongoDB, calls Employee via RestClient)

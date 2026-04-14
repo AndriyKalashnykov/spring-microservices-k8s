@@ -88,8 +88,50 @@
 						<failBuildOnCVSS>9</failBuildOnCVSS>
 					</configuration>
 				</plugin>
+				<!-- Failsafe runs **/*IT.java in the integration-test / verify phases.
+				     Kept out of the default build so `mvn test` stays fast (unit only);
+				     activated by the `integration-test` profile below. Shares
+				     @{argLine} with Surefire so JaCoCo + the Mockito inline agent
+				     propagate into integration tests as well. -->
+				<plugin>
+					<groupId>org.apache.maven.plugins</groupId>
+					<artifactId>maven-failsafe-plugin</artifactId>
+					<version>3.5.2</version>
+					<configuration>
+						<includes>
+							<include>**/*IT.java</include>
+						</includes>
+						<argLine>@{argLine}</argLine>
+					</configuration>
+				</plugin>
 			</plugins>
 		</pluginManagement>
 	</build>
+
+	<profiles>
+		<!-- Activated by `make integration-test` / `mvn verify -P integration-test`.
+		     Binds Failsafe's integration-test + verify goals so *IT.java classes
+		     (Testcontainers + WireMock driven) run only when this profile is on. -->
+		<profile>
+			<id>integration-test</id>
+			<build>
+				<plugins>
+					<plugin>
+						<groupId>org.apache.maven.plugins</groupId>
+						<artifactId>maven-failsafe-plugin</artifactId>
+						<executions>
+							<execution>
+								<id>integration-tests</id>
+								<goals>
+									<goal>integration-test</goal>
+									<goal>verify</goal>
+								</goals>
+							</execution>
+						</executions>
+					</plugin>
+				</plugins>
+			</build>
+		</profile>
+	</profiles>
 
 </project>
