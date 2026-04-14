@@ -5,7 +5,7 @@
 FROM eclipse-temurin:25.0.2_10-jre-noble@sha256:aa8759eb18c5fcab069c62558a6f7e0b26359c29cc889a29ed7e5bbaed6a9ce5 AS extract
 WORKDIR /tmp
 COPY target/*.jar app.jar
-RUN java -Djarmode=tools -jar app.jar extract --layers --launcher
+RUN java -Djarmode=layertools -jar app.jar extract
 
 FROM eclipse-temurin:25.0.2_10-jre-noble@sha256:aa8759eb18c5fcab069c62558a6f7e0b26359c29cc889a29ed7e5bbaed6a9ce5 AS runtime
 
