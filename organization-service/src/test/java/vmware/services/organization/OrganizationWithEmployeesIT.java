@@ -38,8 +38,8 @@ import vmware.services.organization.repository.OrganizationRepository;
 
 /**
  * Single-level fan-out integration test for {@code GET /{id}/with-employees}. Stubs the
- * employee-service peer with WireMock and verifies the organization payload gains a hydrated
- * {@code employees[]} array.
+ * employee-service peer with WireMock and verifies the organization payload gains a hydrated {@code
+ * employees[]} array.
  */
 @SpringBootTest(
     webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
