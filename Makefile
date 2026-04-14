@@ -64,6 +64,8 @@ NVM_VERSION       := 0.40.4
 NODE_VERSION      := $(shell cat .nvmrc 2>/dev/null || echo 22)
 # renovate: datasource=docker depName=plantuml/plantuml
 PLANTUML_VERSION    := 1.2025.4
+# renovate: datasource=docker depName=minlag/mermaid-cli
+MERMAID_CLI_VERSION := 11.12.0
 
 # Source of truth: .java-version (read by CI via java-version-file); not Renovate-trackable.
 # Used by deps target to verify the installed Java major matches the project.
@@ -318,6 +320,34 @@ diagrams-check: diagrams
 diagrams-clean:
 	@rm -rf $(DIAGRAM_DIR)/out
 
+#mermaid-lint: @ Validate Mermaid diagrams in markdown files (used for sequence/flow diagrams)
+mermaid-lint: deps-docker
+	@set -euo pipefail; \
+	MD_FILES=$$(grep -lF '```mermaid' README.md CLAUDE.md docs/*.md docs/**/*.md 2>/dev/null || true); \
+	if [ -z "$$MD_FILES" ]; then \
+		echo "No Mermaid blocks found — skipping."; \
+		exit 0; \
+	fi; \
+	FAILED=0; \
+	for md in $$MD_FILES; do \
+		echo "Validating Mermaid blocks in $$md..."; \
+		LOG=$$(mktemp); \
+		if docker run --rm -v "$$PWD:/data" \
+			minlag/mermaid-cli:$(MERMAID_CLI_VERSION) \
+			-i "/data/$$md" -o "/tmp/$$(basename $$md .md).svg" >"$$LOG" 2>&1; then \
+			echo "  ✓ All blocks rendered cleanly."; \
+		else \
+			echo "  ✗ Parse error in $$md:"; \
+			sed 's/^/    /' "$$LOG"; \
+			FAILED=$$((FAILED + 1)); \
+		fi; \
+		rm -f "$$LOG"; \
+	done; \
+	if [ "$$FAILED" -gt 0 ]; then \
+		echo "Mermaid lint: $$FAILED file(s) had parse errors."; \
+		exit 1; \
+	fi
+
 #lint-ci: @ Lint GitHub Actions workflows with actionlint (uses shellcheck)
 lint-ci: deps-actionlint deps-shellcheck
 	@actionlint
@@ -347,7 +377,7 @@ coverage-open:
 	@$(OPEN_CMD) ./employee-service/target/site/jacoco/index.html
 
 #static-check: @ Run all quality and security checks
-static-check: format-check diagrams-check lint-ci lint lint-docker secrets trivy-fs trivy-config
+static-check: format-check diagrams-check mermaid-lint lint-ci lint lint-docker secrets trivy-fs trivy-config
 	@echo "Static check passed."
 
 # ---------------------------------------------------------------------------
@@ -600,7 +630,7 @@ renovate-validate: renovate-bootstrap
 	deps-updates deps-update deps-prune deps-prune-check \
 	clean build test integration-test lint format format-check \
 	lint-ci lint-docker secrets trivy-fs trivy-config \
-	diagrams diagrams-check diagrams-clean \
+	diagrams diagrams-check diagrams-clean mermaid-lint \
 	maven-settings-ossindex cve-check \
 	coverage-generate coverage-check coverage-open static-check \
 	image-build image-load \

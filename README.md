@@ -90,7 +90,39 @@ Client -> Gateway (Spring Cloud Gateway Server WebMVC, LoadBalancer via MetalLB)
 
 Each service runs in its own Kubernetes namespace with dedicated service accounts and RBAC role bindings for cross-namespace discovery.
 
-See the full [Reference Architecture](docs/reference-architecture.md) for the Deployment diagram, Kubernetes DNS table, and per-manifest configuration details.
+### Deep fan-out flow
+
+`GET /organization/{id}/with-departments-and-employees` hits three services and the datastore in a single request. The sequence:
+
+```mermaid
+sequenceDiagram
+  autonumber
+  participant C as Client
+  participant G as Gateway
+  participant O as Organization
+  participant D as Department
+  participant E as Employee
+  participant M as MongoDB
+
+  C->>G: GET /organization/1/with-departments-and-employees
+  G->>O: forward (Spring Cloud Gateway route)
+  O->>M: find organization by id
+  M-->>O: Organization
+  O->>D: GET /department/organization/1/with-employees (@HttpExchange)
+  D->>M: find departments by organizationId
+  M-->>D: Department[]
+  D->>E: GET /employee/department/{id} (@HttpExchange, once per department)
+  E->>M: find employees by departmentId
+  M-->>E: Employee[]
+  E-->>D: Employee[]
+  D-->>O: Department[] with embedded employees
+  O-->>G: Organization with nested departments + employees
+  G-->>C: 200 application/json
+```
+
+Steps 3–10 all happen inside the cluster via ClusterIP Services resolved through Spring Cloud Kubernetes `DiscoveryClient`. The gateway only sees the outer request (1) and final response (13). Trace headers (`traceparent`) propagate through every hop via Micrometer Tracing.
+
+See the full [Reference Architecture](docs/reference-architecture.md) for the Deployment diagram, Kubernetes DNS table, and per-manifest configuration details, and [Architecture Decision Records](docs/adr/) for the rationale behind key choices.
 
 ## Deployment
 

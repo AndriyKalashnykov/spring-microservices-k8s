@@ -96,6 +96,16 @@
 			<artifactId>testcontainers-junit-jupiter</artifactId>
 			<scope>test</scope>
 		</dependency>
+		<!-- WireMock stand-alone stubs downstream @HttpExchange peers in integration
+		     tests. spring-cloud-contract-wiremock is not yet available for Spring
+		     Boot 4, so we drive WireMockServer directly. Pin an exact 3.x release
+		     (Renovate will track this dependency). -->
+		<dependency>
+			<groupId>org.wiremock</groupId>
+			<artifactId>wiremock-standalone</artifactId>
+			<version>3.13.1</version>
+			<scope>test</scope>
+		</dependency>
 	</dependencies>
 
 	<repositories>
