@@ -5,12 +5,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.resttestclient.TestRestTemplate;
-import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureTestRestTemplate;
+import org.springframework.boot.resttestclient.RestTestClient;
+import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureRestTestClient;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import org.springframework.test.context.ActiveProfiles;
 import org.testcontainers.containers.MongoDBContainer;
 import org.testcontainers.junit.jupiter.Container;
@@ -19,7 +17,7 @@ import vmware.services.employee.model.Employee;
 import vmware.services.employee.repository.EmployeeRepository;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@AutoConfigureTestRestTemplate
+@AutoConfigureRestTestClient
 @Testcontainers
 @ActiveProfiles("test")
 class EmployeeControllerTest {
@@ -27,7 +25,7 @@ class EmployeeControllerTest {
   @Container @ServiceConnection
   static MongoDBContainer mongo = new MongoDBContainer("mongo:8.0.20");
 
-  @Autowired TestRestTemplate restTemplate;
+  @Autowired RestTestClient client;
 
   @Autowired EmployeeRepository repository;
 
@@ -39,11 +37,21 @@ class EmployeeControllerTest {
   @Test
   void shouldCreateEmployee() {
     Employee emp = new Employee(1L, 1L, "Smith", 25, "engineer");
-    ResponseEntity<Employee> response = restTemplate.postForEntity("/", emp, Employee.class);
-    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-    assertThat(response.getBody()).isNotNull();
-    assertThat(response.getBody().getName()).isEqualTo("Smith");
-    assertThat(response.getBody().getId()).isNotNull();
+
+    client
+        .post()
+        .uri("/")
+        .bodyValue(emp)
+        .exchange()
+        .expectStatus()
+        .isOk()
+        .expectBody(Employee.class)
+        .value(
+            body -> {
+              assertThat(body).isNotNull();
+              assertThat(body.getName()).isEqualTo("Smith");
+              assertThat(body.getId()).isNotNull();
+            });
   }
 
   @Test
@@ -51,9 +59,14 @@ class EmployeeControllerTest {
     repository.save(new Employee(1L, 1L, "Smith", 25, "engineer"));
     repository.save(new Employee(1L, 1L, "Johns", 45, "manager"));
 
-    ResponseEntity<Employee[]> response = restTemplate.getForEntity("/", Employee[].class);
-    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-    assertThat(response.getBody()).hasSize(2);
+    client
+        .get()
+        .uri("/")
+        .exchange()
+        .expectStatus()
+        .isOk()
+        .expectBody(Employee[].class)
+        .value(body -> assertThat(body).hasSize(2));
   }
 
   @Test
@@ -61,11 +74,18 @@ class EmployeeControllerTest {
     repository.save(new Employee(1L, 1L, "Smith", 25, "engineer"));
     repository.save(new Employee(1L, 2L, "Jones", 30, "analyst"));
 
-    ResponseEntity<Employee[]> response =
-        restTemplate.getForEntity("/department/1", Employee[].class);
-    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-    assertThat(response.getBody()).hasSize(1);
-    assertThat(response.getBody()[0].getName()).isEqualTo("Smith");
+    client
+        .get()
+        .uri("/department/1")
+        .exchange()
+        .expectStatus()
+        .isOk()
+        .expectBody(Employee[].class)
+        .value(
+            body -> {
+              assertThat(body).hasSize(1);
+              assertThat(body[0].getName()).isEqualTo("Smith");
+            });
   }
 
   @Test
@@ -73,10 +93,17 @@ class EmployeeControllerTest {
     repository.save(new Employee(1L, 1L, "Smith", 25, "engineer"));
     repository.save(new Employee(2L, 1L, "Jones", 30, "analyst"));
 
-    ResponseEntity<Employee[]> response =
-        restTemplate.getForEntity("/organization/1", Employee[].class);
-    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-    assertThat(response.getBody()).hasSize(1);
-    assertThat(response.getBody()[0].getName()).isEqualTo("Smith");
+    client
+        .get()
+        .uri("/organization/1")
+        .exchange()
+        .expectStatus()
+        .isOk()
+        .expectBody(Employee[].class)
+        .value(
+            body -> {
+              assertThat(body).hasSize(1);
+              assertThat(body[0].getName()).isEqualTo("Smith");
+            });
   }
 }

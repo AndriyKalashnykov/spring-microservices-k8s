@@ -8,12 +8,10 @@ import java.util.Collections;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.resttestclient.TestRestTemplate;
-import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureTestRestTemplate;
+import org.springframework.boot.resttestclient.RestTestClient;
+import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureRestTestClient;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.testcontainers.containers.MongoDBContainer;
@@ -25,7 +23,7 @@ import vmware.services.organization.model.Organization;
 import vmware.services.organization.repository.OrganizationRepository;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@AutoConfigureTestRestTemplate
+@AutoConfigureRestTestClient
 @Testcontainers
 @ActiveProfiles("test")
 class OrganizationControllerTest {
@@ -33,7 +31,7 @@ class OrganizationControllerTest {
   @Container @ServiceConnection
   static MongoDBContainer mongo = new MongoDBContainer("mongo:8.0.20");
 
-  @Autowired TestRestTemplate restTemplate;
+  @Autowired RestTestClient client;
 
   @Autowired OrganizationRepository repository;
 
@@ -53,11 +51,20 @@ class OrganizationControllerTest {
   @Test
   void shouldCreateOrganization() {
     Organization org = new Organization("MegaCorp", "Main Street");
-    ResponseEntity<Organization> response =
-        restTemplate.postForEntity("/", org, Organization.class);
-    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-    assertThat(response.getBody()).isNotNull();
-    assertThat(response.getBody().getName()).isEqualTo("MegaCorp");
+
+    client
+        .post()
+        .uri("/")
+        .bodyValue(org)
+        .exchange()
+        .expectStatus()
+        .isOk()
+        .expectBody(Organization.class)
+        .value(
+            body -> {
+              assertThat(body).isNotNull();
+              assertThat(body.getName()).isEqualTo("MegaCorp");
+            });
   }
 
   @Test
@@ -65,18 +72,27 @@ class OrganizationControllerTest {
     repository.save(new Organization("MegaCorp", "Main Street"));
     repository.save(new Organization("SmallCo", "Side Street"));
 
-    ResponseEntity<Organization[]> response = restTemplate.getForEntity("/", Organization[].class);
-    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-    assertThat(response.getBody()).hasSize(2);
+    client
+        .get()
+        .uri("/")
+        .exchange()
+        .expectStatus()
+        .isOk()
+        .expectBody(Organization[].class)
+        .value(body -> assertThat(body).hasSize(2));
   }
 
   @Test
   void shouldFindById() {
     Organization saved = repository.save(new Organization("MegaCorp", "Main Street"));
 
-    ResponseEntity<Organization> response =
-        restTemplate.getForEntity("/" + saved.getId(), Organization.class);
-    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-    assertThat(response.getBody().getName()).isEqualTo("MegaCorp");
+    client
+        .get()
+        .uri("/" + saved.getId())
+        .exchange()
+        .expectStatus()
+        .isOk()
+        .expectBody(Organization.class)
+        .value(body -> assertThat(body.getName()).isEqualTo("MegaCorp"));
   }
 }
