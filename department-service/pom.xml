@@ -108,6 +108,12 @@
 			<version>3.13.1</version>
 			<scope>test</scope>
 		</dependency>
+		<!-- Provides @DataMongoTest slice for repository integration tests. -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-data-mongodb-test</artifactId>
+			<scope>test</scope>
+		</dependency>
 	</dependencies>
 
 	<repositories>

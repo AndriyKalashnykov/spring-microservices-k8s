@@ -93,6 +93,14 @@
 			<artifactId>testcontainers-junit-jupiter</artifactId>
 			<scope>test</scope>
 		</dependency>
+		<!-- Provides @DataMongoTest slice for repository integration tests.
+		     In Spring Boot 4 the annotation moved to
+		     org.springframework.boot.data.mongodb.test.autoconfigure. -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-data-mongodb-test</artifactId>
+			<scope>test</scope>
+		</dependency>
 	</dependencies>
 
 	<repositories>
