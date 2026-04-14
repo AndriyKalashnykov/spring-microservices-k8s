@@ -1,0 +1,32 @@
+@startuml c4-context
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/v2.11.0/C4_Context.puml
+
+' Modern flat styling: no shadows, sharper corners, clean sans-serif, modern palette.
+skinparam backgroundColor #FAFAFA
+skinparam shadowing false
+skinparam roundCorner 4
+skinparam defaultFontName "Inter, Helvetica, Arial, sans-serif"
+skinparam defaultFontSize 13
+skinparam ArrowColor #37474F
+skinparam ArrowThickness 1.2
+skinparam rectangleBorderThickness 1.3
+
+UpdateElementStyle("person",          $fontColor="#FFFFFF", $bgColor="#0F766E", $borderColor="#134E4A")
+UpdateElementStyle("system",          $fontColor="#FFFFFF", $bgColor="#2563EB", $borderColor="#1E3A8A")
+UpdateElementStyle("external_system", $fontColor="#1E293B", $bgColor="#E2E8F0", $borderColor="#94A3B8")
+
+title System Context diagram — Spring Microservices on Kubernetes
+
+Person(client, "Client", "Developer or API consumer (browser, curl, Swagger UI)")
+
+System(platform, "Spring Microservices Platform", "Four Spring Boot services (gateway, employee, department, organization) deployed to Kubernetes with MongoDB-backed persistence and Micrometer tracing")
+
+System_Ext(k8s, "Kubernetes Platform", "Kind cluster with MetalLB LoadBalancer (local dev); any conformant cluster in other environments")
+System_Ext(ghcr, "GHCR Registry", "Multi-arch signed images (SLSA provenance + SBOM + cosign)")
+
+Rel(client, platform, "REST API over HTTPS via gateway", "JSON over HTTP(S)")
+Rel_D(platform, k8s, "deployed to", "kubectl / manifests")
+Rel_R(platform, ghcr, "pulls images from", "docker pull")
+
+SHOW_LEGEND()
+@enduml

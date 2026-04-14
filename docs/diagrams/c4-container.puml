@@ -21,11 +21,11 @@ title Container diagram — Spring Microservices on Kubernetes
 Person(client, "Client", "Browser, curl, Swagger UI")
 
 System_Boundary(platform, "Spring Microservices Platform") {
-    Container(gateway, "Gateway Service", "Spring Boot 4.0, Java 25, Spring Cloud Gateway Server WebMVC", "LoadBalancer via MetalLB; routes /employee/**, /department/**, /organization/**")
+    Container(gateway, "Gateway Service", "Spring Boot 4.0.5, Java 25, Spring Cloud Gateway Server WebMVC", "LoadBalancer via MetalLB; routes /employee/**, /department/**, /organization/**")
 
-    Container(employee, "Employee Service", "Spring Boot 4.0, Java 25", "Employees CRUD")
-    Container(department, "Department Service", "Spring Boot 4.0, Java 25", "Departments CRUD; calls Employee via @HttpExchange")
-    Container(organization, "Organization Service", "Spring Boot 4.0, Java 25", "Organizations CRUD; calls Department + Employee via @HttpExchange")
+    Container(employee, "Employee Service", "Spring Boot 4.0.5, Java 25", "Employees CRUD")
+    Container(department, "Department Service", "Spring Boot 4.0.5, Java 25", "Departments CRUD; calls Employee via @HttpExchange")
+    Container(organization, "Organization Service", "Spring Boot 4.0.5, Java 25", "Organizations CRUD; calls Department + Employee via @HttpExchange")
 
     ContainerDb(mongo, "MongoDB 8.0", "MongoDB", "Shared datastore; per-service database")
 }

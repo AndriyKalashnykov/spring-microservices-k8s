@@ -327,6 +327,14 @@ A weekly [cleanup workflow](.github/workflows/cleanup-runs.yml) prunes old workf
 
 [Renovate](https://docs.renovatebot.com/) keeps dependencies up to date with platform automerge enabled.
 
+## Contributing
+
+Contributions welcome — open a PR. Run `make static-check` locally before pushing; the full pipeline is reproducible via `make ci` (and `make ci-run` to exercise the GitHub Actions workflow through [act](https://github.com/nektos/act)).
+
+## License
+
+[MIT](LICENSE).
+
 ## Stargazers over time
 
 [![Stargazers over time](https://starchart.cc/AndriyKalashnykov/spring-microservices-k8s.svg?variant=adaptive)](https://starchart.cc/AndriyKalashnykov/spring-microservices-k8s)

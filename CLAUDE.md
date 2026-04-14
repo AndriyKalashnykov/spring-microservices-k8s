@@ -70,7 +70,7 @@ make kind-undeploy # Remove services but keep the cluster running
 - Kubernetes (Kind + MetalLB for local dev)
 - MongoDB 8.0 (official `mongo` image, non-root UID 999, version-pinned for Renovate)
 - Testcontainers (integration tests)
-- Checkstyle + hadolint + gitleaks + Trivy + PlantUML drift check (static analysis composite gate via `make static-check`)
+- Checkstyle + hadolint + gitleaks + Trivy + PlantUML drift check + `mermaid-cli` (Mermaid lint) (static analysis composite gate via `make static-check`)
 
 ## Upgrade Backlog
 
@@ -78,6 +78,8 @@ make kind-undeploy # Remove services but keep the cluster running
 |---|------|--------|-------|
 | 1 | Drop `tools.jackson.core:jackson-core` override | Blocked on Spring Boot 4.0.6 | Module poms pin `tools.jackson.core:jackson-core:3.1.1` in `<dependencyManagement>` to fix **GHSA-2m67-wjpj-xhg9** (HIGH — Document length constraint bypass). Spring Boot 4.0.5 manages `jackson-core:3.1.0` which is vulnerable. Remove the override once SB 4.0.6 (or later) ships with 3.1.1 managed; Renovate should flag it via the Spring Boot group rule. Verify by running `mvn dependency:tree -Dincludes=tools.jackson.core:jackson-core` and confirming the natural version is ≥ 3.1.1. |
 | 2 | `actions/cache` Node 20 deprecation (transitive via `sigstore/cosign-installer`) | Blocked on upstream | Node 20 hard-removed from GitHub Actions runners **2026-09-16**. The cache action is a transitive dep inside `sigstore/cosign-installer@v4.1.1` — we're already on latest. Renovate will ship the next cosign-installer release automatically. No manual action; track so it doesn't surprise us in Sept. |
+| 3 | Java 25 → Java 29 LTS migration | Planned for Q3–Q4 2027 | Java 25 is a non-LTS release (6-month support). Next LTS is **Java 29** (Sep 2027). No action needed now — Temurin 25 still receives security backports through its standard window, and the `eclipse-temurin:25.0.2_10-jre-noble@sha256:…` digest is re-pinned by Renovate when new patches ship. Plan the Java 29 bump when `.java-version`, parent pom `<java.version>`, all four module `pom.xml` targets, and `JAVA_VER` / `JAVA_MAJOR` in the Makefile move together. |
+| 4 | SDKMAN/NVM → mise migration | Deferred | Current bootstrap uses SDKMAN for Java/Maven (`deps-install`) and NVM for Node (`renovate-bootstrap`). `/upgrade-analysis` flags mise as the cross-project standard — a single `.mise.toml` pins Java + Maven + Node together, mise reads `.nvmrc` and `.java-version` natively, and `MISE_VERSION` is Renovate-trackable. Deferred because SDKMAN is still working and the `maven-simple` reference repo (portfolio convention) is also on SDKMAN. Revisit if that reference repo migrates. |
 
 ## Skills
 

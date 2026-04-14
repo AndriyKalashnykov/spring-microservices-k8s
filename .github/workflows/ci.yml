@@ -60,7 +60,7 @@ jobs:
           distribution: 'temurin'
           cache: maven
 
-      - name: Install Maven
+      - name: Set up Maven
         run: make deps-maven
 
       - name: Static check
@@ -81,7 +81,7 @@ jobs:
           distribution: 'temurin'
           cache: maven
 
-      - name: Install Maven
+      - name: Set up Maven
         run: make deps-maven
 
       - name: Test with coverage
@@ -89,7 +89,6 @@ jobs:
 
       - name: Verify coverage threshold
         run: make coverage-check
-        continue-on-error: true
 
       - name: Upload coverage report
         if: always()
@@ -115,7 +114,7 @@ jobs:
           distribution: 'temurin'
           cache: maven
 
-      - name: Install Maven
+      - name: Set up Maven
         run: make deps-maven
 
       - name: Integration test
@@ -145,7 +144,7 @@ jobs:
           distribution: 'temurin'
           cache: maven
 
-      - name: Install Maven
+      - name: Set up Maven
         run: make deps-maven
 
       - name: Build
@@ -187,7 +186,7 @@ jobs:
           distribution: 'temurin'
           cache: maven
 
-      - name: Install Maven
+      - name: Set up Maven
         run: make deps-maven
 
       - name: Cache NVD database
@@ -258,7 +257,7 @@ jobs:
           distribution: 'temurin'
           cache: maven
 
-      - name: Install Maven
+      - name: Set up Maven
         if: steps.download-jars.outcome == 'failure'
         run: make deps-maven
 
@@ -337,7 +336,7 @@ jobs:
           distribution: 'temurin'
           cache: maven
 
-      - name: Install Maven
+      - name: Set up Maven
         run: make deps-maven
 
       - name: Run end-to-end tests

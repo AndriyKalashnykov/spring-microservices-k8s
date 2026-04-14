@@ -571,7 +571,7 @@ logs-gateway: deps-docker
 # ---------------------------------------------------------------------------
 
 #ci: @ Run full local CI pipeline
-ci: deps static-check test integration-test coverage-generate coverage-check build deps-prune-check
+ci: deps static-check test integration-test coverage-generate coverage-check build cve-check deps-prune-check
 	@echo "=== CI Complete ==="
 
 #ci-run: @ Run GitHub Actions workflow locally using act
