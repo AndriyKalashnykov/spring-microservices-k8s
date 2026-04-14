@@ -49,7 +49,7 @@ class DepartmentControllerTest {
     client
         .post()
         .uri("/")
-        .bodyValue(dept)
+        .body(dept)
         .exchange()
         .expectStatus()
         .isOk()

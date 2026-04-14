@@ -55,7 +55,7 @@ class OrganizationControllerTest {
     client
         .post()
         .uri("/")
-        .bodyValue(org)
+        .body(org)
         .exchange()
         .expectStatus()
         .isOk()

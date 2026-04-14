@@ -41,7 +41,7 @@ class EmployeeControllerTest {
     client
         .post()
         .uri("/")
-        .bodyValue(emp)
+        .body(emp)
         .exchange()
         .expectStatus()
         .isOk()
