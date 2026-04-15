@@ -51,8 +51,7 @@ import vmware.services.organization.repository.OrganizationRepository;
 @Import(OrganizationDeepFanOutIT.WireMockClientsConfig.class)
 class OrganizationDeepFanOutIT {
 
-  @Container @ServiceConnection
-  static MongoDBContainer mongo = new MongoDBContainer("mongo:8.0.20");
+  @Container @ServiceConnection static MongoDBContainer mongo = new MongoDBContainer("mongo:8.2.6");
 
   static WireMockServer departmentStub;
 

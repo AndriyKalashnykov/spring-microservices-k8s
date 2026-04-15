@@ -22,8 +22,7 @@ import vmware.services.employee.repository.EmployeeRepository;
 @ActiveProfiles("test")
 class EmployeeControllerTest {
 
-  @Container @ServiceConnection
-  static MongoDBContainer mongo = new MongoDBContainer("mongo:8.0.20");
+  @Container @ServiceConnection static MongoDBContainer mongo = new MongoDBContainer("mongo:8.2.6");
 
   @Autowired RestTestClient client;
 
