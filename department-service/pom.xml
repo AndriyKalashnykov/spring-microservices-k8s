@@ -34,6 +34,18 @@
 				<artifactId>jackson-core</artifactId>
 				<version>3.1.2</version>
 			</dependency>
+			<!-- Override transitive tomcat-embed-core to fix CVE-2026-34483
+			     (JsonAccessLogValve information disclosure), CVE-2026-34486
+			     (EncryptInterceptor missing encryption of sensitive data),
+			     and CVE-2026-34487 (sensitive data in log files) — all HIGH.
+			     Spring Boot 4.0.5 pins 11.0.20; fix is in 11.0.21. Remove
+			     when Spring Boot 4.0.6 ships with tomcat-embed-core 11.0.21
+			     managed. -->
+			<dependency>
+				<groupId>org.apache.tomcat.embed</groupId>
+				<artifactId>tomcat-embed-core</artifactId>
+				<version>11.0.21</version>
+			</dependency>
 		</dependencies>
 	</dependencyManagement>
 
