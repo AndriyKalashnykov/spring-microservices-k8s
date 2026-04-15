@@ -12,3 +12,4 @@ data:
   management.metrics.distribution.percentiles-histogram.http.server.requests: "true"
   management.metrics.distribution.slo.http.server.requests: "1ms,5ms"
   management.tracing.sampling.probability: "1.0"
+  management.otlp.tracing.endpoint: "http://jaeger.observability.svc.cluster.local:4318/v1/traces"

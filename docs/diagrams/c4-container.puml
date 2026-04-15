@@ -11,9 +11,10 @@ skinparam ArrowColor #37474F
 skinparam ArrowThickness 1.2
 skinparam rectangleBorderThickness 1.3
 
-UpdateElementStyle("person",      $fontColor="#FFFFFF", $bgColor="#0F766E", $borderColor="#134E4A")
-UpdateElementStyle("container",   $fontColor="#FFFFFF", $bgColor="#2563EB", $borderColor="#1E3A8A")
-UpdateElementStyle("container_db",$fontColor="#FFFFFF", $bgColor="#7C3AED", $borderColor="#4C1D95")
+UpdateElementStyle("person",          $fontColor="#FFFFFF", $bgColor="#0F766E", $borderColor="#134E4A")
+UpdateElementStyle("container",       $fontColor="#FFFFFF", $bgColor="#2563EB", $borderColor="#1E3A8A")
+UpdateElementStyle("container_db",    $fontColor="#FFFFFF", $bgColor="#7C3AED", $borderColor="#4C1D95")
+UpdateElementStyle("external_system", $fontColor="#1E293B", $bgColor="#E2E8F0", $borderColor="#94A3B8")
 UpdateBoundaryStyle($bgColor="#F1F5F9", $borderColor="#94A3B8", $fontColor="#1E293B")
 
 title Container diagram — Spring Microservices on Kubernetes
@@ -30,6 +31,8 @@ System_Boundary(platform, "Spring Microservices Platform") {
     ContainerDb(mongo, "MongoDB 8.0", "MongoDB", "Shared datastore; per-service database")
 }
 
+System_Ext(jaeger, "Jaeger", "All-in-one tracing backend (OTLP receiver + UI on :16686)")
+
 Rel(client, gateway, "HTTPS")
 Rel(gateway, employee,     "routes /employee/**",     "HTTP")
 Rel(gateway, department,   "routes /department/**",   "HTTP")
@@ -42,6 +45,11 @@ Rel_D(organization, department, "RestClient @HttpExchange", "HTTP")
 Rel(employee,     mongo, "reads/writes", "MongoDB wire")
 Rel(department,   mongo, "reads/writes", "MongoDB wire")
 Rel(organization, mongo, "reads/writes", "MongoDB wire")
+
+Rel(gateway,      jaeger, "exports spans", "OTLP/HTTP :4318")
+Rel(employee,     jaeger, "exports spans", "OTLP/HTTP :4318")
+Rel(department,   jaeger, "exports spans", "OTLP/HTTP :4318")
+Rel(organization, jaeger, "exports spans", "OTLP/HTTP :4318")
 
 SHOW_LEGEND()
 @enduml

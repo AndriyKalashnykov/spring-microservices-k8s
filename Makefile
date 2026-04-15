@@ -428,13 +428,13 @@ kind-create: deps-kind
 #kind-setup: @ Create namespaces, RBAC, service accounts, and deploy MongoDB
 kind-setup: deps-docker
 	@echo "Creating namespaces..."
-	@for ns in department employee gateway organization mongo; do \
+	@for ns in department employee gateway organization mongo observability; do \
 		kubectl create namespace $$ns --dry-run=client -o yaml | kubectl apply -f -; \
 	done
 	@echo "Applying RBAC cluster role..."
 	@kubectl apply -f k8s/rbac-cluster-role.yaml
 	@echo "Creating service accounts and role bindings..."
-	@for ns in department employee gateway organization mongo; do \
+	@for ns in department employee gateway organization mongo observability; do \
 		kubectl create serviceaccount $(SA_NAME) -n $$ns --dry-run=client -o yaml | kubectl apply -f -; \
 		kubectl create clusterrolebinding $(SA_NAME)-$$ns \
 			--clusterrole=microservices-kubernetes-namespace-reader \
@@ -445,8 +445,12 @@ kind-setup: deps-docker
 	@kubectl apply -f k8s/mongodb-configmap.yaml -n mongo
 	@kubectl apply -f k8s/mongodb-secret.yaml -n mongo
 	@kubectl apply -f k8s/mongodb-deployment.yaml -n mongo
+	@echo "Deploying Jaeger (tracing backend)..."
+	@kubectl apply -f k8s/jaeger-deployment.yaml -n observability
 	@echo "Waiting for MongoDB rollout..."
 	@kubectl rollout status deployment/mongodb -n mongo --timeout=120s
+	@echo "Waiting for Jaeger rollout..."
+	@kubectl rollout status deployment/jaeger -n observability --timeout=120s
 
 #kind-deploy: @ Build, load images, deploy all services, and wait for rollout
 kind-deploy: kind-create kind-setup image-build
@@ -549,6 +553,11 @@ gateway-url: deps-docker
 gateway-open: deps-docker
 	@EXTERNAL_IP=$$(kubectl get svc gateway -n gateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}'); \
 	$(OPEN_CMD) "http://$$EXTERNAL_IP:8080/swagger-ui.html"
+
+#jaeger-open: @ Open Jaeger tracing UI in browser
+jaeger-open: deps-docker
+	@EXTERNAL_IP=$$(kubectl get svc jaeger -n observability -o jsonpath='{.status.loadBalancer.ingress[0].ip}'); \
+	$(OPEN_CMD) "http://$$EXTERNAL_IP:16686/"
 
 #logs-employee: @ Tail employee service logs
 logs-employee: deps-docker

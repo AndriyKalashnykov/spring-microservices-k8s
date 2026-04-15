@@ -63,6 +63,10 @@
 			<artifactId>micrometer-tracing-bridge-otel</artifactId>
 		</dependency>
 		<dependency>
+			<groupId>io.opentelemetry</groupId>
+			<artifactId>opentelemetry-exporter-otlp</artifactId>
+		</dependency>
+		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-data-mongodb</artifactId>
 		</dependency>
@@ -172,6 +176,7 @@
 						<ignoredUnusedDeclaredDependency>org.springdoc:springdoc-openapi-starter-*</ignoredUnusedDeclaredDependency>
 						<ignoredUnusedDeclaredDependency>io.micrometer:micrometer-registry-*</ignoredUnusedDeclaredDependency>
 						<ignoredUnusedDeclaredDependency>io.micrometer:micrometer-tracing-bridge-*</ignoredUnusedDeclaredDependency>
+						<ignoredUnusedDeclaredDependency>io.opentelemetry:opentelemetry-exporter-otlp</ignoredUnusedDeclaredDependency>
 					</ignoredUnusedDeclaredDependencies>
 					<!-- Framework classes consumed through starter abstractions are transitive;
 					     do not force explicit declaration. -->

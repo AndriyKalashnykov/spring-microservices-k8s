@@ -37,13 +37,22 @@ Deployment_Node(host, "Developer Workstation", "Linux / macOS") {
         Deployment_Node(ns_mongo, "namespace: mongo") {
             ContainerDb(mongo_pod, "mongodb pod", "MongoDB 8.0", ":27017 — Service type ClusterIP")
         }
+        Deployment_Node(ns_obs, "namespace: observability") {
+            Container(jaeger_pod, "jaeger pod", "Jaeger all-in-one 1.65", ":16686 UI (LoadBalancer), :4318 OTLP/HTTP (ClusterIP)")
+        }
     }
 }
 
-Rel(metallb, gateway_pod, "assigns LoadBalancer IP, routes TCP :8080")
+Rel(metallb,  gateway_pod, "assigns LoadBalancer IP, routes TCP :8080")
+Rel(metallb,  jaeger_pod,  "assigns LoadBalancer IP, routes TCP :16686")
 Rel_D(employee_pod,     mongo_pod, "reads/writes", "MongoDB wire")
 Rel_D(department_pod,   mongo_pod, "reads/writes", "MongoDB wire")
 Rel_D(organization_pod, mongo_pod, "reads/writes", "MongoDB wire")
+
+Rel(gateway_pod,      jaeger_pod, "OTLP/HTTP :4318")
+Rel(employee_pod,     jaeger_pod, "OTLP/HTTP :4318")
+Rel(department_pod,   jaeger_pod, "OTLP/HTTP :4318")
+Rel(organization_pod, jaeger_pod, "OTLP/HTTP :4318")
 
 SHOW_LEGEND()
 @enduml

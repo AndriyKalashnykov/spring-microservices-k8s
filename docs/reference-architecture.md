@@ -499,18 +499,22 @@ management.metrics.enable.all: "true"
 
 Endpoints: `/actuator/metrics` and `/actuator/prometheus`.
 
-## Distributed Tracing with Micrometer
+## Distributed Tracing with Micrometer + Jaeger
 
 Micrometer Tracing (replacing Spring Cloud Sleuth) provides distributed trace
 context propagation across services. Trace IDs are automatically propagated
 via HTTP headers through RestClient and Spring MVC.
 
-Dependency (managed by Spring Boot BOM):
+Dependencies (managed by Spring Boot BOM):
 
 ```xml
 <dependency>
     <groupId>io.micrometer</groupId>
     <artifactId>micrometer-tracing-bridge-otel</artifactId>
+</dependency>
+<dependency>
+    <groupId>io.opentelemetry</groupId>
+    <artifactId>opentelemetry-exporter-otlp</artifactId>
 </dependency>
 ```
 
@@ -519,20 +523,22 @@ rather than the legacy Brave / Zipkin bridge. This is the industry-standard
 target for observability consolidation and works with any OTLP-compatible
 backend (Tempo, Jaeger, Honeycomb, Datadog, …).
 
-No tracing backend is currently wired up — spans are created in-process and
-discarded. To export them, add an OTLP exporter dependency and point it at a
-collector via env vars on each Deployment:
+Spans are exported over OTLP/HTTP to an in-cluster **Jaeger all-in-one**
+Deployment in the `observability` namespace. Each service ConfigMap sets:
 
 ```yaml
-env:
-  - name: MANAGEMENT_OTLP_TRACING_ENDPOINT
-    value: http://otel-collector.observability.svc.cluster.local:4318/v1/traces
-  - name: MANAGEMENT_TRACING_SAMPLING_PROBABILITY
-    value: "1.0"
+management.tracing.sampling.probability: "1.0"
+management.otlp.tracing.endpoint: "http://jaeger.observability.svc.cluster.local:4318/v1/traces"
 ```
 
-The env-var injection pattern mirrors the MongoDB configuration — see
-"Inject MongoDB Connection via Environment Variables" above.
+Jaeger exposes its UI via a MetalLB LoadBalancer on port 16686 — open it with
+`make jaeger-open`. The sampling rate is 100% because this is a local dev
+cluster; in production you would lower the probability (e.g. `"0.1"`) or
+configure tail-based sampling at a collector.
+
+To swap Jaeger for another OTLP backend (Tempo, Honeycomb, Datadog), change
+only the `management.otlp.tracing.endpoint` value in each ConfigMap — no code
+or dependency changes are required.
 
 ## Integration Testing with Testcontainers
 

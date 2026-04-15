@@ -64,7 +64,7 @@ make kind-undeploy # Remove services but keep the cluster running
 
 - Java 25, Spring Boot 4.0, Spring Cloud Kubernetes (2025.1)
 - RestClient with @HttpExchange (inter-service communication)
-- Micrometer Tracing (distributed trace propagation)
+- Micrometer Tracing + OpenTelemetry OTLP exporter → Jaeger all-in-one (in-cluster, `observability` namespace; UI exposed via MetalLB on :16686, `make jaeger-open`)
 - Maven multi-module build
 - Docker (multi-arch via buildx)
 - Kubernetes (Kind + MetalLB for local dev)
