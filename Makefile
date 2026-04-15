@@ -31,7 +31,7 @@ SEMVER_RE := ^[0-9]+\.[0-9]+\.[0-9]+$$
 # still installs Maven via curl. The single pin is duplicated in .mise.toml
 # and kept in sync by Renovate's maven PR updating both files together.
 # renovate: datasource=github-tags depName=apache/maven extractVersion=^maven-(?<version>.*)$
-MAVEN_VER    := 3.9.14
+MAVEN_VER    := 3.9.15
 # renovate: datasource=github-releases depName=kubernetes-sigs/kind extractVersion=^v(?<version>.*)$
 KIND_VERSION      := 0.31.0
 # Not Renovate-tracked: must match a Kubernetes version shipped by the pinned KIND_VERSION.
