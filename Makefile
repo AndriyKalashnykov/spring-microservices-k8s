@@ -588,8 +588,14 @@ ci: deps static-check test integration-test coverage-generate coverage-check bui
 #ci-run: @ Run GitHub Actions workflow locally using act
 ci-run: deps-act
 	@docker container prune -f 2>/dev/null || true
-	@act push --container-architecture linux/amd64 \
-		--artifact-server-path /tmp/act-artifacts \
+	@# Pick a random high port for the artifact server so concurrent
+	@# `make ci-run` invocations across different repos don't race on
+	@# act's default 34567. --artifact-server-path uses a per-run temp
+	@# dir for the same reason (default /tmp/act-artifacts is host-global).
+	@ACT_PORT=$$(shuf -i 40000-59999 -n 1); \
+	act push --container-architecture linux/amd64 \
+		--artifact-server-port "$$ACT_PORT" \
+		--artifact-server-path "$$(mktemp -d -t act-artifacts.XXXXXX)" \
 		--var ACT=true \
 		$$([ -n "$$NVD_API_KEY" ] && echo "--secret NVD_API_KEY=$$NVD_API_KEY") \
 		$$([ -n "$$OSS_INDEX_USER" ] && echo "--secret OSS_INDEX_USER=$$OSS_INDEX_USER") \
