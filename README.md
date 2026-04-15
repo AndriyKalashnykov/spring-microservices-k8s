@@ -228,6 +228,7 @@ Run `make help` to see all available targets.
 | `make help` | List all available targets |
 | `make gateway-url` | Print gateway LoadBalancer URL |
 | `make gateway-open` | Open Swagger UI in browser |
+| `make jaeger-open` | Open Jaeger tracing UI in browser |
 | `make logs-employee` | Tail employee service logs |
 | `make logs-department` | Tail department service logs |
 | `make logs-organization` | Tail organization service logs |
@@ -250,7 +251,8 @@ Run `make help` to see all available targets.
 | `make deps-install` | Install mise and the toolchain pinned in `.mise.toml` (Java, Maven, Node) |
 | `make deps-maven` | Install Maven if not present (for CI containers) |
 | `make deps-check` | Show required tools and installation status |
-| `make deps-docker` | Check Docker and kubectl |
+| `make deps-docker` | Check Docker (used by diagrams, mermaid-lint, image-build, Testcontainers) |
+| `make deps-kubectl` | Check kubectl (required for Kind cluster targets) |
 | `make deps-kind` | Install KinD for local Kubernetes testing |
 | `make deps-act` | Install act for local CI runs |
 | `make deps-hadolint` | Install hadolint for Dockerfile linting |
