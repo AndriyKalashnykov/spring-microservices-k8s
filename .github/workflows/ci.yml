@@ -48,19 +48,17 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           fetch-depth: 0
 
-      - name: Set up JDK
-        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
+      - uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
         with:
           java-version-file: '.java-version'
           distribution: 'temurin'
           cache: maven
 
-      - name: Set up Maven
+      - name: Ensure Maven is installed
         run: make deps-maven
 
       - name: Static check
@@ -71,17 +69,15 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
-      - name: Set up JDK
-        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
+      - uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
         with:
           java-version-file: '.java-version'
           distribution: 'temurin'
           cache: maven
 
-      - name: Set up Maven
+      - name: Ensure Maven is installed
         run: make deps-maven
 
       - name: Test with coverage
@@ -104,17 +100,15 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
-      - name: Set up JDK
-        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
+      - uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
         with:
           java-version-file: '.java-version'
           distribution: 'temurin'
           cache: maven
 
-      - name: Set up Maven
+      - name: Ensure Maven is installed
         run: make deps-maven
 
       - name: Integration test
@@ -134,17 +128,15 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
-      - name: Set up JDK
-        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
+      - uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
         with:
           java-version-file: '.java-version'
           distribution: 'temurin'
           cache: maven
 
-      - name: Set up Maven
+      - name: Ensure Maven is installed
         run: make deps-maven
 
       - name: Build
@@ -176,21 +168,19 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
-      - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
-      - name: Set up JDK
-        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
+      - uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
         with:
           java-version-file: '.java-version'
           distribution: 'temurin'
           cache: maven
 
-      - name: Set up Maven
+      - name: Ensure Maven is installed
         run: make deps-maven
 
       - name: Cache NVD database
-        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
           path: ~/.m2/repository/org/owasp/dependency-check-data
           key: nvd-db-${{ hashFiles('pom.xml') }}
@@ -234,8 +224,7 @@ jobs:
       matrix:
         service: [gateway, employee, organization, department]
     steps:
-      - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
       # Try the upload-artifact → download-artifact fast path first. Under
       # `nektos/act` this reliably fails (cross-job artifact storage is not
@@ -257,7 +246,7 @@ jobs:
           distribution: 'temurin'
           cache: maven
 
-      - name: Set up Maven
+      - name: Ensure Maven is installed
         if: steps.download-jars.outcome == 'failure'
         run: make deps-maven
 
@@ -326,17 +315,15 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
-      - name: Set up JDK
-        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
+      - uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
         with:
           java-version-file: '.java-version'
           distribution: 'temurin'
           cache: maven
 
-      - name: Set up Maven
+      - name: Ensure Maven is installed
         run: make deps-maven
 
       - name: Run end-to-end tests

@@ -179,7 +179,7 @@ Run `make help` to see all available targets.
 
 | Target | Description |
 |--------|-------------|
-| `make static-check` | Run all quality and security checks (format-check, lint-ci, lint, lint-docker, secrets, trivy-fs, trivy-config) |
+| `make static-check` | Run all quality and security checks (format-check, diagrams-check, mermaid-lint, lint-ci, lint, lint-docker, secrets, trivy-fs, trivy-config) |
 | `make lint` | Run Maven validate, compiler warnings-as-errors, and Checkstyle (google_checks.xml) |
 | `make lint-ci` | Lint GitHub Actions workflows with actionlint (uses shellcheck) |
 | `make lint-docker` | Lint all Dockerfiles with hadolint |
@@ -267,7 +267,7 @@ Run `make help` to see all available targets.
 
 | Target | Description |
 |--------|-------------|
-| `make renovate-bootstrap` | Install nvm and npm for Renovate |
+| `make renovate-bootstrap` | Install mise + Node (per `.nvmrc`) for `renovate-validate` |
 | `make renovate-validate` | Validate Renovate configuration |
 
 ## CI/CD
@@ -276,7 +276,7 @@ GitHub Actions runs on every push to `master`, tags `v*`, and pull requests.
 
 | Job | Triggers | Steps |
 |-----|----------|-------|
-| **static-check** | push, PR | `make static-check` composite gate: format-check, lint-ci (actionlint), lint (Checkstyle + compiler warnings-as-errors), lint-docker (hadolint), secrets (gitleaks), trivy-fs, trivy-config, diagrams-check |
+| **static-check** | push, PR | `make static-check` composite gate: format-check, diagrams-check, mermaid-lint, lint-ci (actionlint), lint (Checkstyle + compiler warnings-as-errors), lint-docker (hadolint), secrets (gitleaks), trivy-fs, trivy-config |
 | **build** | after static-check | Build all modules with Maven, upload JARs as `service-jars` artifact |
 | **test** | after static-check | Run Testcontainers integration tests + coverage (non-blocking) |
 | **cve-check** | push to master AND tag pushes (skipped under `act`) | OWASP dependency vulnerability scan — gates the `docker` job on tag pushes |

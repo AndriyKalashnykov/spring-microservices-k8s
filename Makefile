@@ -58,7 +58,7 @@ SHELLCHECK_VERSION := 0.11.0
 # Pinned in .mise.toml too; mise reads .nvmrc natively.
 NODE_VERSION      := $(shell cat .nvmrc 2>/dev/null || echo 22)
 # renovate: datasource=docker depName=plantuml/plantuml
-PLANTUML_VERSION    := 1.2025.4
+PLANTUML_VERSION    := 1.2026.2
 # renovate: datasource=docker depName=minlag/mermaid-cli
 MERMAID_CLI_VERSION := 11.12.0
 
@@ -85,20 +85,22 @@ deps:
 	@java -version 2>&1 | grep -q '"$(JAVA_MAJOR)\.' || { echo "Error: Java $(JAVA_MAJOR) required. Run: make deps-install"; exit 1; }
 	@command -v mvn >/dev/null 2>&1 || { echo "Error: Maven required. Run: make deps-install"; exit 1; }
 
-#deps-maven: @ Install Maven if not present (for CI containers)
+#deps-maven: @ Install Maven if not present (for CI containers without mise)
 deps-maven:
 	@command -v mvn >/dev/null 2>&1 || { \
 		echo "Installing Maven $(MAVEN_VER)..."; \
-		curl -fsSL "https://archive.apache.org/dist/maven/maven-3/$(MAVEN_VER)/binaries/apache-maven-$(MAVEN_VER)-bin.tar.gz" | tar xz -C /opt; \
-		ln -sf "/opt/apache-maven-$(MAVEN_VER)/bin/mvn" /usr/local/bin/mvn; \
+		mkdir -p $$HOME/.local/bin $$HOME/.local/opt; \
+		curl -fsSL "https://archive.apache.org/dist/maven/maven-3/$(MAVEN_VER)/binaries/apache-maven-$(MAVEN_VER)-bin.tar.gz" | tar xz -C $$HOME/.local/opt; \
+		ln -sf "$$HOME/.local/opt/apache-maven-$(MAVEN_VER)/bin/mvn" $$HOME/.local/bin/mvn; \
 	}
 
 #deps-install: @ Install mise and the toolchain pinned in .mise.toml (Java, Maven, Node)
 deps-install:
-	@command -v mise >/dev/null 2>&1 || { \
+	@if [ -z "$$CI" ] && ! command -v mise >/dev/null 2>&1; then \
 		echo "Installing mise (https://mise.jdx.dev/)..."; \
 		curl -fsSL https://mise.run | sh; \
-	}
+	fi
+	@command -v mise >/dev/null 2>&1 || { echo "Error: mise not available (CI skips bootstrap; use setup-java + deps-maven instead)"; exit 1; }
 	@echo "Installing toolchain from .mise.toml..."
 	@mise install
 	@echo ""
@@ -115,13 +117,16 @@ deps-check:
 	@echo "--- mise ---"
 	@command -v mise >/dev/null 2>&1 && echo "  installed ($$(mise --version))" || echo "  NOT installed (run: make deps-install)"
 
-#deps-docker: @ Check Docker and kubectl
+#deps-docker: @ Check Docker (used by diagrams, mermaid-lint, image-build, Testcontainers)
 deps-docker:
 	@command -v docker >/dev/null 2>&1 || { echo "Error: docker required. See https://docs.docker.com/get-docker/"; exit 1; }
+
+#deps-kubectl: @ Check kubectl (required for Kind cluster targets)
+deps-kubectl:
 	@command -v kubectl >/dev/null 2>&1 || { echo "Error: kubectl required. See https://kubernetes.io/docs/tasks/tools/"; exit 1; }
 
 #deps-kind: @ Install KinD for local Kubernetes testing
-deps-kind: deps deps-docker
+deps-kind: deps deps-docker deps-kubectl
 	@command -v kind >/dev/null 2>&1 || { echo "Installing kind $(KIND_VERSION)..."; \
 		if command -v go >/dev/null 2>&1; then \
 			go install sigs.k8s.io/kind@v$(KIND_VERSION); \
@@ -423,7 +428,7 @@ kind-create: deps-kind
 	sed "s/METALLB_IP_SUB/$$ip_sub/g" k8s/metallb-config.yaml | kubectl apply -f -
 
 #kind-setup: @ Create namespaces, RBAC, service accounts, and deploy MongoDB
-kind-setup: deps-docker
+kind-setup: deps-docker deps-kubectl
 	@echo "Creating namespaces..."
 	@for ns in department employee gateway organization mongo observability; do \
 		kubectl create namespace $$ns --dry-run=client -o yaml | kubectl apply -f -; \
@@ -479,7 +484,7 @@ kind-deploy: kind-create kind-setup image-build
 	done
 
 #kind-undeploy: @ Remove all services from KinD cluster
-kind-undeploy: deps-docker
+kind-undeploy: deps-docker deps-kubectl
 	@for svc in employee department organization; do \
 		echo "Removing $$svc..."; \
 		kubectl delete -f k8s/$$svc-deployment.yaml -n $$svc --ignore-not-found=true; \
@@ -517,7 +522,7 @@ e2e-test:
 	@./e2e/e2e-test.sh
 
 #populate: @ Populate test data via gateway
-populate: deps-docker
+populate: deps-docker deps-kubectl
 	@EXTERNAL_IP=$$(kubectl get svc gateway -n gateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}'); \
 	BASE_URL="http://$$EXTERNAL_IP:8080"; \
 	echo "Gateway URL: $$BASE_URL"; \
@@ -542,34 +547,34 @@ populate: deps-docker
 # ---------------------------------------------------------------------------
 
 #gateway-url: @ Print gateway LoadBalancer URL
-gateway-url: deps-docker
+gateway-url: deps-kubectl
 	@EXTERNAL_IP=$$(kubectl get svc gateway -n gateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}'); \
 	echo "http://$$EXTERNAL_IP:8080"
 
 #gateway-open: @ Open Swagger UI in browser
-gateway-open: deps-docker
+gateway-open: deps-kubectl
 	@EXTERNAL_IP=$$(kubectl get svc gateway -n gateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}'); \
 	$(OPEN_CMD) "http://$$EXTERNAL_IP:8080/swagger-ui.html"
 
 #jaeger-open: @ Open Jaeger tracing UI in browser
-jaeger-open: deps-docker
+jaeger-open: deps-kubectl
 	@EXTERNAL_IP=$$(kubectl get svc jaeger -n observability -o jsonpath='{.status.loadBalancer.ingress[0].ip}'); \
 	$(OPEN_CMD) "http://$$EXTERNAL_IP:16686/"
 
 #logs-employee: @ Tail employee service logs
-logs-employee: deps-docker
+logs-employee: deps-kubectl
 	@kubectl logs -f -l app=employee -n employee
 
 #logs-department: @ Tail department service logs
-logs-department: deps-docker
+logs-department: deps-kubectl
 	@kubectl logs -f -l app=department -n department
 
 #logs-organization: @ Tail organization service logs
-logs-organization: deps-docker
+logs-organization: deps-kubectl
 	@kubectl logs -f -l app=organization -n organization
 
 #logs-gateway: @ Tail gateway service logs
-logs-gateway: deps-docker
+logs-gateway: deps-kubectl
 	@kubectl logs -f -l app=gateway -n gateway
 
 # ---------------------------------------------------------------------------
@@ -613,11 +618,12 @@ release: deps
 
 #renovate-bootstrap: @ Install mise + Node ($(NODE_VERSION) per .nvmrc) for renovate-validate
 renovate-bootstrap:
-	@command -v mise >/dev/null 2>&1 || { \
+	@if [ -z "$$CI" ] && ! command -v mise >/dev/null 2>&1; then \
 		echo "Installing mise (https://mise.jdx.dev/)..."; \
 		curl -fsSL https://mise.run | sh; \
-	}
+	fi
 	@command -v node >/dev/null 2>&1 || { \
+		command -v mise >/dev/null 2>&1 || { echo "Error: node and mise unavailable (CI skips mise bootstrap)"; exit 1; }; \
 		echo "Installing Node $(NODE_VERSION) via mise..."; \
 		mise install node; \
 	}
@@ -633,7 +639,7 @@ renovate-validate: renovate-bootstrap
 	fi
 
 .PHONY: help \
-	deps deps-maven deps-install deps-check deps-docker deps-kind deps-act \
+	deps deps-maven deps-install deps-check deps-docker deps-kubectl deps-kind deps-act \
 	deps-hadolint deps-gitleaks deps-trivy deps-actionlint deps-shellcheck \
 	deps-updates deps-update deps-prune deps-prune-check \
 	clean build test integration-test lint format format-check \
@@ -644,7 +650,7 @@ renovate-validate: renovate-bootstrap
 	image-build image-load \
 	kind-create kind-setup kind-deploy kind-undeploy kind-redeploy kind-destroy kind-up kind-down \
 	e2e e2e-test populate \
-	gateway-url gateway-open \
+	gateway-url gateway-open jaeger-open \
 	logs-employee logs-department logs-organization logs-gateway \
 	ci ci-run release \
 	renovate-bootstrap renovate-validate
