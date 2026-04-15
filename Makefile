@@ -4,19 +4,13 @@ APP_NAME      := spring-microservices-k8s
 CURRENTTAG    := $(shell git describe --tags --abbrev=0 2>/dev/null || echo "dev")
 
 SHELL         := /bin/bash
-SDKMAN        := $${SDKMAN_DIR:-$$HOME/.sdkman}/bin/sdkman-init.sh
 
 # Tools installed by deps-* targets land in $HOME/.local/bin (no sudo needed).
-# Export it so subsequent recipe shells (and tools called from other targets,
-# e.g. lint-ci -> actionlint) can find them. Required for `make ci-run` (act).
-export PATH := $(HOME)/.local/bin:$(PATH)
-
-# Auto-detect SDKMAN Java 25 and set JAVA_HOME/PATH
-SDKMAN_JAVA   := $(wildcard $(HOME)/.sdkman/candidates/java/25*-tem)
-ifneq ($(SDKMAN_JAVA),)
-  export JAVA_HOME := $(lastword $(sort $(SDKMAN_JAVA)))
-  export PATH      := $(JAVA_HOME)/bin:$(PATH)
-endif
+# Mise installs shims into $HOME/.local/share/mise/shims (java, mvn, node, …) —
+# exporting it here means recipes work without the user having
+# `eval "$(mise activate bash)"` in their shell.
+# Required for `make ci-run` (act) which uses $HOME/.local/bin tools too.
+export PATH := $(HOME)/.local/share/mise/shims:$(HOME)/.local/bin:$(PATH)
 
 KIND_CLUSTER_NAME := spring-microservices-k8s
 SERVICES          := employee department organization gateway
@@ -30,10 +24,12 @@ OPEN_CMD := $(if $(filter Darwin,$(shell uname -s)),open,xdg-open)
 SEMVER_RE := ^[0-9]+\.[0-9]+\.[0-9]+$$
 
 # === Tool Versions (pinned) ===
-# JAVA_VER: SDKMAN identifier — not Renovate-trackable.
-# Source of truth for Java version: .java-version (read by CI via java-version-file)
-# and module pom.xml <java.version>.
-JAVA_VER     := 25-tem
+# Java, Maven, and Node are pinned in .mise.toml (Renovate-tracked there via
+# inline # renovate: comments). .java-version and .nvmrc remain the sources
+# of truth for CI setup-java/setup-node actions.
+# MAVEN_VER below is kept because `deps-maven` (CI containers without mise)
+# still installs Maven via curl. The single pin is duplicated in .mise.toml
+# and kept in sync by Renovate's maven PR updating both files together.
 # renovate: datasource=github-tags depName=apache/maven extractVersion=^maven-(?<version>.*)$
 MAVEN_VER    := 3.9.14
 # renovate: datasource=github-releases depName=kubernetes-sigs/kind extractVersion=^v(?<version>.*)$
@@ -58,9 +54,8 @@ TRIVY_VERSION     := 0.69.3
 ACTIONLINT_VERSION := 1.7.12
 # renovate: datasource=github-releases depName=koalaman/shellcheck extractVersion=^v(?<version>.*)$
 SHELLCHECK_VERSION := 0.11.0
-# renovate: datasource=github-releases depName=nvm-sh/nvm extractVersion=^v(?<version>.*)$
-NVM_VERSION       := 0.40.4
 # Source of truth: .nvmrc (major version only, e.g., "22"); not Renovate-trackable.
+# Pinned in .mise.toml too; mise reads .nvmrc natively.
 NODE_VERSION      := $(shell cat .nvmrc 2>/dev/null || echo 22)
 # renovate: datasource=docker depName=plantuml/plantuml
 PLANTUML_VERSION    := 1.2025.4
@@ -98,15 +93,17 @@ deps-maven:
 		ln -sf "/opt/apache-maven-$(MAVEN_VER)/bin/mvn" /usr/local/bin/mvn; \
 	}
 
-#deps-install: @ Install Java and Maven via SDKMAN
+#deps-install: @ Install mise and the toolchain pinned in .mise.toml (Java, Maven, Node)
 deps-install:
-	@if [ ! -f "$(SDKMAN)" ]; then \
-		echo "Installing SDKMAN..."; \
-		curl -s "https://get.sdkman.io?rcupdate=false" | bash; \
-	fi
-	@. $(SDKMAN) && \
-		echo N | sdk install java $(JAVA_VER) && sdk use java $(JAVA_VER) && \
-		echo N | sdk install maven $(MAVEN_VER) && sdk use maven $(MAVEN_VER)
+	@command -v mise >/dev/null 2>&1 || { \
+		echo "Installing mise (https://mise.jdx.dev/)..."; \
+		curl -fsSL https://mise.run | sh; \
+	}
+	@echo "Installing toolchain from .mise.toml..."
+	@mise install
+	@echo ""
+	@echo "Toolchain installed. Shims are on PATH via the Makefile; for your"
+	@echo "shell, add:  eval \"\$$(mise activate bash)\"   (or zsh/fish)"
 
 #deps-check: @ Show required tools and installation status
 deps-check:
@@ -115,8 +112,8 @@ deps-check:
 		printf "  %-16s " "$$tool:"; \
 		command -v $$tool >/dev/null 2>&1 && echo "installed" || echo "NOT installed"; \
 	done
-	@echo "--- SDKMAN ---"
-	@[ -f "$(SDKMAN)" ] && echo "  installed" || echo "  NOT installed (run: make deps-install)"
+	@echo "--- mise ---"
+	@command -v mise >/dev/null 2>&1 && echo "  installed ($$(mise --version))" || echo "  NOT installed (run: make deps-install)"
 
 #deps-docker: @ Check Docker and kubectl
 deps-docker:
@@ -614,13 +611,15 @@ release: deps
 # Renovate
 # ---------------------------------------------------------------------------
 
-#renovate-bootstrap: @ Install nvm and npm for Renovate
+#renovate-bootstrap: @ Install mise + Node ($(NODE_VERSION) per .nvmrc) for renovate-validate
 renovate-bootstrap:
+	@command -v mise >/dev/null 2>&1 || { \
+		echo "Installing mise (https://mise.jdx.dev/)..."; \
+		curl -fsSL https://mise.run | sh; \
+	}
 	@command -v node >/dev/null 2>&1 || { \
-		echo "Installing nvm $(NVM_VERSION)..."; \
-		export NVM_DIR="$${NVM_DIR:-$$HOME/.nvm}"; \
-		curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v$(NVM_VERSION)/install.sh | bash; \
-		. "$$NVM_DIR/nvm.sh" && nvm install $(NODE_VERSION); \
+		echo "Installing Node $(NODE_VERSION) via mise..."; \
+		mise install node; \
 	}
 
 #renovate-validate: @ Validate Renovate configuration

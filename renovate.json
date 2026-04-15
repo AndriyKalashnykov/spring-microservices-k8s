@@ -33,6 +33,14 @@
     },
     {
       "customType": "regex",
+      "description": "Update .mise.toml tool pins via inline renovate comments",
+      "managerFilePatterns": ["/^\\.mise\\.toml$/"],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>[^\\s]+) depName=(?<depName>[^\\s]+)( extractVersion=(?<extractVersion>[^\\s]+))?( versioning=(?<versioning>[^\\s]+))?\\n[a-zA-Z_-]+\\s*=\\s*\"(?<currentValue>[^\"]+)\""
+      ]
+    },
+    {
+      "customType": "regex",
       "description": "Track Testcontainers MongoDBContainer image versions in ANY Java file (glob is intentionally broad — renaming a test file should not silently drop Renovate tracking)",
       "managerFilePatterns": ["/\\.java$/"],
       "matchStrings": [

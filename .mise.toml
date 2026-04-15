@@ -1,0 +1,14 @@
+# Toolchain pins for local development (portfolio standard: mise).
+# CI uses setup-java with java-version-file=.java-version and does not
+# read this file. Renovate tracks the pins below via inline comments.
+
+[tools]
+# Java major — mise resolves to the latest Temurin patch in this line.
+# Kept in sync with .java-version (source of truth for CI and module poms).
+java = "25"
+
+# renovate: datasource=github-tags depName=apache/maven extractVersion=^maven-(?<version>.*)$
+maven = "3.9.14"
+
+# Node major — kept in sync with .nvmrc. Used by renovate-validate only.
+node = "22"

@@ -57,7 +57,7 @@ development).
 | [Docker](https://www.docker.com/) | 20.10+ | Container runtime |
 | [kubectl](https://kubernetes.io/docs/tasks/tools/) | 1.24+ | Kubernetes CLI |
 | [Kind](https://kind.sigs.k8s.io/) | 0.31+ | Local Kubernetes clusters (auto-installed by `make deps-kind`) |
-| [SDKMAN](https://sdkman.io/) | latest | Java/Maven version management (optional, used by `make deps-install`) |
+| [mise](https://mise.jdx.dev/) | latest | Polyglot version manager — installs Java, Maven, and Node per [`.mise.toml`](.mise.toml) (optional, used by `make deps-install`) |
 
 Verify required tools are installed:
 
@@ -247,7 +247,7 @@ Run `make help` to see all available targets.
 | Target | Description |
 |--------|-------------|
 | `make deps` | Check required tools (java 25, mvn) |
-| `make deps-install` | Install Java and Maven via SDKMAN |
+| `make deps-install` | Install mise and the toolchain pinned in `.mise.toml` (Java, Maven, Node) |
 | `make deps-maven` | Install Maven if not present (for CI containers) |
 | `make deps-check` | Show required tools and installation status |
 | `make deps-docker` | Check Docker and kubectl |
