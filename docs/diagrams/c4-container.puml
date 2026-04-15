@@ -31,7 +31,7 @@ System_Boundary(platform, "Spring Microservices Platform") {
     ContainerDb(mongo, "MongoDB 8.0", "MongoDB", "Shared datastore; per-service database")
 }
 
-System_Ext(jaeger, "Jaeger", "All-in-one tracing backend (OTLP receiver + UI on :16686)")
+System_Ext(jaeger, "Jaeger 2.x", "OTel-Collector-based tracing backend (OTLP receiver + UI on :16686)")
 
 Rel(client, gateway, "HTTPS")
 Rel(gateway, employee,     "routes /employee/**",     "HTTP")

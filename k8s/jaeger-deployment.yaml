@@ -23,19 +23,20 @@ spec:
           type: RuntimeDefault
       containers:
       - name: jaeger
-        # Jaeger all-in-one (collector + agent + query UI in one binary).
-        # OTLP receiver enabled via COLLECTOR_OTLP_ENABLED below.
-        # 1.x is the current stable line; v2 is in beta as of 2026.
-        image: jaegertracing/all-in-one:1.76.0
+        # Jaeger v2 (built on the OpenTelemetry Collector). Single binary
+        # replaces the retired v1 all-in-one image; in-memory storage +
+        # OTLP receivers + query UI topology is equivalent, but config
+        # moved from env vars to a YAML file (see jaeger-config.yaml).
+        # renovate: datasource=docker depName=jaegertracing/jaeger
+        image: jaegertracing/jaeger:2.17.0
+        args:
+          - --config=file:/etc/jaeger/config.yaml
         securityContext:
           allowPrivilegeEscalation: false
           readOnlyRootFilesystem: false
           capabilities:
             drop:
               - ALL
-        env:
-        - name: COLLECTOR_OTLP_ENABLED
-          value: "true"
         ports:
         - name: ui
           containerPort: 16686
@@ -43,6 +44,12 @@ spec:
           containerPort: 4318
         - name: otlp-grpc
           containerPort: 4317
+        - name: health
+          containerPort: 13133
+        volumeMounts:
+        - name: config
+          mountPath: /etc/jaeger
+          readOnly: true
         resources:
           requests:
             cpu: "0.1"
@@ -52,20 +59,24 @@ spec:
             memory: 512Mi
         readinessProbe:
           httpGet:
-            path: /
-            port: 16686
+            path: /status
+            port: 13133
           initialDelaySeconds: 5
           timeoutSeconds: 2
           periodSeconds: 10
           failureThreshold: 5
         livenessProbe:
           httpGet:
-            path: /
-            port: 16686
+            path: /status
+            port: 13133
           initialDelaySeconds: 15
           timeoutSeconds: 2
           periodSeconds: 20
           failureThreshold: 5
+      volumes:
+      - name: config
+        configMap:
+          name: jaeger-config
       serviceAccountName: api-service-account
 ---
 apiVersion: v1

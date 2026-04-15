@@ -523,8 +523,12 @@ rather than the legacy Brave / Zipkin bridge. This is the industry-standard
 target for observability consolidation and works with any OTLP-compatible
 backend (Tempo, Jaeger, Honeycomb, Datadog, …).
 
-Spans are exported over OTLP/HTTP to an in-cluster **Jaeger all-in-one**
-Deployment in the `observability` namespace. Each service ConfigMap sets:
+Spans are exported over OTLP/HTTP to an in-cluster **Jaeger 2.x**
+Deployment in the `observability` namespace. Jaeger v2 is built on the
+OpenTelemetry Collector and is configured via a YAML file mounted from
+[`k8s/jaeger-config.yaml`](../k8s/jaeger-config.yaml) (in-memory storage,
+OTLP receivers on 4317/4318, query UI on 16686). Each service ConfigMap
+sets:
 
 ```yaml
 management.tracing.sampling.probability: "1.0"

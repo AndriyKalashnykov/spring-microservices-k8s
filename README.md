@@ -22,7 +22,7 @@ Source: [`docs/diagrams/c4-container.puml`](docs/diagrams/c4-container.puml) —
 | Service Discovery | Spring Cloud Kubernetes | Uses the Kubernetes API as the registry — no Eureka/Consul to operate; `all-namespaces: true` enables cross-namespace discovery |
 | Database | MongoDB 8.0 (official `mongo` image, non-root UID 999, version-pinned) | Document model fits the Organization → Department → Employee aggregates without a migration toolchain; official image pinned for Renovate tracking |
 | API Docs | SpringDoc OpenAPI 3.0 / Swagger UI | Auto-generates OpenAPI 3 from `@RestController` annotations; gateway surfaces a unified Swagger UI across all services |
-| Tracing | Micrometer Tracing → OpenTelemetry OTLP → Jaeger all-in-one | Spans propagate across all four services via W3C `traceparent`, export over OTLP/HTTP to in-cluster Jaeger (`observability` namespace); UI via `make jaeger-open` |
+| Tracing | Micrometer Tracing → OpenTelemetry OTLP → Jaeger | Spans propagate across all four services via W3C `traceparent`, export over OTLP/HTTP to in-cluster Jaeger (`observability` namespace); UI via `make jaeger-open` |
 | Testing | Testcontainers (integration), Kind e2e | Real MongoDB per test class (no mocking) + real cluster for e2e — catches schema drift and manifest bugs that in-process tests miss |
 | Containers | Eclipse Temurin 25, multi-arch (amd64+arm64) | Temurin is the reference OpenJDK build; multi-arch covers Apple Silicon dev + x86 servers from a single manifest |
 | Local K8s | Kind + MetalLB | Kind runs a real Kubernetes API in Docker — higher fidelity than Minikube; MetalLB gives LoadBalancer Services a reachable IP on localhost |
@@ -77,7 +77,7 @@ This architecture follows Cloud Native best practices and [The 12 Factor App](ht
 - **Inter-service communication** via RestClient (`@HttpExchange`)
 - **API documentation** exposed via Swagger UI
 - **Docker images** built with layered JARs using the Spring Boot plugin
-- **Observability** via Prometheus exporters + distributed tracing (Micrometer → OTLP → Jaeger all-in-one)
+- **Observability** via Prometheus exporters + distributed tracing (Micrometer → OTLP → Jaeger)
 - **Static analysis** via google-java-format, Checkstyle, hadolint, gitleaks, actionlint, Trivy (filesystem + K8s config), and PlantUML diagram drift check — all wired into the `make static-check` composite gate
 
 ### Service Communication

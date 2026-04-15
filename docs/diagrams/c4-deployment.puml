@@ -38,7 +38,7 @@ Deployment_Node(host, "Developer Workstation", "Linux / macOS") {
             ContainerDb(mongo_pod, "mongodb pod", "MongoDB 8.0", ":27017 — Service type ClusterIP")
         }
         Deployment_Node(ns_obs, "namespace: observability") {
-            Container(jaeger_pod, "jaeger pod", "Jaeger all-in-one 1.76", ":16686 UI (LoadBalancer), :4318 OTLP/HTTP (ClusterIP)")
+            Container(jaeger_pod, "jaeger pod", "Jaeger 2.17 (OTel Collector-based)", ":16686 UI (LoadBalancer), :4318 OTLP/HTTP (ClusterIP)")
         }
     }
 }

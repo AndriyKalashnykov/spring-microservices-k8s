@@ -448,6 +448,7 @@ kind-setup: deps-docker deps-kubectl
 	@kubectl apply -f k8s/mongodb-secret.yaml -n mongo
 	@kubectl apply -f k8s/mongodb-deployment.yaml -n mongo
 	@echo "Deploying Jaeger (tracing backend)..."
+	@kubectl apply -f k8s/jaeger-config.yaml -n observability
 	@kubectl apply -f k8s/jaeger-deployment.yaml -n observability
 	@echo "Waiting for MongoDB rollout..."
 	@kubectl rollout status deployment/mongodb -n mongo --timeout=120s
