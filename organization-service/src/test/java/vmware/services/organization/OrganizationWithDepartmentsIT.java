@@ -51,7 +51,7 @@ import vmware.services.organization.repository.OrganizationRepository;
 class OrganizationWithDepartmentsIT {
 
   @Container @ServiceConnection
-  static MongoDBContainer mongo = new MongoDBContainer("mongo:8.0.20");
+  static MongoDBContainer mongo = new MongoDBContainer("mongo:8.2.6");
 
   static WireMockServer departmentStub;
 
