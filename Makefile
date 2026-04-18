@@ -33,8 +33,8 @@ SEMVER_RE := ^[0-9]+\.[0-9]+\.[0-9]+$$
 # kind version. kind 0.31.0 supports: v1.35.0 (default), v1.34.3, v1.33.7,
 # v1.32.11, v1.31.14. Bump together with kind per kind release notes.
 KIND_NODE_IMAGE   := v1.35.0
-# renovate: datasource=github-releases depName=metallb/metallb extractVersion=^v(?<version>.*)$
-METALLB_VERSION   := 0.15.3
+# renovate: datasource=github-releases depName=kubernetes-sigs/cloud-provider-kind extractVersion=^v(?<version>.*)$
+CLOUD_PROVIDER_KIND_VERSION := 0.10.0
 # renovate: datasource=github-releases depName=google/google-java-format extractVersion=^v(?<version>.*)$
 GJF_VERSION       := 1.35.0
 # Source of truth: .nvmrc (major version only, e.g., "22"); not Renovate-trackable.
@@ -321,7 +321,7 @@ image-load: deps-kind
 # KinD Cluster
 # ---------------------------------------------------------------------------
 
-#kind-create: @ Create local KinD cluster with MetalLB
+#kind-create: @ Create local KinD cluster with cloud-provider-kind LoadBalancer controller
 kind-create: deps-kind
 	@if kind get clusters 2>/dev/null | grep -q "^$(KIND_CLUSTER_NAME)$$"; then \
 		echo "KinD cluster '$(KIND_CLUSTER_NAME)' already exists..."; \
@@ -334,15 +334,21 @@ kind-create: deps-kind
 			--image=kindest/node:$(KIND_NODE_IMAGE) \
 			--wait 60s; \
 	fi
-	@echo "Installing MetalLB $(METALLB_VERSION)..."
-	@kubectl apply -f https://raw.githubusercontent.com/metallb/metallb/v$(METALLB_VERSION)/config/manifests/metallb-native.yaml
-	@echo "Waiting for MetalLB controller..."
-	@kubectl rollout status deployment/controller -n metallb-system --timeout=180s
-	@echo "Waiting for MetalLB speaker..."
-	@kubectl rollout status daemonset/speaker -n metallb-system --timeout=180s
-	@echo "Configuring MetalLB IP pool..."
-	@ip_sub=$$(docker network inspect kind -f '{{range .IPAM.Config}}{{.Subnet}} {{end}}' | grep -oE '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' | head -1 | awk -F. '{printf "%d.%d", $$1, $$2}'); \
-	sed "s/METALLB_IP_SUB/$$ip_sub/g" k8s/metallb-config.yaml | kubectl apply -f -
+	@# cloud-provider-kind runs host-side (not in the cluster). It watches
+	@# Services of type LoadBalancer and allocates IPs on the `kind` Docker
+	@# network. Kind-team maintained (kubernetes-sigs/cloud-provider-kind),
+	@# so new kindest/node images are supported day-one. Supersedes the
+	@# previous MetalLB setup which required installing an in-cluster
+	@# controller + speaker DaemonSet + L2Advertisement YAML, plus had a
+	@# known nftables regression on kindest/node:v1.35.0.
+	@echo "Starting cloud-provider-kind $(CLOUD_PROVIDER_KIND_VERSION)..."
+	@docker rm -f cloud-provider-kind >/dev/null 2>&1 || true
+	@docker run --rm -d \
+		--name cloud-provider-kind \
+		--network kind \
+		-v /var/run/docker.sock:/var/run/docker.sock \
+		registry.k8s.io/cloud-provider-kind/cloud-controller-manager:v$(CLOUD_PROVIDER_KIND_VERSION) >/dev/null
+	@echo "cloud-provider-kind is running; LoadBalancer Services will receive IPs automatically."
 
 #kind-setup: @ Create namespaces, RBAC, service accounts, and deploy MongoDB
 kind-setup: deps-docker deps-kubectl
@@ -416,8 +422,9 @@ kind-undeploy: deps-docker deps-kubectl
 #kind-redeploy: @ Undeploy then deploy all services
 kind-redeploy: kind-undeploy kind-deploy
 
-#kind-destroy: @ Delete KinD cluster
+#kind-destroy: @ Delete KinD cluster and stop cloud-provider-kind
 kind-destroy: deps-kind
+	@docker rm -f cloud-provider-kind 2>/dev/null || true
 	@kind delete cluster --name $(KIND_CLUSTER_NAME) 2>/dev/null || true
 	@echo "KinD cluster '$(KIND_CLUSTER_NAME)' deleted."
 

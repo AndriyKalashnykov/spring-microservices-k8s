@@ -21,7 +21,7 @@ Person(client, "Client", "Developer or API consumer (browser, curl, Swagger UI)"
 
 System(platform, "Spring Microservices Platform", "Four Spring Boot services (gateway, employee, department, organization) deployed to Kubernetes with MongoDB-backed persistence and Micrometer tracing")
 
-System_Ext(k8s, "Kubernetes Platform", "Kind cluster with MetalLB LoadBalancer (local dev); any conformant cluster in other environments")
+System_Ext(k8s, "Kubernetes Platform", "Kind cluster with cloud-provider-kind LoadBalancer controller (local dev); any conformant cluster in other environments")
 System_Ext(ghcr, "GHCR Registry", "Multi-arch signed images (SLSA provenance + SBOM + cosign)")
 
 Rel(client, platform, "REST API over HTTPS via gateway", "JSON over HTTP(S)")

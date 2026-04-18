@@ -25,7 +25,7 @@ Source: [`docs/diagrams/c4-container.puml`](docs/diagrams/c4-container.puml) —
 | Tracing | Micrometer Tracing → OpenTelemetry OTLP → Jaeger | Spans propagate across all four services via W3C `traceparent`, export over OTLP/HTTP to in-cluster Jaeger (`observability` namespace); UI via `make jaeger-open` |
 | Testing | Testcontainers (integration), Kind e2e | Real MongoDB per test class (no mocking) + real cluster for e2e — catches schema drift and manifest bugs that in-process tests miss |
 | Containers | Eclipse Temurin 25, multi-arch (amd64+arm64) | Temurin is the reference OpenJDK build; multi-arch covers Apple Silicon dev + x86 servers from a single manifest |
-| Local K8s | Kind + MetalLB | Kind runs a real Kubernetes API in Docker — higher fidelity than Minikube; MetalLB gives LoadBalancer Services a reachable IP on localhost |
+| Local K8s | Kind + cloud-provider-kind | Kind runs a real Kubernetes API in Docker — higher fidelity than Minikube; cloud-provider-kind (kind-team maintained, lives in `kubernetes-sigs/`) runs host-side and allocates LoadBalancer IPs on the `kind` Docker network. Supersedes MetalLB — simpler lifecycle, no in-cluster footprint, kindest/node bumps supported day-one |
 | CI/CD | GitHub Actions, Renovate, GHCR | GitHub-native, zero extra infrastructure; Renovate auto-merges minor/patch dependency updates; GHCR avoids Docker Hub pull-rate limits |
 | Code Quality | google-java-format, Checkstyle, hadolint, gitleaks, actionlint, Trivy, PlantUML | Composite `make static-check` gate — format + lint + Dockerfile lint + secret scan + workflow lint + filesystem/K8s config CVE scan + diagram drift — fails the build on any single violation |
 
@@ -33,7 +33,7 @@ Source: [`docs/diagrams/c4-container.puml`](docs/diagrams/c4-container.puml) —
 
 ```bash
 make deps          # check required tools
-make kind-up       # full cluster lifecycle: Kind + MetalLB + MongoDB + Jaeger + 4 services
+make kind-up       # full cluster lifecycle: Kind + cloud-provider-kind + MongoDB + Jaeger + 4 services
 make e2e-test      # run end-to-end API tests
 make gateway-open  # open Swagger UI in browser
 make jaeger-open   # open Jaeger tracing UI in browser
@@ -82,7 +82,7 @@ This architecture follows Cloud Native best practices and [The 12 Factor App](ht
 ### Service Communication
 
 ```text
-Client -> Gateway (Spring Cloud Gateway Server WebMVC, LoadBalancer via MetalLB)
+Client -> Gateway (Spring Cloud Gateway Server WebMVC, LoadBalancer via cloud-provider-kind)
   |-- /employee/**     -> Employee Service (MongoDB)
   |-- /department/**   -> Department Service (MongoDB, calls Employee via RestClient)
   +-- /organization/** -> Organization Service (MongoDB, calls Department + Employee via RestClient)
@@ -126,7 +126,7 @@ See the full [Reference Architecture](docs/reference-architecture.md) for the De
 
 ## API
 
-The gateway exposes a unified surface on `http://<GATEWAY_IP>:8080` (MetalLB-assigned). Fetch the IP with `make gateway-url`, then:
+The gateway exposes a unified surface on `http://<GATEWAY_IP>:8080` (allocated by cloud-provider-kind on the `kind` Docker network). Fetch the IP with `make gateway-url`, then:
 
 ```bash
 GATEWAY=$(make --silent gateway-url)
@@ -149,14 +149,14 @@ A complete OpenAPI 3 spec plus Swagger UI is served through the gateway — run 
 Local Kubernetes deployment is driven by the Makefile — `make kind-up` spins up the full stack in one command:
 
 ```bash
-make kind-up       # Kind cluster + MetalLB + MongoDB + Jaeger + 4 services (~2–3 min)
-make gateway-url   # print LoadBalancer IP assigned by MetalLB
+make kind-up       # Kind cluster + cloud-provider-kind + MongoDB + Jaeger + 4 services (~2–3 min)
+make gateway-url   # print LoadBalancer IP allocated by cloud-provider-kind
 make gateway-open  # open Swagger UI in a browser
 make jaeger-open   # open Jaeger tracing UI in a browser
 make kind-down     # tear everything down
 ```
 
-Under the hood `kind-up` chains `kind-create` (cluster + MetalLB) → `kind-setup` (namespaces, RBAC, MongoDB, Jaeger) → `image-build` → `image-load` → `kind-deploy` (rollout all 4 services). See [Kind Cluster targets](#kind-cluster) for running each step in isolation during iterative development.
+Under the hood `kind-up` chains `kind-create` (cluster + cloud-provider-kind) → `kind-setup` (namespaces, RBAC, MongoDB, Jaeger) → `image-build` → `image-load` → `kind-deploy` (rollout all 4 services). See [Kind Cluster targets](#kind-cluster) for running each step in isolation during iterative development.
 
 Production deployment is out of scope for this reference — the manifests under [`k8s/`](k8s/) are tuned for a single-node local Kind cluster. See [`docs/reference-architecture.md`](docs/reference-architecture.md) for the annotated manifests and the rationale behind each ConfigMap / Secret / RBAC binding.
 
@@ -214,9 +214,9 @@ Three-layer test pyramid: unit → integration → end-to-end. Each layer runs i
 
 | Target | Description |
 |--------|-------------|
-| `make kind-up` | **Full cluster lifecycle** (alias for `kind-deploy`): create + MetalLB + setup + image build + deploy |
+| `make kind-up` | **Full cluster lifecycle** (alias for `kind-deploy`): create + cloud-provider-kind + setup + image build + deploy |
 | `make kind-down` | **Tear down** the Kind cluster (alias for `kind-destroy`) |
-| `make kind-create` | Create local KinD cluster with MetalLB (granular) |
+| `make kind-create` | Create local KinD cluster with cloud-provider-kind LoadBalancer controller (granular) |
 | `make kind-setup` | Create namespaces, RBAC, service accounts, and deploy MongoDB (granular) |
 | `make kind-deploy` | Build, load images, deploy all services, and wait for rollout (granular) |
 | `make kind-undeploy` | Remove all services from KinD cluster (keeps cluster running) |
@@ -279,7 +279,7 @@ GitHub Actions runs on every push to `master`, tags `v*`, and pull requests.
 | **test** | after static-check | Run Testcontainers integration tests + coverage (non-blocking) |
 | **cve-check** | push to master AND tag pushes (skipped under `act`) | OWASP dependency vulnerability scan — gates the `docker` job on tag pushes |
 | **image-scan** | every push (matrix: 4 services) | Per-service Dockerfile validation gates 1–3: build single-arch image → Trivy image scan (CRITICAL/HIGH blocking) → Spring Boot boot-marker smoke test. Catches base-image CVE regressions and Dockerfile breakages on the commit that introduced them, not on release day. |
-| **e2e** | every push (skipped under `act`) | End-to-end test against a full Kind + MetalLB stack: `make e2e` cycles create → setup (MongoDB) → deploy (4 services + gateway LB) → `./e2e/e2e-test.sh` → destroy. |
+| **e2e** | every push (skipped under `act`) | End-to-end test against a full Kind + cloud-provider-kind stack: `make e2e` cycles create → setup (MongoDB) → deploy (4 services + gateway LB) → `./e2e/e2e-test.sh` → destroy. |
 | **docker** | tag push only (matrix: 4 services) | Full pre-push hardening: build local image → Trivy image scan → Spring Boot smoke test → multi-arch (amd64+arm64) build with SLSA provenance + SBOM attestation → push to GHCR → cosign keyless OIDC signing. Depends on `build`, `test`, `cve-check`. |
 | **ci-pass** | always | Branch-protection aggregator: single required status check that verifies no upstream job failed. Skipped jobs do not trip the gate. |
 

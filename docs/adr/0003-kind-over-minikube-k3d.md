@@ -1,6 +1,6 @@
 # ADR-0003: Kind + MetalLB for local Kubernetes
 
-- **Status**: Accepted
+- **Status**: Superseded by [ADR-0006](0006-cloud-provider-kind-over-metallb.md) on 2026-04-18 — MetalLB replaced by cloud-provider-kind. The Kind-over-{Minikube,k3d,Docker Desktop} decision recorded here still stands.
 - **Date**: 2026-04-08
 
 ## Decision

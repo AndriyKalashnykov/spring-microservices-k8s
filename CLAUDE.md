@@ -15,7 +15,7 @@ spring-microservices-k8s/
   gateway-service/       # API gateway (Spring Cloud Gateway Server WebMVC)
   organization-service/  # Organization microservice (Spring Boot)
   .github/workflows/     # CI/CD (GitHub Actions)
-  k8s/                   # Kubernetes manifests, Kind + MetalLB configs
+  k8s/                   # Kubernetes manifests, Kind configs
   e2e/                   # End-to-end test script
   docs/                  # Architecture documentation and diagrams
   Makefile               # Build orchestration (run `make help`)
@@ -27,7 +27,7 @@ spring-microservices-k8s/
 
 ```bash
 make build         # Build all modules
-make kind-up       # Full cluster lifecycle: deps-kind + kind-create + MetalLB + kind-setup + image-build + kind-deploy
+make kind-up       # Full cluster lifecycle: deps-kind + kind-create + cloud-provider-kind + kind-setup + image-build + kind-deploy
 make populate      # Seed test data
 make gateway-open  # Open Swagger UI
 ```
@@ -43,7 +43,7 @@ make e2e               # Full Kind-cluster e2e via gateway LoadBalancer (minutes
 Granular alternatives (for debugging / partial workflows):
 
 ```bash
-make kind-create   # Create local Kind cluster with MetalLB
+make kind-create   # Create local Kind cluster with cloud-provider-kind LoadBalancer controller
 make kind-setup    # Configure namespaces, RBAC, deploy MongoDB
 make kind-deploy   # Build, load, and deploy all services
 ```
@@ -64,10 +64,10 @@ make kind-undeploy # Remove services but keep the cluster running
 
 - Java 25, Spring Boot 4.0, Spring Cloud Kubernetes (2025.1)
 - RestClient with @HttpExchange (inter-service communication)
-- Micrometer Tracing + OpenTelemetry OTLP exporter → Jaeger 2.x (OTel-Collector-based; in-cluster, `observability` namespace; UI exposed via MetalLB on :16686, `make jaeger-open`)
+- Micrometer Tracing + OpenTelemetry OTLP exporter → Jaeger 2.x (OTel-Collector-based; in-cluster, `observability` namespace; UI exposed via LoadBalancer Service on :16686 — cloud-provider-kind allocates the IP, `make jaeger-open`)
 - Maven multi-module build
 - Docker (multi-arch via buildx)
-- Kubernetes (Kind + MetalLB for local dev)
+- Kubernetes (Kind + cloud-provider-kind for local dev — LoadBalancer Services resolve via the `kind` Docker network)
 - MongoDB 8.0 (official `mongo` image, non-root UID 999, version-pinned for Renovate)
 - Testcontainers (integration tests)
 - Checkstyle + hadolint + gitleaks + Trivy + PlantUML drift check + `mermaid-cli` (Mermaid lint) (static analysis composite gate via `make static-check`)
