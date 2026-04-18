@@ -33,6 +33,11 @@ on:
       - '**.jpg'
       - '**.gif'
       - '**.svg'
+  # Weekly NVD rescan: catches new CVEs landing on unchanged dependencies
+  # between releases. Also keeps the ~2GB NVD cache warm (7-day GitHub cache
+  # eviction). Monday 06:00 UTC = Sunday evening EST (low-traffic window).
+  schedule:
+    - cron: '0 6 * * 1'
   workflow_call:
   workflow_dispatch:
 
@@ -170,12 +175,22 @@ jobs:
 
   cve-check:
     needs: [static-check]
-    # Run on push to master AND on tag pushes (so the docker job can gate on it).
+    # Runs on:
+    #   - push to master AND tag pushes  (release-time gate — the docker job
+    #     depends on it; master-push kept while OWASP step is continue-on-error
+    #     pending NVD nanosecond-timestamp upstream fix — see CLAUDE.md #1c)
+    #   - weekly schedule                 (catches new NVD advisories landing
+    #     on unchanged deps between releases)
+    #   - workflow_dispatch               (ad-hoc rescan after a new CVE drop)
     # Skipped under local act runs because the OWASP NVD download is slow.
     if: |
-      vars.ACT != 'true' && github.event_name == 'push' && (
-        github.ref == 'refs/heads/master' ||
-        startsWith(github.ref, 'refs/tags/')
+      vars.ACT != 'true' && (
+        (github.event_name == 'push' && (
+          github.ref == 'refs/heads/master' ||
+          startsWith(github.ref, 'refs/tags/')
+        )) ||
+        github.event_name == 'schedule' ||
+        github.event_name == 'workflow_dispatch'
       )
     runs-on: ubuntu-latest
     timeout-minutes: 45
