@@ -51,6 +51,10 @@ addresses the following concerns:
 
 ## Reference Architecture
 
+<p align="center"><img src="diagrams/out/c4-context.png" alt="C4 Context diagram — Spring Microservices Platform" width="720"></p>
+
+Source: [`diagrams/c4-context.puml`](diagrams/c4-context.puml) — PlantUML + C4-PlantUML, modern flat theme.
+
 The reference architecture demonstrates an organization where each unit has its
 own application designed using a microservices architecture. Microservices are
 exposed as REST APIs utilizing Spring Boot in an embedded Tomcat server and
