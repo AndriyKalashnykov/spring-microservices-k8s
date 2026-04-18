@@ -26,7 +26,7 @@ spec:
       - name: mongodb
         # Official MongoDB image (Docker Hub library/mongo).
         # 8.0.x is the LTS line; 8.1+/8.2+ are rapid releases.
-        image: mongo:8.2.6@sha256:4a73a96a9a161bd3a220c22be5d989065567543c952f2a17ff764075171629ca
+        image: mongo:8.2.7@sha256:7abfba0d07c9330373f8173981ea4d09cd8a82cdf0e86ccaf7008848d1d24f62
         securityContext:
           allowPrivilegeEscalation: false
           readOnlyRootFilesystem: false
