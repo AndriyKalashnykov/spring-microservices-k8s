@@ -49,7 +49,7 @@ GJF_VERSION       := 1.35.0
 # renovate: datasource=github-releases depName=zricethezav/gitleaks extractVersion=^v(?<version>.*)$
 GITLEAKS_VERSION  := 8.30.1
 # renovate: datasource=github-releases depName=aquasecurity/trivy extractVersion=^v(?<version>.*)$
-TRIVY_VERSION     := 0.69.3
+TRIVY_VERSION     := 0.70.0
 # renovate: datasource=github-releases depName=rhysd/actionlint extractVersion=^v(?<version>.*)$
 ACTIONLINT_VERSION := 1.7.12
 # renovate: datasource=github-releases depName=koalaman/shellcheck extractVersion=^v(?<version>.*)$
