@@ -28,7 +28,7 @@ spec:
         # OTLP receivers + query UI topology is equivalent, but config
         # moved from env vars to a YAML file (see jaeger-config.yaml).
         # renovate: datasource=docker depName=jaegertracing/jaeger
-        image: jaegertracing/jaeger:2.17.0
+        image: jaegertracing/jaeger:2.17.0@sha256:6266573208d665ce5c17483bce0a75d0806480d92c84766d288d0aee885ce708
         args:
           - --config=file:/etc/jaeger/config.yaml
         securityContext:
