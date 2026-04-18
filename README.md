@@ -124,22 +124,6 @@ Steps 3–10 all happen inside the cluster via ClusterIP Services resolved throu
 
 See the full [Reference Architecture](docs/reference-architecture.md) for the Deployment diagram, Kubernetes DNS table, and per-manifest configuration details, and [Architecture Decision Records](docs/adr/) for the rationale behind key choices.
 
-## Deployment
-
-Local Kubernetes deployment is driven by the Makefile — `make kind-up` spins up the full stack in one command:
-
-```bash
-make kind-up       # Kind cluster + MetalLB + MongoDB + Jaeger + 4 services (~2–3 min)
-make gateway-url   # print LoadBalancer IP assigned by MetalLB
-make gateway-open  # open Swagger UI in a browser
-make jaeger-open   # open Jaeger tracing UI in a browser
-make kind-down     # tear everything down
-```
-
-Under the hood `kind-up` chains `kind-create` (cluster + MetalLB) → `kind-setup` (namespaces, RBAC, MongoDB, Jaeger) → `image-build` → `image-load` → `kind-deploy` (rollout all 4 services). See [Kind Cluster targets](#kind-cluster) for running each step in isolation during iterative development.
-
-Production deployment is out of scope for this reference — the manifests under [`k8s/`](k8s/) are tuned for a single-node local Kind cluster. See [`docs/reference-architecture.md`](docs/reference-architecture.md) for the annotated manifests and the rationale behind each ConfigMap / Secret / RBAC binding.
-
 ## API
 
 The gateway exposes a unified surface on `http://<GATEWAY_IP>:8080` (MetalLB-assigned). Fetch the IP with `make gateway-url`, then:
@@ -160,6 +144,22 @@ curl -s "http://$GATEWAY:8080/organization/1/with-departments-and-employees" | j
 
 A complete OpenAPI 3 spec plus Swagger UI is served through the gateway — run `make gateway-open` to launch it, or point a browser at `http://<GATEWAY_IP>:8080/swagger-ui/index.html`. See [`e2e/e2e-test.sh`](e2e/e2e-test.sh) for exhaustive end-to-end assertions across every route.
 
+## Deployment
+
+Local Kubernetes deployment is driven by the Makefile — `make kind-up` spins up the full stack in one command:
+
+```bash
+make kind-up       # Kind cluster + MetalLB + MongoDB + Jaeger + 4 services (~2–3 min)
+make gateway-url   # print LoadBalancer IP assigned by MetalLB
+make gateway-open  # open Swagger UI in a browser
+make jaeger-open   # open Jaeger tracing UI in a browser
+make kind-down     # tear everything down
+```
+
+Under the hood `kind-up` chains `kind-create` (cluster + MetalLB) → `kind-setup` (namespaces, RBAC, MongoDB, Jaeger) → `image-build` → `image-load` → `kind-deploy` (rollout all 4 services). See [Kind Cluster targets](#kind-cluster) for running each step in isolation during iterative development.
+
+Production deployment is out of scope for this reference — the manifests under [`k8s/`](k8s/) are tuned for a single-node local Kind cluster. See [`docs/reference-architecture.md`](docs/reference-architecture.md) for the annotated manifests and the rationale behind each ConfigMap / Secret / RBAC binding.
+
 ## Available Make Targets
 
 Run `make help` to see all available targets.
@@ -170,9 +170,20 @@ Run `make help` to see all available targets.
 |--------|-------------|
 | `make build` | Build all modules with Maven (skip tests) |
 | `make clean` | Clean all build artifacts |
-| `make test` | Run tests |
 | `make format` | Auto-format Java source code (Google style) |
 | `make format-check` | Verify code formatting (CI gate) |
+
+### Testing
+
+Three-layer test pyramid: unit → integration → end-to-end. Each layer runs in isolation so contributors can pick the fastest layer that catches their change.
+
+| Target | Layer | Runtime | What it covers |
+|--------|-------|---------|----------------|
+| `make test` | Unit + in-process controller | seconds | Surefire: `**/*Test.java` — pure unit + `@WebMvcTest`-style slices; no Docker |
+| `make integration-test` | Testcontainers | tens of seconds | Failsafe: `**/*IT.java` — real MongoDB (+ WireMock) per test class; requires Docker |
+| `make e2e` | Full Kind cluster | minutes | Full cycle: kind-create → kind-setup → kind-deploy → `e2e/e2e-test.sh` → kind-destroy |
+| `make e2e-test` | — | seconds | Run `e2e/e2e-test.sh` against an already-running cluster (skips cycle) |
+| `make populate` | — | seconds | Seed sample data via gateway (used by `e2e-test` and manual exploration) |
 
 ### Code Quality
 
@@ -211,14 +222,6 @@ Run `make help` to see all available targets.
 | `make kind-undeploy` | Remove all services from KinD cluster (keeps cluster running) |
 | `make kind-redeploy` | Undeploy then deploy all services |
 | `make kind-destroy` | Delete KinD cluster (granular) |
-
-### E2E Testing
-
-| Target | Description |
-|--------|-------------|
-| `make e2e` | Run full end-to-end test cycle (create, setup, deploy, test, destroy) |
-| `make e2e-test` | Run end-to-end test script |
-| `make populate` | Populate test data via gateway |
 
 ### Utilities
 
