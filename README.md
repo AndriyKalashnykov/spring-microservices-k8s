@@ -52,12 +52,11 @@ development).
 |------|---------|---------|
 | [GNU Make](https://www.gnu.org/software/make/) | 3.81+ | Build orchestration |
 | [Git](https://git-scm.com/) | 2.0+ | Version control |
-| [JDK](https://adoptium.net/) | 25 | Java runtime and compiler (source of truth: [`.java-version`](.java-version)) |
-| [Maven](https://maven.apache.org/) | 3.9+ | Build and dependency management (pinned: `MAVEN_VER` in [Makefile](Makefile)) |
+| [mise](https://mise.jdx.dev/) | latest | Polyglot version manager — installs Java, Maven, Node, kind, act, hadolint, gitleaks, trivy, actionlint, shellcheck from [`.mise.toml`](.mise.toml) (auto-installed by `make deps`) |
 | [Docker](https://www.docker.com/) | 20.10+ | Container runtime |
 | [kubectl](https://kubernetes.io/docs/tasks/tools/) | 1.24+ | Kubernetes CLI |
-| [Kind](https://kind.sigs.k8s.io/) | 0.31+ | Local Kubernetes clusters (auto-installed by `make deps-kind`) |
-| [mise](https://mise.jdx.dev/) | latest | Polyglot version manager — installs Java, Maven, and Node per [`.mise.toml`](.mise.toml) (optional, used by `make deps-install`) |
+
+`make deps` bootstraps mise (if missing) and installs the entire toolchain pinned in `.mise.toml` — a single command per fresh checkout. CI uses [`jdx/mise-action`](https://github.com/jdx/mise-action) to do the same.
 
 Verify required tools are installed:
 
@@ -247,19 +246,13 @@ Run `make help` to see all available targets.
 
 | Target | Description |
 |--------|-------------|
-| `make deps` | Check required tools (java 25, mvn) |
-| `make deps-install` | Install mise and the toolchain pinned in `.mise.toml` (Java, Maven, Node) |
-| `make deps-maven` | Install Maven if not present (for CI containers) |
+| `make deps` | Ensure mise + the toolchain pinned in `.mise.toml` are installed (Java, Maven, Node, kind, act, hadolint, gitleaks, trivy, actionlint, shellcheck) |
+| `make deps-install` | Alias for `deps` (kept for backwards compatibility) |
 | `make deps-check` | Show required tools and installation status |
 | `make deps-docker` | Check Docker (used by diagrams, mermaid-lint, image-build, Testcontainers) |
 | `make deps-kubectl` | Check kubectl (required for Kind cluster targets) |
-| `make deps-kind` | Install KinD for local Kubernetes testing |
-| `make deps-act` | Install act for local CI runs |
-| `make deps-hadolint` | Install hadolint for Dockerfile linting |
-| `make deps-gitleaks` | Install gitleaks for secret scanning |
-| `make deps-trivy` | Install Trivy for vulnerability and misconfig scanning |
-| `make deps-actionlint` | Install actionlint for GitHub Actions linting |
-| `make deps-shellcheck` | Install shellcheck (used by actionlint) |
+| `make deps-kind` | Ensure kind toolchain (mise installs kind; docker + kubectl verified) |
+| `make deps-act` | Ensure act toolchain (mise installs act; docker verified) |
 | `make deps-updates` | Print project dependencies updates |
 | `make deps-update` | Update project dependencies to latest releases |
 | `make deps-prune` | Check for unused Maven dependencies |

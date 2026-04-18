@@ -23,37 +23,20 @@ OPEN_CMD := $(if $(filter Darwin,$(shell uname -s)),open,xdg-open)
 # Semver regex for release validation
 SEMVER_RE := ^[0-9]+\.[0-9]+\.[0-9]+$$
 
-# === Tool Versions (pinned) ===
-# Java, Maven, and Node are pinned in .mise.toml (Renovate-tracked there via
-# inline # renovate: comments). .java-version and .nvmrc remain the sources
-# of truth for CI setup-java/setup-node actions.
-# MAVEN_VER below is kept because `deps-maven` (CI containers without mise)
-# still installs Maven via curl. The single pin is duplicated in .mise.toml
-# and kept in sync by Renovate's maven PR updating both files together.
-# renovate: datasource=github-tags depName=apache/maven extractVersion=^maven-(?<version>.*)$
-MAVEN_VER    := 3.9.15
-# renovate: datasource=github-releases depName=kubernetes-sigs/kind extractVersion=^v(?<version>.*)$
-KIND_VERSION      := 0.31.0
-# Not Renovate-tracked: must match a Kubernetes version shipped by the pinned KIND_VERSION.
-# Kind 0.31.0 supports: v1.35.0 (default), v1.34.3, v1.33.7, v1.32.11, v1.31.14.
-# Bump together with KIND_VERSION per kind release notes.
+# === Tool Versions ===
+# Java, Maven, Node, kind, act, hadolint, gitleaks, trivy, actionlint,
+# shellcheck are pinned in .mise.toml (single source of truth, Renovate-tracked
+# there via inline comments). .java-version and .nvmrc remain the secondary
+# sources for CI tooling that reads them directly (mise reads both natively).
+#
+# Not Renovate-tracked: must match a Kubernetes version shipped by the pinned
+# kind version. kind 0.31.0 supports: v1.35.0 (default), v1.34.3, v1.33.7,
+# v1.32.11, v1.31.14. Bump together with kind per kind release notes.
 KIND_NODE_IMAGE   := v1.35.0
 # renovate: datasource=github-releases depName=metallb/metallb extractVersion=^v(?<version>.*)$
 METALLB_VERSION   := 0.15.3
-# renovate: datasource=github-releases depName=nektos/act extractVersion=^v(?<version>.*)$
-ACT_VERSION       := 0.2.87
-# renovate: datasource=github-releases depName=hadolint/hadolint extractVersion=^v(?<version>.*)$
-HADOLINT_VERSION  := 2.14.0
 # renovate: datasource=github-releases depName=google/google-java-format extractVersion=^v(?<version>.*)$
 GJF_VERSION       := 1.35.0
-# renovate: datasource=github-releases depName=zricethezav/gitleaks extractVersion=^v(?<version>.*)$
-GITLEAKS_VERSION  := 8.30.1
-# renovate: datasource=github-releases depName=aquasecurity/trivy extractVersion=^v(?<version>.*)$
-TRIVY_VERSION     := 0.70.0
-# renovate: datasource=github-releases depName=rhysd/actionlint extractVersion=^v(?<version>.*)$
-ACTIONLINT_VERSION := 1.7.12
-# renovate: datasource=github-releases depName=koalaman/shellcheck extractVersion=^v(?<version>.*)$
-SHELLCHECK_VERSION := 0.11.0
 # Source of truth: .nvmrc (major version only, e.g., "22"); not Renovate-trackable.
 # Pinned in .mise.toml too; mise reads .nvmrc natively.
 NODE_VERSION      := $(shell cat .nvmrc 2>/dev/null || echo 22)
@@ -80,32 +63,26 @@ help:
 # Dependencies
 # ---------------------------------------------------------------------------
 
-#deps: @ Check required tools (java, mvn)
+#deps: @ Ensure mise + the toolchain pinned in .mise.toml are installed
 deps:
-	@java -version 2>&1 | grep -q '"$(JAVA_MAJOR)\.' || { echo "Error: Java $(JAVA_MAJOR) required. Run: make deps-install"; exit 1; }
-	@command -v mvn >/dev/null 2>&1 || { echo "Error: Maven required. Run: make deps-install"; exit 1; }
-
-#deps-maven: @ Install Maven if not present (for CI containers without mise)
-deps-maven:
-	@command -v mvn >/dev/null 2>&1 || { \
-		echo "Installing Maven $(MAVEN_VER)..."; \
-		mkdir -p $$HOME/.local/bin $$HOME/.local/opt; \
-		curl -fsSL "https://archive.apache.org/dist/maven/maven-3/$(MAVEN_VER)/binaries/apache-maven-$(MAVEN_VER)-bin.tar.gz" | tar xz -C $$HOME/.local/opt; \
-		ln -sf "$$HOME/.local/opt/apache-maven-$(MAVEN_VER)/bin/mvn" $$HOME/.local/bin/mvn; \
-	}
-
-#deps-install: @ Install mise and the toolchain pinned in .mise.toml (Java, Maven, Node)
-deps-install:
+	@# Local bootstrap: install mise if missing (CI pre-installs via jdx/mise-action)
 	@if [ -z "$$CI" ] && ! command -v mise >/dev/null 2>&1; then \
 		echo "Installing mise (https://mise.jdx.dev/)..."; \
 		curl -fsSL https://mise.run | sh; \
+		echo ""; \
+		echo "mise installed. Activate it in your shell, then re-run 'make deps':"; \
+		echo '  bash: echo '\''eval "$$(~/.local/bin/mise activate bash)"'\'' >> ~/.bashrc'; \
+		echo '  zsh:  echo '\''eval "$$(~/.local/bin/mise activate zsh)"'\''  >> ~/.zshrc'; \
+		exit 0; \
 	fi
-	@command -v mise >/dev/null 2>&1 || { echo "Error: mise not available (CI skips bootstrap; use setup-java + deps-maven instead)"; exit 1; }
-	@echo "Installing toolchain from .mise.toml..."
-	@mise install
-	@echo ""
-	@echo "Toolchain installed. Shims are on PATH via the Makefile; for your"
-	@echo "shell, add:  eval \"\$$(mise activate bash)\"   (or zsh/fish)"
+	@# Install the toolchain declared in .mise.toml (idempotent; no-op if up to date)
+	@command -v mise >/dev/null 2>&1 && mise install --yes || { \
+		echo "Error: mise required. Install via 'curl https://mise.run | sh' or use jdx/mise-action in CI."; \
+		exit 1; \
+	}
+
+#deps-install: @ Alias for 'deps' (kept for backwards compatibility)
+deps-install: deps
 
 #deps-check: @ Show required tools and installation status
 deps-check:
@@ -115,7 +92,7 @@ deps-check:
 		command -v $$tool >/dev/null 2>&1 && echo "installed" || echo "NOT installed"; \
 	done
 	@echo "--- mise ---"
-	@command -v mise >/dev/null 2>&1 && echo "  installed ($$(mise --version))" || echo "  NOT installed (run: make deps-install)"
+	@command -v mise >/dev/null 2>&1 && echo "  installed ($$(mise --version))" || echo "  NOT installed (run: make deps)"
 
 #deps-docker: @ Check Docker (used by diagrams, mermaid-lint, image-build, Testcontainers)
 deps-docker:
@@ -125,71 +102,11 @@ deps-docker:
 deps-kubectl:
 	@command -v kubectl >/dev/null 2>&1 || { echo "Error: kubectl required. See https://kubernetes.io/docs/tasks/tools/"; exit 1; }
 
-#deps-kind: @ Install KinD for local Kubernetes testing
+#deps-kind: @ Ensure kind toolchain (mise installs kind; docker + kubectl verified)
 deps-kind: deps deps-docker deps-kubectl
-	@command -v kind >/dev/null 2>&1 || { echo "Installing kind $(KIND_VERSION)..."; \
-		if command -v go >/dev/null 2>&1; then \
-			go install sigs.k8s.io/kind@v$(KIND_VERSION); \
-		else \
-			mkdir -p $$HOME/.local/bin && \
-			curl -Lo $$HOME/.local/bin/kind https://kind.sigs.k8s.io/dl/v$(KIND_VERSION)/kind-linux-amd64 && \
-			chmod +x $$HOME/.local/bin/kind && \
-			echo "Installed to $$HOME/.local/bin/kind — ensure ~/.local/bin is on PATH"; \
-		fi; \
-	}
 
-#deps-act: @ Install act for local CI runs
-deps-act: deps
-	@command -v act >/dev/null 2>&1 || { echo "Installing act $(ACT_VERSION)..."; \
-		mkdir -p $$HOME/.local/bin && \
-		curl -sSfL https://raw.githubusercontent.com/nektos/act/master/install.sh | bash -s -- -b $$HOME/.local/bin v$(ACT_VERSION); \
-	}
-
-#deps-hadolint: @ Install hadolint for Dockerfile linting
-deps-hadolint:
-	@command -v hadolint >/dev/null 2>&1 || { echo "Installing hadolint $(HADOLINT_VERSION)..."; \
-		mkdir -p $$HOME/.local/bin && \
-		curl -sSfL -o /tmp/hadolint https://github.com/hadolint/hadolint/releases/download/v$(HADOLINT_VERSION)/hadolint-Linux-x86_64 && \
-		install -m 755 /tmp/hadolint $$HOME/.local/bin/hadolint && \
-		rm -f /tmp/hadolint; \
-	}
-
-#deps-gitleaks: @ Install gitleaks for secret scanning
-deps-gitleaks:
-	@command -v gitleaks >/dev/null 2>&1 || { echo "Installing gitleaks $(GITLEAKS_VERSION)..."; \
-		mkdir -p $$HOME/.local/bin && \
-		curl -sSfL https://github.com/zricethezav/gitleaks/releases/download/v$(GITLEAKS_VERSION)/gitleaks_$(GITLEAKS_VERSION)_linux_x64.tar.gz | \
-		tar xz -C $$HOME/.local/bin gitleaks; \
-	}
-
-#deps-trivy: @ Install Trivy for vulnerability and misconfig scanning
-deps-trivy:
-	@command -v trivy >/dev/null 2>&1 || { echo "Installing trivy $(TRIVY_VERSION)..."; \
-		mkdir -p $$HOME/.local/bin && \
-		curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b $$HOME/.local/bin v$(TRIVY_VERSION) && \
-		echo "Installed to $$HOME/.local/bin/trivy — ensure ~/.local/bin is on PATH"; \
-	}
-
-#deps-actionlint: @ Install actionlint for GitHub Actions linting
-deps-actionlint:
-	@command -v actionlint >/dev/null 2>&1 || { echo "Installing actionlint $(ACTIONLINT_VERSION)..."; \
-		mkdir -p $$HOME/.local/bin && \
-		curl -sSfL -o /tmp/actionlint.tar.gz https://github.com/rhysd/actionlint/releases/download/v$(ACTIONLINT_VERSION)/actionlint_$(ACTIONLINT_VERSION)_linux_amd64.tar.gz && \
-		tar -xzf /tmp/actionlint.tar.gz -C $$HOME/.local/bin actionlint && \
-		rm -f /tmp/actionlint.tar.gz && \
-		echo "Installed to $$HOME/.local/bin/actionlint — ensure ~/.local/bin is on PATH"; \
-	}
-
-#deps-shellcheck: @ Install shellcheck for shell script linting (used by actionlint)
-deps-shellcheck:
-	@command -v shellcheck >/dev/null 2>&1 || { echo "Installing shellcheck $(SHELLCHECK_VERSION)..."; \
-		mkdir -p $$HOME/.local/bin && \
-		curl -sSfL -o /tmp/shellcheck.tar.xz https://github.com/koalaman/shellcheck/releases/download/v$(SHELLCHECK_VERSION)/shellcheck-v$(SHELLCHECK_VERSION).linux.x86_64.tar.xz && \
-		tar -xJf /tmp/shellcheck.tar.xz -C /tmp && \
-		install -m 755 /tmp/shellcheck-v$(SHELLCHECK_VERSION)/shellcheck $$HOME/.local/bin/shellcheck && \
-		rm -rf /tmp/shellcheck-v$(SHELLCHECK_VERSION) /tmp/shellcheck.tar.xz && \
-		echo "Installed to $$HOME/.local/bin/shellcheck — ensure ~/.local/bin is on PATH"; \
-	}
+#deps-act: @ Ensure act toolchain (mise installs act; docker verified)
+deps-act: deps deps-docker
 
 #deps-updates: @ Print project dependencies updates
 deps-updates: deps
@@ -274,23 +191,23 @@ format-check: deps $(GJF_JAR)
 # ---------------------------------------------------------------------------
 
 #lint-docker: @ Lint all Dockerfiles with hadolint
-lint-docker: deps-hadolint
+lint-docker: deps
 	@for svc in $(SERVICES); do \
 		echo "Linting $$svc-service/Dockerfile..."; \
 		hadolint $$svc-service/Dockerfile; \
 	done
 
 #secrets: @ Scan for hardcoded secrets
-secrets: deps-gitleaks
+secrets: deps
 	@gitleaks detect --source . --verbose --redact --no-git
 
 #trivy-fs: @ Scan filesystem for vulnerabilities, secrets, and misconfigurations
-trivy-fs: deps-trivy
+trivy-fs: deps
 	@trivy fs --scanners vuln,secret,misconfig --severity CRITICAL,HIGH \
 		--skip-dirs target --skip-dirs .git .
 
 #trivy-config: @ Scan Kubernetes manifests for security misconfigurations (KSV-*)
-trivy-config: deps-trivy
+trivy-config: deps
 	@trivy config --severity CRITICAL,HIGH k8s/
 
 DIAGRAM_DIR := docs/diagrams
@@ -351,7 +268,7 @@ mermaid-lint: deps-docker
 	fi
 
 #lint-ci: @ Lint GitHub Actions workflows with actionlint (uses shellcheck)
-lint-ci: deps-actionlint deps-shellcheck
+lint-ci: deps
 	@actionlint
 
 #maven-settings-ossindex: @ Create Maven settings for OSS Index credentials
@@ -646,8 +563,7 @@ renovate-validate: renovate-bootstrap
 	fi
 
 .PHONY: help \
-	deps deps-maven deps-install deps-check deps-docker deps-kubectl deps-kind deps-act \
-	deps-hadolint deps-gitleaks deps-trivy deps-actionlint deps-shellcheck \
+	deps deps-install deps-check deps-docker deps-kubectl deps-kind deps-act \
 	deps-updates deps-update deps-prune deps-prune-check \
 	clean build test integration-test lint format format-check \
 	lint-ci lint-docker secrets trivy-fs trivy-config \

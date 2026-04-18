@@ -1,10 +1,10 @@
-# Toolchain pins for local development (portfolio standard: mise).
-# CI uses setup-java with java-version-file=.java-version and does not
-# read this file. Renovate tracks the pins below via inline comments.
+# Toolchain pins for local development and CI (portfolio standard: mise).
+# CI uses jdx/mise-action to install everything declared here in one step.
+# Renovate tracks the pins below via inline comments.
 
 [tools]
 # Java major — mise resolves to the latest Temurin patch in this line.
-# Kept in sync with .java-version (source of truth for CI and module poms).
+# Kept in sync with .java-version (source of truth for CI setup too).
 java = "25"
 
 # renovate: datasource=github-tags depName=apache/maven extractVersion=^maven-(?<version>.*)$
@@ -12,3 +12,24 @@ maven = "3.9.15"
 
 # Node major — kept in sync with .nvmrc. Used by renovate-validate only.
 node = "22"
+
+# renovate: datasource=github-releases depName=kubernetes-sigs/kind extractVersion=^v(?<version>.*)$
+kind = "0.31.0"
+
+# renovate: datasource=github-releases depName=nektos/act extractVersion=^v(?<version>.*)$
+act = "0.2.87"
+
+# renovate: datasource=github-releases depName=hadolint/hadolint extractVersion=^v(?<version>.*)$
+hadolint = "2.14.0"
+
+# renovate: datasource=github-releases depName=zricethezav/gitleaks extractVersion=^v(?<version>.*)$
+gitleaks = "8.30.1"
+
+# renovate: datasource=github-releases depName=aquasecurity/trivy extractVersion=^v(?<version>.*)$
+trivy = "0.70.0"
+
+# renovate: datasource=github-releases depName=rhysd/actionlint extractVersion=^v(?<version>.*)$
+actionlint = "1.7.12"
+
+# renovate: datasource=github-releases depName=koalaman/shellcheck extractVersion=^v(?<version>.*)$
+shellcheck = "0.11.0"

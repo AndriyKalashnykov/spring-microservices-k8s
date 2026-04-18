@@ -52,14 +52,17 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
+      - uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4.0.1
         with:
-          java-version-file: '.java-version'
-          distribution: 'temurin'
-          cache: maven
+          install: true
+          cache: true
 
-      - name: Ensure Maven is installed
-        run: make deps-maven
+      - name: Cache Maven dependencies
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        with:
+          path: ~/.m2/repository
+          key: maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: maven-
 
       - name: Static check
         run: make static-check
@@ -71,14 +74,17 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
-      - uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
+      - uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4.0.1
         with:
-          java-version-file: '.java-version'
-          distribution: 'temurin'
-          cache: maven
+          install: true
+          cache: true
 
-      - name: Ensure Maven is installed
-        run: make deps-maven
+      - name: Cache Maven dependencies
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        with:
+          path: ~/.m2/repository
+          key: maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: maven-
 
       - name: Test with coverage
         run: make coverage-generate
@@ -102,14 +108,17 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
-      - uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
+      - uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4.0.1
         with:
-          java-version-file: '.java-version'
-          distribution: 'temurin'
-          cache: maven
+          install: true
+          cache: true
 
-      - name: Ensure Maven is installed
-        run: make deps-maven
+      - name: Cache Maven dependencies
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        with:
+          path: ~/.m2/repository
+          key: maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: maven-
 
       - name: Integration test
         run: make integration-test
@@ -130,14 +139,17 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
-      - uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
+      - uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4.0.1
         with:
-          java-version-file: '.java-version'
-          distribution: 'temurin'
-          cache: maven
+          install: true
+          cache: true
 
-      - name: Ensure Maven is installed
-        run: make deps-maven
+      - name: Cache Maven dependencies
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        with:
+          path: ~/.m2/repository
+          key: maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: maven-
 
       - name: Build
         run: make build
@@ -170,14 +182,10 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
-      - uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
+      - uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4.0.1
         with:
-          java-version-file: '.java-version'
-          distribution: 'temurin'
-          cache: maven
-
-      - name: Ensure Maven is installed
-        run: make deps-maven
+          install: true
+          cache: true
 
       - name: Cache NVD database
         uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
@@ -247,17 +255,20 @@ jobs:
           name: service-jars
 
       # Fallback rebuild path: only runs if download-artifact failed (local act runs).
-      - name: Set up JDK
+      - name: Install toolchain (mise)
         if: steps.download-jars.outcome == 'failure'
-        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
+        uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4.0.1
         with:
-          java-version-file: '.java-version'
-          distribution: 'temurin'
-          cache: maven
+          install: true
+          cache: true
 
-      - name: Ensure Maven is installed
+      - name: Cache Maven dependencies
         if: steps.download-jars.outcome == 'failure'
-        run: make deps-maven
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        with:
+          path: ~/.m2/repository
+          key: maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: maven-
 
       - name: Build JARs
         if: steps.download-jars.outcome == 'failure'
@@ -326,14 +337,17 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
-      - uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
+      - uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4.0.1
         with:
-          java-version-file: '.java-version'
-          distribution: 'temurin'
-          cache: maven
+          install: true
+          cache: true
 
-      - name: Ensure Maven is installed
-        run: make deps-maven
+      - name: Cache Maven dependencies
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        with:
+          path: ~/.m2/repository
+          key: maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: maven-
 
       - name: Run end-to-end tests
         run: make e2e
