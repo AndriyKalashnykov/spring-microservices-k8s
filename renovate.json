@@ -70,6 +70,12 @@
       "minimumReleaseAge": "3 days"
     },
     {
+      "description": "Regex-managed docker refs (Makefile PlantUML/mermaid-cli, docs mongo, Testcontainers) don't capture currentDigest — skip digest pinning to avoid Renovate 'update failure' on pin-dependencies branch",
+      "matchManagers": ["custom.regex"],
+      "matchDatasources": ["docker"],
+      "pinDigests": false
+    },
+    {
       "description": "Group GitHub Actions into one PR",
       "matchManagers": ["github-actions"],
       "groupName": "GitHub Actions"
