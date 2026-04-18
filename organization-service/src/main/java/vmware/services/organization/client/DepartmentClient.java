@@ -7,10 +7,10 @@ import vmware.services.organization.model.Department;
 
 public interface DepartmentClient {
 
-  @GetExchange("/organization/{organizationId}")
+  @GetExchange(value = "/organization/{organizationId}", accept = "application/json")
   List<Department> findByOrganization(@PathVariable("organizationId") String organizationId);
 
-  @GetExchange("/organization/{organizationId}/with-employees")
+  @GetExchange(value = "/organization/{organizationId}/with-employees", accept = "application/json")
   List<Department> findByOrganizationWithEmployees(
       @PathVariable("organizationId") String organizationId);
 }

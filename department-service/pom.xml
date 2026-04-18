@@ -266,6 +266,16 @@
 					<argLine>@{argLine} -javaagent:${org.mockito:mockito-core:jar}</argLine>
 				</configuration>
 			</plugin>
+			<!-- Bare reference activates Failsafe from parent POM's <pluginManagement>.
+			     Config (includes=**/*IT.java, argLine=@{argLine}) and execution bindings
+			     (integration-test + verify goals from the `integration-test` profile) are
+			     inherited. Without this reference, the profile's <build><plugins> entry
+			     applies only to the parent POM, not to this child — so Failsafe never runs
+			     here and `**/target/failsafe-reports/` stays empty. -->
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-failsafe-plugin</artifactId>
+			</plugin>
 		</plugins>
 	</build>
 

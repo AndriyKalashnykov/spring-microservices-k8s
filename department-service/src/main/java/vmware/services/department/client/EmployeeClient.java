@@ -7,6 +7,6 @@ import vmware.services.department.model.Employee;
 
 public interface EmployeeClient {
 
-  @GetExchange("/department/{departmentId}")
+  @GetExchange(value = "/department/{departmentId}", accept = "application/json")
   List<Employee> findByDepartment(@PathVariable("departmentId") String departmentId);
 }
