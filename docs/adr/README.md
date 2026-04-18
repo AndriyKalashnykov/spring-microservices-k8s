@@ -6,9 +6,10 @@ Short records of the architectural decisions made on this project, why, and what
 |---|-------|--------|
 | [0001](0001-remove-configmap-property-sourcing.md) | Remove ConfigMap property sourcing via `spring.config.import` | Accepted |
 | [0002](0002-remove-secret-file-mounts.md) | Remove Secret file mounts; use `valueFrom.secretKeyRef` | Accepted |
-| [0003](0003-kind-over-minikube-k3d.md) | Kind + MetalLB for local Kubernetes | Accepted |
+| [0003](0003-kind-over-minikube-k3d.md) | Kind + MetalLB for local Kubernetes | Superseded by [0006](0006-cloud-provider-kind-over-metallb.md) |
 | [0004](0004-restclient-httpexchange-over-feign.md) | RestClient with `@HttpExchange` over OpenFeign | Accepted |
 | [0005](0005-plantuml-c4-over-mermaid.md) | PlantUML + C4-PlantUML for structural architecture diagrams | Accepted |
+| [0006](0006-cloud-provider-kind-over-metallb.md) | cloud-provider-kind over MetalLB for Kind LoadBalancer | Accepted |
 
 ## Writing a new ADR
 

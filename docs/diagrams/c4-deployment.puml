@@ -20,8 +20,6 @@ title Deployment diagram — Kind cluster (local dev)
 Deployment_Node(host, "Developer Workstation", "Linux / macOS") {
     Deployment_Node(kind, "Kind Cluster", "Kubernetes via KinD") {
 
-        Deployment_Node(metallb, "MetalLB", "Layer-2 LoadBalancer controller — assigns external IP to the gateway Service")
-
         Deployment_Node(ns_gw, "namespace: gateway") {
             Container(gateway_pod, "gateway pod", "Spring Boot 4.0.5, Java 25", ":8080 — Service type LoadBalancer")
         }
@@ -41,10 +39,11 @@ Deployment_Node(host, "Developer Workstation", "Linux / macOS") {
             Container(jaeger_pod, "jaeger pod", "Jaeger 2.17 (OTel Collector-based)", ":16686 UI (LoadBalancer), :4318 OTLP/HTTP (ClusterIP)")
         }
     }
+    Container(cpk, "cloud-provider-kind", "host-side docker container on `kind` network — allocates LoadBalancer IPs for LB-typed Services")
 }
 
-Rel(metallb,  gateway_pod, "assigns LoadBalancer IP, routes TCP :8080")
-Rel(metallb,  jaeger_pod,  "assigns LoadBalancer IP, routes TCP :16686")
+Rel(cpk,  gateway_pod, "allocates LoadBalancer IP, routes TCP :8080")
+Rel(cpk,  jaeger_pod,  "allocates LoadBalancer IP, routes TCP :16686")
 Rel_D(employee_pod,     mongo_pod, "reads/writes", "MongoDB wire")
 Rel_D(department_pod,   mongo_pod, "reads/writes", "MongoDB wire")
 Rel_D(organization_pod, mongo_pod, "reads/writes", "MongoDB wire")

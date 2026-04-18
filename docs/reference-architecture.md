@@ -47,7 +47,7 @@ addresses the following concerns:
 | MongoDB | 8.0.20 (official `mongo` image, non-root UID 999) |
 | Kubernetes | 1.35.0 (Kind node image, pinned) |
 | Kind | 0.31.0 |
-| MetalLB | 0.15.3 |
+| cloud-provider-kind | 0.10.0 (host-side LoadBalancer controller, supersedes MetalLB) |
 
 ## Reference Architecture
 
@@ -153,7 +153,7 @@ spring-microservices-k8s/
 │   └── src/
 ├── organization-service/  # Organization microservice (calls Dept + Employee)
 │   └── src/
-├── k8s/                   # Kubernetes manifests, Kind + MetalLB configs
+├── k8s/                   # Kubernetes manifests, Kind config
 ├── e2e/                   # End-to-end test script
 ├── docs/                  # Architecture documentation and diagrams
 ├── Makefile               # Build orchestration (run `make help`)
@@ -165,7 +165,7 @@ spring-microservices-k8s/
 
 ```bash
 make deps          # check required tools
-make kind-up       # full lifecycle: Kind + MetalLB + MongoDB + 4 services
+make kind-up       # full lifecycle: Kind + cloud-provider-kind + MongoDB + 4 services
 make e2e-test      # run end-to-end API tests
 make gateway-open  # open Swagger UI in browser
 make kind-down     # tear everything down
@@ -539,7 +539,7 @@ management.tracing.sampling.probability: "1.0"
 management.otlp.tracing.endpoint: "http://jaeger.observability.svc.cluster.local:4318/v1/traces"
 ```
 
-Jaeger exposes its UI via a MetalLB LoadBalancer on port 16686 — open it with
+Jaeger exposes its UI via a LoadBalancer Service on port 16686 (IP allocated by cloud-provider-kind on the `kind` Docker network) — open it with
 `make jaeger-open`. The sampling rate is 100% because this is a local dev
 cluster; in production you would lower the probability (e.g. `"0.1"`) or
 configure tail-based sampling at a collector.
@@ -813,7 +813,7 @@ springdoc:
         url: /organization/v3/api-docs
 ```
 
-The gateway service type is `LoadBalancer` — MetalLB assigns an external IP
+The gateway service type is `LoadBalancer` — cloud-provider-kind assigns an external IP
 for local development on Kind.
 
 ## Gateway Swagger UI
@@ -823,13 +823,20 @@ aggregates API documentation from all backend services across namespaces.
 
 Open Swagger UI with `make gateway-open` or navigate to `http://<gateway-ip>:8080/swagger-ui.html`.
 
-## Local Development with Kind + MetalLB
+## Local Development with Kind + cloud-provider-kind
 
 The project uses [Kind](https://kind.sigs.k8s.io/) (Kubernetes in Docker) with
-[MetalLB](https://metallb.universe.tf/) for local LoadBalancer support, replacing
-the previous Minikube + VirtualBox setup. The Kind node image is pinned
-(`KIND_NODE_IMAGE := v1.35.0` in the Makefile, Renovate-tracked) so every
-`make kind-up` gets identical Kubernetes across machines and CI runners.
+[cloud-provider-kind](https://github.com/kubernetes-sigs/cloud-provider-kind) for
+local LoadBalancer support. cloud-provider-kind is the kind-team-maintained
+LoadBalancer controller that lives in `kubernetes-sigs/`; it runs host-side
+(not in the cluster) as a single `docker run` on the `kind` Docker network
+and allocates IPs for every `type: LoadBalancer` Service automatically.
+Supersedes MetalLB — see [ADR-0006](adr/0006-cloud-provider-kind-over-metallb.md)
+for the rationale.
+
+The Kind node image is pinned (`KIND_NODE_IMAGE := v1.35.0` in the Makefile,
+Renovate-tracked) so every `make kind-up` gets identical Kubernetes across
+machines and CI runners.
 
 Two tiers of targets — `kind-up` / `kind-down` for the common "just bring
 the stack up" and "tear it down" flows, and granular targets for
@@ -837,17 +844,17 @@ step-through debugging:
 
 ```bash
 # Common flow
-make kind-up       # create cluster + MetalLB + setup + image-build + deploy
+make kind-up       # create cluster + cloud-provider-kind + setup + image-build + deploy
 make e2e-test      # run the end-to-end HTTP test suite via the gateway LB
-make kind-down     # tear the whole cluster down
+make kind-down     # tear the whole cluster down (also stops cloud-provider-kind container)
 
 # Granular (for debugging, partial rebuilds, etc.)
-make kind-create   # creates Kind cluster + installs MetalLB
+make kind-create   # creates Kind cluster + starts cloud-provider-kind
 make kind-setup    # namespaces, RBAC, service accounts, MongoDB
 make kind-deploy   # builds images, loads into Kind, deploys all services
 make kind-redeploy # kind-undeploy + kind-deploy (reapply app manifests only)
 make kind-undeploy # remove service manifests but keep the cluster running
-make kind-destroy  # delete the cluster
+make kind-destroy  # delete the cluster + stop cloud-provider-kind
 ```
 
 The fully-scripted end-to-end cycle (`make e2e`) runs
@@ -903,7 +910,7 @@ GitHub Actions runs on every push to `master`, tags `v*`, and pull requests.
 | **test** | after static-check | Run Testcontainers integration tests + coverage |
 | **cve-check** | push to master AND tag pushes (skipped under `act`) | OWASP dependency vulnerability scan — gates the `docker` job on tag pushes |
 | **image-scan** | every push (matrix: 4 services) | Per-service Dockerfile validation gates 1–3: build single-arch image → Trivy image scan (CRITICAL/HIGH blocking) → Spring Boot boot-marker smoke test |
-| **e2e** | every push (skipped under `act`) | End-to-end test against a full Kind + MetalLB stack: `make e2e` cycles create → setup (MongoDB) → deploy (4 services + gateway LB) → `./e2e/e2e-test.sh` → destroy |
+| **e2e** | every push (skipped under `act`) | End-to-end test against a full Kind + cloud-provider-kind stack: `make e2e` cycles create → setup (MongoDB) → deploy (4 services + gateway LB) → `./e2e/e2e-test.sh` → destroy |
 | **docker** | tag push only (matrix: 4 services) | Full pre-push hardening: build local image → Trivy image scan → Spring Boot smoke test → multi-arch (amd64+arm64) build with SLSA provenance + SBOM attestation → push to GHCR → cosign keyless OIDC signing |
 | **ci-pass** | always | Branch-protection aggregator: single required status check that verifies no upstream job failed. Skipped jobs do not trip the gate. |
 
