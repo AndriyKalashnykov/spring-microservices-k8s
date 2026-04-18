@@ -337,10 +337,7 @@ kind-create: deps-kind
 	@# cloud-provider-kind runs host-side (not in the cluster). It watches
 	@# Services of type LoadBalancer and allocates IPs on the `kind` Docker
 	@# network. Kind-team maintained (kubernetes-sigs/cloud-provider-kind),
-	@# so new kindest/node images are supported day-one. Supersedes the
-	@# previous MetalLB setup which required installing an in-cluster
-	@# controller + speaker DaemonSet + L2Advertisement YAML, plus had a
-	@# known nftables regression on kindest/node:v1.35.0.
+	@# so new kindest/node images are supported day-one. See ADR-0006.
 	@echo "Starting cloud-provider-kind $(CLOUD_PROVIDER_KIND_VERSION)..."
 	@docker rm -f cloud-provider-kind >/dev/null 2>&1 || true
 	@docker run --rm -d \

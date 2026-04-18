@@ -341,8 +341,9 @@ jobs:
   # End-to-end test job (mandatory per /ci-workflow).
   # Runs `make e2e` which cycles: kind-create → kind-setup (MongoDB) →
   # kind-deploy (build+load images) → e2e-test script → kind-destroy.
-  # Skipped under local act runs — nested docker-in-docker + MetalLB does not
-  # work reliably inside act's runner containers. The job is exercised on
+  # Skipped under local act runs — nested docker-in-docker (KinD cluster +
+  # cloud-provider-kind container on the `kind` network) does not work
+  # reliably inside act's runner containers. The job is exercised on
   # GitHub Actions runners on every push/tag/PR.
   e2e:
     if: vars.ACT != 'true'
