@@ -43,7 +43,7 @@ NODE_VERSION      := $(shell cat .nvmrc 2>/dev/null || echo 22)
 # renovate: datasource=docker depName=plantuml/plantuml
 PLANTUML_VERSION    := 1.2026.2
 # renovate: datasource=docker depName=minlag/mermaid-cli
-MERMAID_CLI_VERSION := 11.12.0
+MERMAID_CLI_VERSION := 11.14.0
 
 # Source of truth: .java-version (read by CI via java-version-file); not Renovate-trackable.
 # Used by deps target to verify the installed Java major matches the project.
