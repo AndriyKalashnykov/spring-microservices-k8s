@@ -32,7 +32,7 @@
 			<dependency>
 				<groupId>tools.jackson.core</groupId>
 				<artifactId>jackson-core</artifactId>
-				<version>3.1.2</version>
+				<version>3.1.3</version>
 			</dependency>
 			<!-- Override transitive tomcat-embed-core to fix CVE-2026-34483
 			     (JsonAccessLogValve information disclosure), CVE-2026-34486
