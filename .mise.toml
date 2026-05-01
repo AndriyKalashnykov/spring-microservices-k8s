@@ -17,7 +17,7 @@ node = "22"
 kind = "0.31.0"
 
 # renovate: datasource=github-releases depName=nektos/act extractVersion=^v(?<version>.*)$
-act = "0.2.87"
+act = "0.2.88"
 
 # renovate: datasource=github-releases depName=hadolint/hadolint extractVersion=^v(?<version>.*)$
 hadolint = "2.14.0"
