@@ -515,13 +515,15 @@ ci-run: deps-act
 	@# act's default 34567. --artifact-server-path uses a per-run temp
 	@# dir for the same reason (default /tmp/act-artifacts is host-global).
 	@ACT_PORT=$$(shuf -i 40000-59999 -n 1); \
+	secret_args=(); \
+	[ -n "$$NVD_API_KEY" ] && secret_args+=(--secret NVD_API_KEY); \
+	[ -n "$$OSS_INDEX_USER" ] && secret_args+=(--secret OSS_INDEX_USER); \
+	[ -n "$$OSS_INDEX_TOKEN" ] && secret_args+=(--secret OSS_INDEX_TOKEN); \
 	act push --container-architecture linux/amd64 \
 		--artifact-server-port "$$ACT_PORT" \
 		--artifact-server-path "$$(mktemp -d -t act-artifacts.XXXXXX)" \
 		--var ACT=true \
-		$$([ -n "$$NVD_API_KEY" ] && echo "--secret NVD_API_KEY=$$NVD_API_KEY") \
-		$$([ -n "$$OSS_INDEX_USER" ] && echo "--secret OSS_INDEX_USER=$$OSS_INDEX_USER") \
-		$$([ -n "$$OSS_INDEX_TOKEN" ] && echo "--secret OSS_INDEX_TOKEN=$$OSS_INDEX_TOKEN")
+		"$${secret_args[@]}"
 
 #release: @ Create a release (usage: make release VERSION=x.y.z)
 release: deps
