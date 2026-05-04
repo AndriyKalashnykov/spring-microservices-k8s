@@ -52,7 +52,7 @@ jobs:
       # GitHub Actions populates these on push/pull_request/schedule events.
       - id: filter
         if: vars.ACT != 'true'
-        uses: dorny/paths-filter@d1c1ffe0248fe513906c8e24db8ea791d46f8590 # v3.0.3
+        uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d # v4.0.1
         with:
           # `code` fires on anything that isn't a doc / config-only change.
           # `e2e` is a stricter subset — only KinD-relevant changes warrant
