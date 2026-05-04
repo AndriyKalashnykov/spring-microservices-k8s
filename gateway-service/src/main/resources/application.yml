@@ -14,3 +14,17 @@ springdoc:
         url: /department/v3/api-docs
       - name: organization
         url: /organization/v3/api-docs
+
+# OTLP exporters: project routes metrics to Prometheus (micrometer-registry-prometheus)
+# and logs to stdout. Only TRACING uses OTLP→Jaeger. Disabling metrics+logs here so
+# the app boots in standalone (smoke-test `docker run` with no env) — the metrics
+# OTLP autoconfig fires unconditionally and NPEs without an endpoint.
+management:
+  otlp:
+    metrics:
+      export:
+        enabled: false
+  logging:
+    export:
+      otlp:
+        enabled: false
