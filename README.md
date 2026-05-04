@@ -5,9 +5,9 @@
 
 # Spring Boot microservices on Kubernetes with Spring Cloud, MongoDB, and Kind dev cluster
 
-Production-grade Spring Boot + Spring Cloud Kubernetes microservices — not a tutorial, a working system.
+Reference implementation of Spring Boot + Spring Cloud Kubernetes microservices with full CI hardening.
 
-Four services (gateway, organization, department, employee) deploy to isolated namespaces on a local Kind cluster with one command. The stack is fully wired: cross-namespace service discovery, inter-service REST calls via `@HttpExchange`, MongoDB persistence, distributed tracing, and an API gateway with Swagger UI. CI runs 7 pipeline stages including Trivy CVE scans, Testcontainers integration tests, Kind-based e2e tests, and multi-arch Docker builds with SLSA provenance + cosign signing. Everything is `make`-driven — `make kind-up` to run it, `make ci` to validate it, `make kind-down` to tear it down.
+Four services (gateway, organization, department, employee) deploy to isolated namespaces on a local Kind cluster with one command. The stack is fully wired: cross-namespace service discovery, inter-service REST calls via `@HttpExchange`, MongoDB persistence, distributed tracing, and an API gateway with Swagger UI. CI runs 8 pipeline stages — `static-check`, `build`, `test` (Surefire unit), `integration-test` (Failsafe + Testcontainers), `cve-check` (OWASP), `image-scan` (per-service Trivy + Spring Boot smoke test), `e2e` (full Kind stack), and `docker` (multi-arch publish with SLSA provenance + cosign signing). Everything is `make`-driven — `make kind-up` to run it, `make ci` to validate it, `make kind-down` to tear it down.
 
 <p align="center"><img src="docs/diagrams/out/c4-container.png" alt="C4 Container diagram — Spring Microservices on Kubernetes" width="720"></p>
 
@@ -23,7 +23,7 @@ Source: [`docs/diagrams/c4-container.puml`](docs/diagrams/c4-container.puml) —
 | Database | MongoDB 8.0 (official `mongo` image, non-root UID 999, version-pinned) | Document model fits the Organization → Department → Employee aggregates without a migration toolchain; official image pinned for Renovate tracking |
 | API Docs | SpringDoc OpenAPI 3.0 / Swagger UI | Auto-generates OpenAPI 3 from `@RestController` annotations; gateway surfaces a unified Swagger UI across all services |
 | Tracing | Micrometer Tracing → OpenTelemetry OTLP → Jaeger | Spans propagate across all four services via W3C `traceparent`, export over OTLP/HTTP to in-cluster Jaeger (`observability` namespace); UI via `make jaeger-open` |
-| Testing | Testcontainers (integration), Kind e2e | Real MongoDB per test class (no mocking) + real cluster for e2e — catches schema drift and manifest bugs that in-process tests miss |
+| Testing | Surefire (unit), Testcontainers (integration), Kind (e2e) | Three-layer pyramid: Surefire `*Test` for in-process controller slices, Failsafe `*IT` with real MongoDB per class (no mocking), real Kind cluster for e2e — catches schema drift and manifest bugs that in-process tests miss |
 | Containers | Eclipse Temurin 25, multi-arch (amd64+arm64) | Temurin is the reference OpenJDK build; multi-arch covers Apple Silicon dev + x86 servers from a single manifest |
 | Local K8s | Kind + cloud-provider-kind | Kind runs a real Kubernetes API in Docker — higher fidelity than Minikube; cloud-provider-kind (kind-team maintained, lives in `kubernetes-sigs/`) runs host-side and allocates LoadBalancer IPs on the `kind` Docker network. Supersedes MetalLB — simpler lifecycle, no in-cluster footprint, kindest/node bumps supported day-one |
 | CI/CD | GitHub Actions, Renovate, GHCR | GitHub-native, zero extra infrastructure; Renovate auto-merges minor/patch dependency updates; GHCR avoids Docker Hub pull-rate limits |
@@ -274,14 +274,16 @@ GitHub Actions runs on every push to `master`, tags `v*`, and pull requests.
 
 | Job | Triggers | Steps |
 |-----|----------|-------|
-| **static-check** | push, PR | `make static-check` composite gate: format-check, diagrams-check, mermaid-lint, lint-ci (actionlint), lint (Checkstyle + compiler warnings-as-errors), lint-docker (hadolint), secrets (gitleaks), trivy-fs, trivy-config |
+| **changes** | push, PR | Detects which classes of files changed (via `dorny/paths-filter`) and exposes `code` + `e2e` outputs. Heavy jobs are gated by these so doc-only PRs skip the full pipeline while still satisfying the `ci-pass` aggregator. |
+| **static-check** | push, PR (when `code` changed) | `make static-check` composite gate: format-check, diagrams-check, mermaid-lint, lint-ci (actionlint), lint (Checkstyle + compiler warnings-as-errors), lint-docker (hadolint), secrets (gitleaks), trivy-fs, trivy-config |
 | **build** | after static-check | Build all modules with Maven, upload JARs as `service-jars` artifact |
-| **test** | after static-check | Run Testcontainers integration tests + coverage (non-blocking) |
+| **test** | after static-check | Surefire unit + in-process controller tests (`**/*Test.java`) with JaCoCo coverage |
+| **integration-test** | after static-check | Failsafe Testcontainers integration tests (`**/*IT.java`) — real MongoDB per class plus WireMock for cross-service stubs |
 | **cve-check** | push to master AND tag pushes (skipped under `act`) | OWASP dependency vulnerability scan — gates the `docker` job on tag pushes |
 | **image-scan** | every push (matrix: 4 services) | Per-service Dockerfile validation gates 1–3: build single-arch image → Trivy image scan (CRITICAL/HIGH blocking) → Spring Boot boot-marker smoke test. Catches base-image CVE regressions and Dockerfile breakages on the commit that introduced them, not on release day. |
-| **e2e** | every push (skipped under `act`) | End-to-end test against a full Kind + cloud-provider-kind stack: `make e2e` cycles create → setup (MongoDB) → deploy (4 services + gateway LB) → `./e2e/e2e-test.sh` → destroy. |
+| **e2e** | push/PR when KinD-relevant files change (skipped under `act`) | End-to-end test against a full Kind + cloud-provider-kind stack: `make e2e` cycles create → setup (MongoDB) → deploy (4 services + gateway LB) → `./e2e/e2e-test.sh` → destroy. |
 | **docker** | tag push only (matrix: 4 services) | Full pre-push hardening: build local image → Trivy image scan → Spring Boot smoke test → multi-arch (amd64+arm64) build with SLSA provenance + SBOM attestation → push to GHCR → cosign keyless OIDC signing. Depends on `build`, `test`, `cve-check`. |
-| **ci-pass** | always | Branch-protection aggregator: single required status check that verifies no upstream job failed. Skipped jobs do not trip the gate. |
+| **ci-pass** | always | Branch-protection aggregator: single required status check that verifies no upstream job failed or was cancelled. Skipped jobs do not trip the gate. |
 
 ### Pre-push image hardening
 
@@ -308,7 +310,7 @@ cosign verify ghcr.io/AndriyKalashnykov/spring-microservices-k8s/employee:<tag> 
 
 Note: GHCR's Packages UI shows extra `unknown/unknown` rows alongside the platform manifests — these are the attestation manifests (SLSA provenance + SBOM). They're cosmetic; `docker pull` works identically.
 
-Integration tests use [Testcontainers](https://testcontainers.com/) with MongoDB for fast local testing via `make test`.
+Integration tests use [Testcontainers](https://testcontainers.com/) with MongoDB for fast local testing via `make integration-test`.
 End-to-end tests validate the full stack on Kind via `make e2e`.
 
 ### Required Secrets and Variables

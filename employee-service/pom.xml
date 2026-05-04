@@ -66,12 +66,8 @@
 			<artifactId>micrometer-registry-prometheus</artifactId>
 		</dependency>
 		<dependency>
-			<groupId>io.micrometer</groupId>
-			<artifactId>micrometer-tracing-bridge-otel</artifactId>
-		</dependency>
-		<dependency>
-			<groupId>io.opentelemetry</groupId>
-			<artifactId>opentelemetry-exporter-otlp</artifactId>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-opentelemetry</artifactId>
 		</dependency>
 		<dependency>
 			<groupId>org.springdoc</groupId>
@@ -174,8 +170,7 @@
 						<ignoredUnusedDeclaredDependency>org.springframework.cloud:spring-cloud-starter-*</ignoredUnusedDeclaredDependency>
 						<ignoredUnusedDeclaredDependency>org.springdoc:springdoc-openapi-starter-*</ignoredUnusedDeclaredDependency>
 						<ignoredUnusedDeclaredDependency>io.micrometer:micrometer-registry-*</ignoredUnusedDeclaredDependency>
-						<ignoredUnusedDeclaredDependency>io.micrometer:micrometer-tracing-bridge-*</ignoredUnusedDeclaredDependency>
-						<ignoredUnusedDeclaredDependency>io.opentelemetry:opentelemetry-exporter-otlp</ignoredUnusedDeclaredDependency>
+						<ignoredUnusedDeclaredDependency>org.springframework.boot:spring-boot-starter-opentelemetry</ignoredUnusedDeclaredDependency>
 					</ignoredUnusedDeclaredDependencies>
 					<!-- Framework classes consumed through starter abstractions are transitive;
 					     do not force explicit declaration. -->

@@ -33,6 +33,27 @@ spec:
             mountPath: /tmp
         ports:
           - containerPort: 8080
+        env:
+          # OTLP tracing — explicit env-var bindings because spring-cloud-kubernetes-config
+          # 5.0.1's ConfigData resolver isn't picked up under Spring Boot 4.0 (legacy
+          # spring.factories registration only). Revisit when SCK ships SB-4 support.
+          - name: MANAGEMENT_TRACING_SAMPLING_PROBABILITY
+            valueFrom:
+              configMapKeyRef:
+                name: gateway
+                key: management.tracing.sampling.probability
+          - name: MANAGEMENT_OPENTELEMETRY_TRACING_EXPORT_OTLP_ENDPOINT
+            valueFrom:
+              configMapKeyRef:
+                name: gateway
+                key: management.otlp.tracing.endpoint
+          # Disable OTLP metrics + logs export — tracing is the only OTLP
+          # path this project uses. See employee-deployment.yaml for the
+          # rationale.
+          - name: MANAGEMENT_OTLP_METRICS_EXPORT_ENABLED
+            value: "false"
+          - name: MANAGEMENT_LOGGING_EXPORT_OTLP_ENABLED
+            value: "false"
         resources:
           requests:
             cpu: "0.2"

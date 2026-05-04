@@ -9,7 +9,6 @@ spring:
       discovery:
         enabled: false
 
-# Disable SpringDoc endpoints in tests to keep output clean (enabled by default in main profile).
 springdoc:
   api-docs:
     enabled: false

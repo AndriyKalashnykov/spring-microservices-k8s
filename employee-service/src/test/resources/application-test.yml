@@ -15,3 +15,13 @@ springdoc:
     enabled: false
   swagger-ui:
     enabled: false
+
+# Disable OTLP exporters in tests — no collector to reach.
+management:
+  otlp:
+    tracing:
+      export:
+        enabled: false
+    metrics:
+      export:
+        enabled: false

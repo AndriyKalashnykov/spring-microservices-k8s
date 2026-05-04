@@ -25,12 +25,8 @@
 			<artifactId>micrometer-registry-prometheus</artifactId>
 		</dependency>
 		<dependency>
-			<groupId>io.micrometer</groupId>
-			<artifactId>micrometer-tracing-bridge-otel</artifactId>
-		</dependency>
-		<dependency>
-			<groupId>io.opentelemetry</groupId>
-			<artifactId>opentelemetry-exporter-otlp</artifactId>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-opentelemetry</artifactId>
 		</dependency>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
@@ -52,6 +48,11 @@
 			<groupId>org.springdoc</groupId>
 			<artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
 			<version>3.0.3</version>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-test</artifactId>
+			<scope>test</scope>
 		</dependency>
 	</dependencies>
 
@@ -130,9 +131,13 @@
 					</layers>
 				</configuration>
 			</plugin>
-			<!-- Gateway has no unit tests (it is e2e-tested), but the reactor-wide
-			     `jacoco:check@check` goal still invokes this plugin on every module.
-			     Declaring it with an empty-safe rule keeps the coverage gate running. -->
+			<!-- Gateway carries a single context-load smoke test (Surefire) that
+			     verifies the Spring Cloud Gateway Server WebMVC + Spring Cloud
+			     LoadBalancer + DiscoveryClient autoconfig wiring boots without
+			     errors. Substantive validation lives in the e2e layer (full
+			     KinD cluster, real backend services). The reactor-wide
+			     `jacoco:check@check` goal still invokes this plugin on every
+			     module; the empty-safe rule keeps the coverage gate running. -->
 			<plugin>
 				<groupId>org.jacoco</groupId>
 				<artifactId>jacoco-maven-plugin</artifactId>
@@ -186,8 +191,7 @@
 						<ignoredUnusedDeclaredDependency>org.springframework.cloud:spring-cloud-starter-*</ignoredUnusedDeclaredDependency>
 						<ignoredUnusedDeclaredDependency>org.springdoc:springdoc-openapi-starter-*</ignoredUnusedDeclaredDependency>
 						<ignoredUnusedDeclaredDependency>io.micrometer:micrometer-registry-*</ignoredUnusedDeclaredDependency>
-						<ignoredUnusedDeclaredDependency>io.micrometer:micrometer-tracing-bridge-*</ignoredUnusedDeclaredDependency>
-						<ignoredUnusedDeclaredDependency>io.opentelemetry:opentelemetry-exporter-otlp</ignoredUnusedDeclaredDependency>
+						<ignoredUnusedDeclaredDependency>org.springframework.boot:spring-boot-starter-opentelemetry</ignoredUnusedDeclaredDependency>
 					</ignoredUnusedDeclaredDependencies>
 					<!-- Framework classes consumed through starter abstractions are transitive;
 					     do not force explicit declaration. -->

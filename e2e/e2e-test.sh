@@ -2,13 +2,20 @@
 set -uo pipefail
 
 # ---------------------------------------------------------------------------
-# E2E test suite for Spring Boot microservices deployed on Kind + MetalLB
+# E2E test suite for Spring Boot microservices deployed on Kind + cloud-provider-kind
 # Tests employee, department, organization services via the Spring Cloud Gateway.
 # ---------------------------------------------------------------------------
 
+# Pin every kubectl call to OUR cluster's context so a parallel `make` from
+# another KinD-using project (kubectl config use-context) cannot steal our
+# default context mid-run. Cluster name is passed by the Makefile e2e-test
+# recipe; falls back to the project default when invoked directly for ad-hoc
+# use against an already-running cluster.
+KUBECTL=(kubectl --context="kind-${KIND_CLUSTER_NAME:-spring-microservices-k8s}")
+
 # --- Gateway discovery ------------------------------------------------------
 
-GATEWAY_IP=$(kubectl get svc gateway -n gateway \
+GATEWAY_IP=$("${KUBECTL[@]}" get svc gateway -n gateway \
   -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || true)
 
 if [[ -z "${GATEWAY_IP}" ]]; then
@@ -205,19 +212,120 @@ check_jq "deep fan-out response first department has employees[] array" "${RESP}
   '.departments[0].employees | type' "array"
 
 # Test 11: Negative — GET unknown employee id ---------------------------------
-# The employee controller calls Optional.get() without explicit 404 handling, so
-# today this surfaces as 500. Assert the current actual behavior (500) rather
-# than the ideal (404) so the test reflects reality; flip to 404 when the
-# controller is hardened to return a proper ResponseStatusException.
-echo "[Test 11] Negative: GET /employee/nonexistent — expect error status"
-check_status "GET /employee/nonexistent-id returns 5xx" \
-  GET "${BASE_URL}/employee/nonexistent-id" 500
+# EmployeeController.findById throws ResponseStatusException(NOT_FOUND) when the
+# id is missing — surfaces through the gateway as a 404.
+echo "[Test 11] Negative: GET /employee/nonexistent — expect 404"
+check_status "GET /employee/nonexistent-id returns 404" \
+  GET "${BASE_URL}/employee/nonexistent-id" 404
 
 # Test 12: Negative — POST employee with malformed JSON body ------------------
 # Jackson rejects invalid JSON with 400 Bad Request before the controller runs.
 echo "[Test 12] Negative: POST /employee/ with invalid body"
 check_status "POST /employee/ with invalid JSON returns 400" \
   POST "${BASE_URL}/employee/" 400 '{not valid json'
+
+# Test 13: List employees by departmentId (gateway-routed) --------------------
+# Exercises the foreign-key finder through the gateway; both seeded employees
+# share departmentId=1, so the response must contain both names.
+echo "[Test 13] GET /employee/department/1 — list by departmentId"
+RESP=$(curl -s --max-time 30 "${BASE_URL}/employee/department/1") || true
+check_response "GET /employee/department/1 — contains Smith" "${RESP}" "Smith"
+check_response "GET /employee/department/1 — contains Johns" "${RESP}" "Johns"
+
+# Test 14: List employees by organizationId (gateway-routed) ------------------
+# Both seeded employees share organizationId=1, so the response must contain both.
+echo "[Test 14] GET /employee/organization/1 — list by organizationId"
+RESP=$(curl -s --max-time 30 "${BASE_URL}/employee/organization/1") || true
+check_response "GET /employee/organization/1 — contains Smith" "${RESP}" "Smith"
+check_response "GET /employee/organization/1 — contains Johns" "${RESP}" "Johns"
+
+# Test 15: Jaeger UI reachable (observability stack) --------------------------
+# Jaeger runs in the `observability` namespace and exposes the query UI on
+# port 16686 via a LoadBalancer Service. Allocated by cloud-provider-kind on
+# the `kind` Docker network; same as the gateway. A reachable UI is the
+# operator-visible signal that OTLP traces from the four services have
+# somewhere to land.
+echo "[Test 15] Jaeger UI reachable"
+JAEGER_IP=$("${KUBECTL[@]}" get svc jaeger -n observability \
+  -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || true)
+if [[ -z "${JAEGER_IP}" ]]; then
+  echo "  FAIL: Jaeger LoadBalancer IP not allocated (cloud-provider-kind not running?)"
+  FAIL=$((FAIL + 1))
+else
+  check_status "GET http://${JAEGER_IP}:16686/ returns 200" \
+    GET "http://${JAEGER_IP}:16686/" 200
+fi
+
+# Test 16: OTLP pipeline (services registered) and traceparent propagation
+# Two-stage diagnostic:
+#   16a — proves OTLP egress works at all by asking Jaeger which services
+#         have ever sent it spans. If 16a fails, the pipeline is broken
+#         (Spring tracing config, OTLP endpoint reachability, or Jaeger
+#         ingest) — debug there before looking at traceparent.
+#   16b — sends one deep fan-out with an injected W3C traceparent header
+#         and asserts the same trace id round-trips through all four
+#         services into Jaeger. Proves Micrometer Tracing honors inbound
+#         trace context AND propagates it on outbound RestClient calls.
+# Pre-reqs: openssl + jq.
+echo "[Test 16] OTLP pipeline and traceparent propagation"
+if [[ -z "${JAEGER_IP}" ]]; then
+  echo "  SKIP: Jaeger LoadBalancer IP unavailable"
+elif ! command -v jq >/dev/null 2>&1 || ! command -v openssl >/dev/null 2>&1; then
+  echo "  SKIP: jq + openssl required for trace assertions"
+else
+  # The deep fan-out request from Test 10 already exercised the chain; that
+  # means traces should be reaching Jaeger by now. Poll the services list
+  # until all four are registered (or 30 s elapse).
+  SVC_LIST=""
+  for i in $(seq 1 15); do
+    SVC_LIST=$(curl -s --max-time 10 "http://${JAEGER_IP}:16686/api/services" 2>/dev/null \
+      | jq -r '.data[]?' 2>/dev/null | sort -u | tr '\n' ',' || true)
+    if echo "${SVC_LIST}" | grep -q "gateway," \
+      && echo "${SVC_LIST}" | grep -q "organization," \
+      && echo "${SVC_LIST}" | grep -q "department," \
+      && echo "${SVC_LIST}" | grep -q "employee,"; then
+      break
+    fi
+    sleep 2
+  done
+  echo "  [16a] Jaeger /api/services → ${SVC_LIST:-<none>}"
+  check_response "Jaeger has registered service: gateway"      "${SVC_LIST}" "gateway,"
+  check_response "Jaeger has registered service: organization" "${SVC_LIST}" "organization,"
+  check_response "Jaeger has registered service: department"   "${SVC_LIST}" "department,"
+  check_response "Jaeger has registered service: employee"     "${SVC_LIST}" "employee,"
+
+  # 16b — inject traceparent and verify Jaeger sees the same id from all 4 services
+  TRACE_ID=$(openssl rand -hex 16)
+  SPAN_ID=$(openssl rand -hex 8)
+  curl -s -o /dev/null --max-time 30 \
+    -H "traceparent: 00-${TRACE_ID}-${SPAN_ID}-01" \
+    "${BASE_URL}/organization/1/with-departments-and-employees" || true
+
+  TRACE_RESP=""
+  TRACE_SERVICES=""
+  for i in $(seq 1 15); do
+    TRACE_RESP=$(curl -s --max-time 10 "http://${JAEGER_IP}:16686/api/traces/${TRACE_ID}" 2>/dev/null || true)
+    TRACE_SERVICES=$(echo "${TRACE_RESP}" \
+      | jq -r '[.data[]?.processes[]?.serviceName] | unique | sort | join(",")' 2>/dev/null || true)
+    if echo "${TRACE_SERVICES}" | grep -q "gateway" \
+      && echo "${TRACE_SERVICES}" | grep -q "organization" \
+      && echo "${TRACE_SERVICES}" | grep -q "department" \
+      && echo "${TRACE_SERVICES}" | grep -q "employee"; then
+      break
+    fi
+    sleep 2
+  done
+  echo "  [16b] Trace ${TRACE_ID} → services: ${TRACE_SERVICES:-<none>}"
+  # On failure, dump the raw Jaeger response (truncated) so the diagnostic
+  # points straight at the broken hop instead of a generic empty list.
+  if [[ -z "${TRACE_SERVICES}" ]]; then
+    echo "       Jaeger raw response (first 400 chars): ${TRACE_RESP:0:400}"
+  fi
+  check_response "trace ${TRACE_ID} contains gateway"      "${TRACE_SERVICES}" "gateway"
+  check_response "trace ${TRACE_ID} contains organization" "${TRACE_SERVICES}" "organization"
+  check_response "trace ${TRACE_ID} contains department"   "${TRACE_SERVICES}" "department"
+  check_response "trace ${TRACE_ID} contains employee"     "${TRACE_SERVICES}" "employee"
+fi
 
 # ===========================================================================
 # Summary

@@ -17,6 +17,14 @@ SERVICES          := employee department organization gateway
 IMAGE_TAG         := local
 SA_NAME           := api-service-account
 
+# Pin every kubectl call to OUR cluster's context. Defends against multi-session
+# host conflicts where a parallel `make` from another KinD-using project runs
+# `kubectl config use-context` and steals our default context mid-recipe. Each
+# kubectl call carries the explicit `--context` so the kubeconfig's current
+# context never matters. e2e-test.sh receives the cluster name via env (see
+# the e2e-test recipe).
+KUBECTL := kubectl --context=kind-$(KIND_CLUSTER_NAME)
+
 # Detect macOS for 'open' vs 'xdg-open'
 OPEN_CMD := $(if $(filter Darwin,$(shell uname -s)),open,xdg-open)
 
@@ -32,7 +40,9 @@ SEMVER_RE := ^[0-9]+\.[0-9]+\.[0-9]+$$
 # Not Renovate-tracked: must match a Kubernetes version shipped by the pinned
 # kind version. kind 0.31.0 supports: v1.35.0 (default), v1.34.3, v1.33.7,
 # v1.32.11, v1.31.14. Bump together with kind per kind release notes.
-KIND_NODE_IMAGE   := v1.35.0
+# Digest-pinned for image immutability (the manifest-list digest covers both
+# linux/amd64 and linux/arm64 variants).
+KIND_NODE_IMAGE   := kindest/node:v1.35.0@sha256:4613778f3cfcd10e615029370f5786704559103cf27bef934597ba562b269661
 # renovate: datasource=github-releases depName=kubernetes-sigs/cloud-provider-kind extractVersion=^v(?<version>.*)$
 CLOUD_PROVIDER_KIND_VERSION := 0.10.0
 # renovate: datasource=github-releases depName=google/google-java-format extractVersion=^v(?<version>.*)$
@@ -247,12 +257,20 @@ mermaid-lint: deps-docker
 		echo "No Mermaid blocks found — skipping."; \
 		exit 0; \
 	fi; \
+	IMAGE=minlag/mermaid-cli:$(MERMAID_CLI_VERSION); \
+	echo "Pre-pulling $$IMAGE (3-attempt retry to absorb Docker Hub anonymous-pull flakes)..."; \
+	pulled=0; \
+	for attempt in 1 2 3; do \
+		if docker pull "$$IMAGE" >/dev/null 2>&1; then pulled=1; break; fi; \
+		[ "$$attempt" -lt 3 ] && sleep $$((attempt * 5)); \
+	done; \
+	[ "$$pulled" -eq 1 ] || { echo "  ✗ Failed to pull $$IMAGE after 3 attempts."; exit 1; }; \
 	FAILED=0; \
 	for md in $$MD_FILES; do \
 		echo "Validating Mermaid blocks in $$md..."; \
 		LOG=$$(mktemp); \
-		if docker run --rm -v "$$PWD:/data" \
-			minlag/mermaid-cli:$(MERMAID_CLI_VERSION) \
+		if docker run --rm -v "$$PWD:/data:ro" \
+			"$$IMAGE" \
 			-i "/data/$$md" -o "/tmp/$$(basename $$md .md).svg" >"$$LOG" 2>&1; then \
 			echo "  ✓ All blocks rendered cleanly."; \
 		else \
@@ -271,17 +289,34 @@ mermaid-lint: deps-docker
 lint-ci: deps
 	@actionlint
 
-#maven-settings-ossindex: @ Create Maven settings for OSS Index credentials
+#maven-settings-ossindex: @ Write ~/.m2/settings.xml with OSS Index and/or NVD API credentials when their env vars are set
+# `printf` is a bash builtin — values stay in shell memory, never enter argv.
+# Each `<server>` block is referenced by its id from the OWASP plugin: `ossindex`
+# is read by the OSS Index analyzer (default convention); `nvd` is referenced
+# explicitly via `-DnvdApiServerId=nvd` in the cve-check recipe so the API key
+# value never crosses argv.
 maven-settings-ossindex:
-	@if [ -n "$$OSS_INDEX_USER" ] && [ -n "$$OSS_INDEX_TOKEN" ]; then \
-		mkdir -p ~/.m2 && \
-		printf '<settings>\n  <servers>\n    <server>\n      <id>ossindex</id>\n      <username>%s</username>\n      <password>%s</password>\n    </server>\n  </servers>\n</settings>\n' "$$OSS_INDEX_USER" "$$OSS_INDEX_TOKEN" > ~/.m2/settings.xml; \
+	@if [ -n "$$OSS_INDEX_USER$$OSS_INDEX_TOKEN" ] || [ -n "$$NVD_API_KEY" ]; then \
+		mkdir -p ~/.m2; \
+		{ \
+			printf '<settings>\n  <servers>\n'; \
+			if [ -n "$$OSS_INDEX_USER" ] && [ -n "$$OSS_INDEX_TOKEN" ]; then \
+				printf '    <server>\n      <id>ossindex</id>\n      <username>%s</username>\n      <password>%s</password>\n    </server>\n' "$$OSS_INDEX_USER" "$$OSS_INDEX_TOKEN"; \
+			fi; \
+			if [ -n "$$NVD_API_KEY" ]; then \
+				printf '    <server>\n      <id>nvd</id>\n      <password>%s</password>\n    </server>\n' "$$NVD_API_KEY"; \
+			fi; \
+			printf '  </servers>\n</settings>\n'; \
+		} > ~/.m2/settings.xml; \
 	fi
 
 #cve-check: @ Run OWASP dependency vulnerability scan
+# `-DnvdApiServerId=nvd` references the literal id of the `<server>` block
+# written by maven-settings-ossindex; the API key value lives in settings.xml
+# only — never in argv. Safe even on multi-user hosts (`ps -ef`, `/proc/<pid>/cmdline`).
 cve-check: deps maven-settings-ossindex
 	@mvn -B org.owasp:dependency-check-maven:check \
-		$$([ -n "$$NVD_API_KEY" ] && echo "-DnvdApiKey=$$NVD_API_KEY")
+		$$([ -n "$$NVD_API_KEY" ] && echo "-DnvdApiServerId=nvd")
 
 #coverage-generate: @ Generate code coverage report
 coverage-generate: deps
@@ -327,11 +362,11 @@ kind-create: deps-kind
 		echo "KinD cluster '$(KIND_CLUSTER_NAME)' already exists..."; \
 		kubectl config use-context kind-$(KIND_CLUSTER_NAME); \
 	else \
-		echo "Creating KinD cluster with node image kindest/node:$(KIND_NODE_IMAGE)..."; \
+		echo "Creating KinD cluster with node image $(KIND_NODE_IMAGE)..."; \
 		kind create cluster \
 			--config=k8s/kind-config.yaml \
 			--name $(KIND_CLUSTER_NAME) \
-			--image=kindest/node:$(KIND_NODE_IMAGE) \
+			--image=$(KIND_NODE_IMAGE) \
 			--wait 60s; \
 	fi
 	@# cloud-provider-kind runs host-side (not in the cluster). It watches
@@ -351,47 +386,52 @@ kind-create: deps-kind
 kind-setup: deps-docker deps-kubectl
 	@echo "Creating namespaces..."
 	@for ns in department employee gateway organization mongo observability; do \
-		kubectl create namespace $$ns --dry-run=client -o yaml | kubectl apply -f -; \
+		$(KUBECTL) create namespace $$ns --dry-run=client -o yaml | $(KUBECTL) apply -f -; \
 	done
 	@echo "Applying RBAC cluster role..."
-	@kubectl apply -f k8s/rbac-cluster-role.yaml
+	@$(KUBECTL) apply -f k8s/rbac-cluster-role.yaml
 	@echo "Creating service accounts and role bindings..."
 	@for ns in department employee gateway organization mongo observability; do \
-		kubectl create serviceaccount $(SA_NAME) -n $$ns --dry-run=client -o yaml | kubectl apply -f -; \
-		kubectl create clusterrolebinding $(SA_NAME)-$$ns \
+		$(KUBECTL) create serviceaccount $(SA_NAME) -n $$ns --dry-run=client -o yaml | $(KUBECTL) apply -f -; \
+		$(KUBECTL) create clusterrolebinding $(SA_NAME)-$$ns \
 			--clusterrole=microservices-kubernetes-namespace-reader \
 			--serviceaccount=$$ns:$(SA_NAME) \
-			--dry-run=client -o yaml | kubectl apply -f -; \
+			--dry-run=client -o yaml | $(KUBECTL) apply -f -; \
 	done
 	@echo "Deploying MongoDB..."
-	@kubectl apply -f k8s/mongodb-configmap.yaml -n mongo
-	@kubectl apply -f k8s/mongodb-secret.yaml -n mongo
-	@kubectl apply -f k8s/mongodb-deployment.yaml -n mongo
+	@$(KUBECTL) apply -f k8s/mongodb-configmap.yaml -n mongo
+	@$(KUBECTL) apply -f k8s/mongodb-secret.yaml -n mongo
+	@$(KUBECTL) apply -f k8s/mongodb-deployment.yaml -n mongo
 	@echo "Deploying Jaeger (tracing backend)..."
-	@kubectl apply -f k8s/jaeger-config.yaml -n observability
-	@kubectl apply -f k8s/jaeger-deployment.yaml -n observability
+	@$(KUBECTL) apply -f k8s/jaeger-config.yaml -n observability
+	@$(KUBECTL) apply -f k8s/jaeger-deployment.yaml -n observability
 	@echo "Waiting for MongoDB rollout..."
-	@kubectl rollout status deployment/mongodb -n mongo --timeout=120s
+	@$(KUBECTL) rollout status deployment/mongodb -n mongo --timeout=120s
 	@echo "Waiting for Jaeger rollout..."
-	@kubectl rollout status deployment/jaeger -n observability --timeout=120s
+	@$(KUBECTL) rollout status deployment/jaeger -n observability --timeout=120s
 
 #kind-deploy: @ Build, load images, deploy all services, and wait for rollout
 kind-deploy: kind-create kind-setup image-build
+	@# Re-assert $(KUBECTL) context immediately before the deploy loop. Multi-session
+	@# host conflict guard: a parallel `make` from another KinD-using project
+	@# can run `kubectl config use-context` and steal our context between
+	@# kind-setup and the deploy recipe. Real incident 2026-05-03.
+	@kubectl config use-context kind-$(KIND_CLUSTER_NAME) >/dev/null
 	@$(MAKE) image-load
 	@echo "Deploying services..."
 	@for svc in employee department organization; do \
 		echo "Deploying $$svc..."; \
-		kubectl apply -f k8s/$$svc-configmap.yaml -n $$svc; \
-		kubectl apply -f k8s/$$svc-secret.yaml -n $$svc; \
-		kubectl apply -f k8s/$$svc-deployment.yaml -n $$svc; \
+		$(KUBECTL) apply -f k8s/$$svc-configmap.yaml -n $$svc; \
+		$(KUBECTL) apply -f k8s/$$svc-secret.yaml -n $$svc; \
+		$(KUBECTL) apply -f k8s/$$svc-deployment.yaml -n $$svc; \
 	done
 	@echo "Deploying gateway..."
-	@kubectl apply -f k8s/gateway-configmap.yaml -n gateway
-	@kubectl apply -f k8s/gateway-deployment.yaml -n gateway
+	@$(KUBECTL) apply -f k8s/gateway-configmap.yaml -n gateway
+	@$(KUBECTL) apply -f k8s/gateway-deployment.yaml -n gateway
 	@echo "Waiting for deployments..."
 	@for svc in $(SERVICES); do \
 		echo "Waiting for $$svc rollout..."; \
-		kubectl rollout status deployment/$$svc -n $$svc --timeout=300s; \
+		$(KUBECTL) rollout status deployment/$$svc -n $$svc --timeout=300s; \
 	done
 	@echo "Waiting for gateway LoadBalancer IP..."
 	@for i in $$(seq 1 30); do \
@@ -408,13 +448,13 @@ kind-deploy: kind-create kind-setup image-build
 kind-undeploy: deps-docker deps-kubectl
 	@for svc in employee department organization; do \
 		echo "Removing $$svc..."; \
-		kubectl delete -f k8s/$$svc-deployment.yaml -n $$svc --ignore-not-found=true; \
-		kubectl delete -f k8s/$$svc-secret.yaml -n $$svc --ignore-not-found=true; \
-		kubectl delete -f k8s/$$svc-configmap.yaml -n $$svc --ignore-not-found=true; \
+		$(KUBECTL) delete -f k8s/$$svc-deployment.yaml -n $$svc --ignore-not-found=true; \
+		$(KUBECTL) delete -f k8s/$$svc-secret.yaml -n $$svc --ignore-not-found=true; \
+		$(KUBECTL) delete -f k8s/$$svc-configmap.yaml -n $$svc --ignore-not-found=true; \
 	done
 	@echo "Removing gateway..."
-	@kubectl delete -f k8s/gateway-deployment.yaml -n gateway --ignore-not-found=true
-	@kubectl delete -f k8s/gateway-configmap.yaml -n gateway --ignore-not-found=true
+	@$(KUBECTL) delete -f k8s/gateway-deployment.yaml -n gateway --ignore-not-found=true
+	@$(KUBECTL) delete -f k8s/gateway-configmap.yaml -n gateway --ignore-not-found=true
 
 #kind-redeploy: @ Undeploy then deploy all services
 kind-redeploy: kind-undeploy kind-deploy
@@ -436,12 +476,14 @@ kind-down: kind-destroy
 # ---------------------------------------------------------------------------
 
 #e2e: @ Run full end-to-end test cycle (create, setup, deploy, test, destroy)
-e2e: kind-create kind-setup kind-deploy e2e-test
+# kind-deploy already chains kind-create → kind-setup → image-build → image-load,
+# so listing them as separate prereqs is redundant.
+e2e: kind-deploy e2e-test
 	@$(MAKE) kind-destroy
 
 #e2e-test: @ Run end-to-end test script
-e2e-test:
-	@./e2e/e2e-test.sh
+e2e-test: deps-kubectl
+	@KIND_CLUSTER_NAME=$(KIND_CLUSTER_NAME) ./e2e/e2e-test.sh
 
 #populate: @ Populate test data via gateway
 populate: deps-docker deps-kubectl
@@ -485,19 +527,19 @@ jaeger-open: deps-kubectl
 
 #logs-employee: @ Tail employee service logs
 logs-employee: deps-kubectl
-	@kubectl logs -f -l app=employee -n employee
+	@$(KUBECTL) logs -f -l app=employee -n employee
 
 #logs-department: @ Tail department service logs
 logs-department: deps-kubectl
-	@kubectl logs -f -l app=department -n department
+	@$(KUBECTL) logs -f -l app=department -n department
 
 #logs-organization: @ Tail organization service logs
 logs-organization: deps-kubectl
-	@kubectl logs -f -l app=organization -n organization
+	@$(KUBECTL) logs -f -l app=organization -n organization
 
 #logs-gateway: @ Tail gateway service logs
 logs-gateway: deps-kubectl
-	@kubectl logs -f -l app=gateway -n gateway
+	@$(KUBECTL) logs -f -l app=gateway -n gateway
 
 # ---------------------------------------------------------------------------
 # CI
@@ -520,6 +562,7 @@ ci-run: deps-act
 	[ -n "$$OSS_INDEX_USER" ] && secret_args+=(--secret OSS_INDEX_USER); \
 	[ -n "$$OSS_INDEX_TOKEN" ] && secret_args+=(--secret OSS_INDEX_TOKEN); \
 	act push --container-architecture linux/amd64 \
+		--pull=false \
 		--artifact-server-port "$$ACT_PORT" \
 		--artifact-server-path "$$(mktemp -d -t act-artifacts.XXXXXX)" \
 		--var ACT=true \

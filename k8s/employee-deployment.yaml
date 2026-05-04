@@ -51,6 +51,30 @@ spec:
                 secretKeyRef:
                   name: employee
                   key: spring.data.mongodb.password
+            # OTLP tracing — explicit env-var bindings because spring-cloud-kubernetes-config
+            # 5.0.1's ConfigData resolver isn't picked up under Spring Boot 4.0 (legacy
+            # spring.factories registration only). Revisit when SCK ships SB-4 support.
+            - name: MANAGEMENT_TRACING_SAMPLING_PROBABILITY
+              valueFrom:
+                configMapKeyRef:
+                  name: employee
+                  key: management.tracing.sampling.probability
+            - name: MANAGEMENT_OPENTELEMETRY_TRACING_EXPORT_OTLP_ENDPOINT
+              valueFrom:
+                configMapKeyRef:
+                  name: employee
+                  key: management.otlp.tracing.endpoint
+            # spring-boot-starter-opentelemetry brings in OTLP exporters for
+            # tracing AND metrics AND logging. Tracing is the only one this
+            # project routes to Jaeger; metrics flow to Prometheus via the
+            # micrometer-registry-prometheus actuator endpoint, logs stay in
+            # stdout/json. Without these disables, OtlpMetricsExportAutoConfiguration
+            # tries to create a registry with no endpoint URL → NPE → context
+            # fails → app never reaches /actuator/health → rollout times out.
+            - name: MANAGEMENT_OTLP_METRICS_EXPORT_ENABLED
+              value: "false"
+            - name: MANAGEMENT_LOGGING_EXPORT_OTLP_ENABLED
+              value: "false"
           resources:
             requests:
               cpu: "0.2"
