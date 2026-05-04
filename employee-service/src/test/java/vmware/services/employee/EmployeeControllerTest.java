@@ -105,4 +105,9 @@ class EmployeeControllerTest {
               assertThat(body[0].getName()).isEqualTo("Smith");
             });
   }
+
+  @Test
+  void shouldReturn404WhenEmployeeNotFound() {
+    client.get().uri("/nonexistent-id").exchange().expectStatus().isNotFound();
+  }
 }

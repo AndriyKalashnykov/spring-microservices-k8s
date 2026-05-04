@@ -4,35 +4,15 @@ on:
   push:
     branches: [master]
     tags: ['v*']
-    paths-ignore:
-      - '*.md'
-      - '!CLAUDE.md'
-      - 'docs/**'
-      - 'specs/**'
-      - 'LICENSE'
-      - '.gitignore'
-      - '.claudeignore'
-      - '.claude/**'
-      - 'benchmarks/**'
-      - '**.png'
-      - '**.jpg'
-      - '**.gif'
-      - '**.svg'
+  # Trigger-level paths filtering is intentionally NOT used: combined with the
+  # required `ci-pass` aggregator under Repository Rulesets, doc-only PRs would
+  # never spawn a workflow run, `ci-pass` would never report, and merge would
+  # be blocked indefinitely (admin override is also rejected by Rulesets).
+  # Instead, the `changes` job below detects what changed and gates heavy jobs
+  # via `needs: [changes]` + `if: needs.changes.outputs.code == 'true'`. The
+  # ci-pass aggregator still runs on doc-only PRs (its `if: always()` ensures
+  # the Rulesets gate is satisfied).
   pull_request:
-    paths-ignore:
-      - '*.md'
-      - '!CLAUDE.md'
-      - 'docs/**'
-      - 'specs/**'
-      - 'LICENSE'
-      - '.gitignore'
-      - '.claudeignore'
-      - '.claude/**'
-      - 'benchmarks/**'
-      - '**.png'
-      - '**.jpg'
-      - '**.gif'
-      - '**.svg'
   # Weekly NVD rescan: catches new CVEs landing on unchanged dependencies
   # between releases. Also keeps the ~2GB NVD cache warm (7-day GitHub cache
   # eviction). Monday 06:00 UTC = Sunday evening EST (low-traffic window).
@@ -43,13 +23,71 @@ on:
 
 permissions:
   contents: read
+  # Required by `dorny/paths-filter` on `pull_request` events to read changed
+  # files via the GitHub API (push events use git diff and don't need it).
+  pull-requests: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
+  # Detects which classes of files changed so heavy jobs can be skipped on
+  # doc-only PRs. Required because trigger-level `paths-ignore` would deadlock
+  # the `ci-pass` aggregator under Repository Rulesets — see the `on:` comment.
+  # Always runs (no `needs`) so that downstream `if:` expressions can read its
+  # outputs even when no code changed.
+  changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    outputs:
+      code: ${{ steps.outputs.outputs.code }}
+      e2e: ${{ steps.outputs.outputs.e2e }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      # Skipped under local act runs: act's default event payload lacks both
+      # `event.before` (push diff base) and `event.repository.default_branch`,
+      # both of which dorny/paths-filter needs to auto-detect a base ref. Real
+      # GitHub Actions populates these on push/pull_request/schedule events.
+      - id: filter
+        if: vars.ACT != 'true'
+        uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
+        with:
+          # `code` fires on anything that isn't a doc / config-only change.
+          # `e2e` is a stricter subset — only KinD-relevant changes warrant
+          # the 10–15 min e2e job.
+          # CLAUDE.md is re-included so its edits go through the full gate.
+          filters: |
+            code:
+              - '!(**.md|docs/**|specs/**|LICENSE|.gitignore|.claudeignore|.claude/**|benchmarks/**|**.png|**.jpg|**.gif|**.svg)'
+              - 'CLAUDE.md'
+            e2e:
+              - 'k8s/**'
+              - 'pom.xml'
+              - '**/pom.xml'
+              - 'Makefile'
+              - '.github/workflows/ci.yml'
+              - 'e2e/**'
+              - '**/Dockerfile'
+              - '**/src/**'
+
+      # Final outputs: under act, force `code` and `e2e` to true so the full
+      # pipeline runs locally (act users want full exercise, not selective
+      # skipping). Otherwise propagate the dorny/paths-filter result.
+      - id: outputs
+        run: |
+          if [ "${{ vars.ACT }}" = "true" ]; then
+            echo "code=true" >> "$GITHUB_OUTPUT"
+            echo "e2e=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "code=${{ steps.filter.outputs.code }}" >> "$GITHUB_OUTPUT"
+            echo "e2e=${{ steps.filter.outputs.e2e }}" >> "$GITHUB_OUTPUT"
+          fi
+
   static-check:
+    needs: [changes]
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -73,7 +111,8 @@ jobs:
         run: make static-check
 
   test:
-    needs: [static-check]
+    needs: [changes, static-check]
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -107,7 +146,8 @@ jobs:
           retention-days: 14
 
   integration-test:
-    needs: [static-check]
+    needs: [changes, static-check]
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -138,7 +178,8 @@ jobs:
           retention-days: 14
 
   build:
-    needs: [static-check]
+    needs: [changes, static-check]
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -174,7 +215,7 @@ jobs:
           retention-days: 1
 
   cve-check:
-    needs: [static-check]
+    needs: [changes, static-check]
     # Runs on:
     #   - push to master AND tag pushes  (release-time gate — the docker job
     #     depends on it; master-push kept while OWASP step is continue-on-error
@@ -183,8 +224,9 @@ jobs:
     #     on unchanged deps between releases)
     #   - workflow_dispatch               (ad-hoc rescan after a new CVE drop)
     # Skipped under local act runs because the OWASP NVD download is slow.
+    # Also skipped on doc-only changes (changes.outputs.code == 'false').
     if: |
-      vars.ACT != 'true' && (
+      vars.ACT != 'true' && needs.changes.outputs.code == 'true' && (
         (github.event_name == 'push' && (
           github.ref == 'refs/heads/master' ||
           startsWith(github.ref, 'refs/tags/')
@@ -248,7 +290,8 @@ jobs:
   # single-arch gates 1-3 on every push and docker runs the full pipeline on
   # tag pushes only.
   image-scan:
-    needs: [build]
+    needs: [changes, build]
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     strategy:
@@ -270,8 +313,7 @@ jobs:
           name: service-jars
 
       # Fallback rebuild path: only runs if download-artifact failed (local act runs).
-      - name: Install toolchain (mise)
-        if: steps.download-jars.outcome == 'failure'
+      - if: steps.download-jars.outcome == 'failure'
         uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4.0.1
         with:
           install: true
@@ -346,8 +388,12 @@ jobs:
   # reliably inside act's runner containers. The job is exercised on
   # GitHub Actions runners on every push/tag/PR.
   e2e:
-    if: vars.ACT != 'true'
-    needs: [build, test]
+    # Gated on a stricter filter than `code` so e2e runs only on changes that
+    # could affect KinD-deployed services (k8s manifests, code, build files,
+    # Dockerfiles, the e2e script itself, the CI workflow). Matches skill
+    # convention for the "what could break the cluster?" surface.
+    if: vars.ACT != 'true' && needs.changes.outputs.e2e == 'true'
+    needs: [changes, build, test]
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -545,7 +591,7 @@ jobs:
   # count as failure — only `failure` results trip the gate.
   ci-pass:
     if: always()
-    needs: [static-check, test, integration-test, build, cve-check, image-scan, e2e, docker]
+    needs: [changes, static-check, test, integration-test, build, cve-check, image-scan, e2e, docker]
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:
@@ -553,6 +599,10 @@ jobs:
         run: |
           if [[ "${{ contains(needs.*.result, 'failure') }}" == "true" ]]; then
             echo "One or more jobs failed"
+            exit 1
+          fi
+          if [[ "${{ contains(needs.*.result, 'cancelled') }}" == "true" ]]; then
+            echo "One or more jobs were cancelled"
             exit 1
           fi
           echo "All required jobs passed or were skipped."
