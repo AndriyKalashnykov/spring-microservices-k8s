@@ -15,8 +15,8 @@ public class RestClientConfig {
   /**
    * Apply Spring Boot's auto-configured RestClient customizers (including the Micrometer Tracing
    * observation that injects W3C `traceparent` on outbound requests) to OUR {@code @LoadBalanced}
-   * builder. Without {@code configurer.configure(...)}, this returns a vanilla
-   * {@code RestClient.builder()} that bypasses every auto-configured bean — silently breaks
+   * builder. Without {@code configurer.configure(...)}, this returns a vanilla {@code
+   * RestClient.builder()} that bypasses every auto-configured bean — silently breaks
    * distributed-trace propagation through {@code @HttpExchange} clients built from it.
    */
   @Bean
