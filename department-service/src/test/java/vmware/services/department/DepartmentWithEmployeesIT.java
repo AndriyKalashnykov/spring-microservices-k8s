@@ -49,7 +49,7 @@ import vmware.services.department.repository.DepartmentRepository;
 @Import(DepartmentWithEmployeesIT.WireMockClientConfig.class)
 class DepartmentWithEmployeesIT {
 
-  @Container @ServiceConnection static MongoDBContainer mongo = new MongoDBContainer("mongo:8.2.7");
+  @Container @ServiceConnection static MongoDBContainer mongo = new MongoDBContainer("mongo:8.3.1");
 
   static WireMockServer wireMock;
 
