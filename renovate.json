@@ -111,6 +111,11 @@
       "groupName": "Micrometer"
     },
     {
+      "description": "Group BouncyCastle dependencies (bcpkix/bcutil/bcprov pinned together to address transitive CVEs from io.kubernetes:client-java; keep all three on the same version)",
+      "matchPackageNames": ["/^org\\.bouncycastle:/"],
+      "groupName": "BouncyCastle"
+    },
+    {
       "description": "Label Java packages",
       "matchCategories": ["java"],
       "addLabels": ["lang: java"]
