@@ -44,6 +44,28 @@
 				<artifactId>tomcat-embed-core</artifactId>
 				<version>11.0.22</version>
 			</dependency>
+			<!-- Override transitive BouncyCastle to fix CVE-2026-5598 (HIGH:
+			     BC-JAVA private key leakage via non-constant-time operation).
+			     Pulled in via spring-cloud-starter-kubernetes-client-all →
+			     io.kubernetes:client-java → bcpkix-jdk18on → bcutil-jdk18on
+			     → bcprov-jdk18on. Affected up to and including 1.80; fix is
+			     in 1.84. Remove when io.kubernetes:client-java ships a
+			     release that pulls bouncycastle 1.84+. -->
+			<dependency>
+				<groupId>org.bouncycastle</groupId>
+				<artifactId>bcpkix-jdk18on</artifactId>
+				<version>1.84</version>
+			</dependency>
+			<dependency>
+				<groupId>org.bouncycastle</groupId>
+				<artifactId>bcutil-jdk18on</artifactId>
+				<version>1.84</version>
+			</dependency>
+			<dependency>
+				<groupId>org.bouncycastle</groupId>
+				<artifactId>bcprov-jdk18on</artifactId>
+				<version>1.84</version>
+			</dependency>
 		</dependencies>
 	</dependencyManagement>
 
