@@ -49,6 +49,37 @@ check_response() {
   fi
 }
 
+# Assert HTTP status AND body substring on a POST request, in a single curl.
+# A substring-only `check_response` after a separate curl would falsely PASS on
+# a 5xx whose body echoes the input ("Smith" appears in both 200 OK and a 500
+# stack trace mentioning the payload).
+check_post() {
+  local test_name="$1"
+  local url="$2"
+  local body="$3"
+  local expected_status="$4"
+  local expected_body="$5"
+  local tmp
+  tmp=$(mktemp)
+  local actual_status
+  actual_status=$(curl -s -o "${tmp}" -w '%{http_code}' \
+    -X POST -H 'Content-Type: application/json' --max-time 30 \
+    -d "${body}" "${url}" 2>/dev/null || true)
+  local actual_body
+  actual_body=$(cat "${tmp}")
+  rm -f "${tmp}"
+  if [[ "${actual_status}" == "${expected_status}" ]] \
+    && echo "${actual_body}" | grep -qF "${expected_body}"; then
+    echo "  PASS: ${test_name} (HTTP ${actual_status})"
+    PASS=$((PASS + 1))
+  else
+    echo "  FAIL: ${test_name}"
+    echo "        expected: HTTP ${expected_status}, body contains '${expected_body}'"
+    echo "        actual:   HTTP ${actual_status}, body: ${actual_body}"
+    FAIL=$((FAIL + 1))
+  fi
+}
+
 # Assert HTTP status code for a request.
 check_status() {
   local test_name="$1"
@@ -147,17 +178,17 @@ check_response "GET /actuator/health returns UP" "${RESP}" "UP"
 
 # Test 2: Create employee Smith ----------------------------------------------
 echo "[Test 2] Create employee Smith"
-RESP=$(curl -s --max-time 30 -X POST "${BASE_URL}/employee/" \
-  -H "Content-Type: application/json" \
-  -d '{"age":25,"departmentId":1,"id":"1","name":"Smith","organizationId":1,"position":"engineer"}' 2>/dev/null || true)
-check_response "POST /employee/ — Smith created" "${RESP}" "Smith"
+check_post "POST /employee/ — Smith created" \
+  "${BASE_URL}/employee/" \
+  '{"age":25,"departmentId":1,"id":"1","name":"Smith","organizationId":1,"position":"engineer"}' \
+  200 "Smith"
 
 # Test 3: Create employee Johns ----------------------------------------------
 echo "[Test 3] Create employee Johns"
-RESP=$(curl -s --max-time 30 -X POST "${BASE_URL}/employee/" \
-  -H "Content-Type: application/json" \
-  -d '{"age":45,"departmentId":1,"id":"2","name":"Johns","organizationId":1,"position":"manager"}' 2>/dev/null || true)
-check_response "POST /employee/ — Johns created" "${RESP}" "Johns"
+check_post "POST /employee/ — Johns created" \
+  "${BASE_URL}/employee/" \
+  '{"age":45,"departmentId":1,"id":"2","name":"Johns","organizationId":1,"position":"manager"}' \
+  200 "Johns"
 
 # Test 4: List employees ------------------------------------------------------
 echo "[Test 4] List employees"
@@ -167,10 +198,10 @@ check_response "GET /employee/ — contains Johns" "${RESP}" "Johns"
 
 # Test 5: Create department ---------------------------------------------------
 echo "[Test 5] Create department"
-RESP=$(curl -s --max-time 30 -X POST "${BASE_URL}/department/" \
-  -H "Content-Type: application/json" \
-  -d '{"id":"1","name":"RD Dept.","organizationId":1}' 2>/dev/null || true)
-check_response "POST /department/ — RD Dept. created" "${RESP}" "RD Dept."
+check_post "POST /department/ — RD Dept. created" \
+  "${BASE_URL}/department/" \
+  '{"id":"1","name":"RD Dept.","organizationId":1}' \
+  200 "RD Dept."
 
 # Test 6: List departments ----------------------------------------------------
 echo "[Test 6] List departments"
@@ -179,10 +210,10 @@ check_response "GET /department/ — contains RD Dept." "${RESP}" "RD Dept."
 
 # Test 7: Create organization -------------------------------------------------
 echo "[Test 7] Create organization"
-RESP=$(curl -s --max-time 30 -X POST "${BASE_URL}/organization/" \
-  -H "Content-Type: application/json" \
-  -d '{"id":"1","name":"MegaCorp","address":"Main Street"}' 2>/dev/null || true)
-check_response "POST /organization/ — MegaCorp created" "${RESP}" "MegaCorp"
+check_post "POST /organization/ — MegaCorp created" \
+  "${BASE_URL}/organization/" \
+  '{"id":"1","name":"MegaCorp","address":"Main Street"}' \
+  200 "MegaCorp"
 
 # Test 8: Get organization with employees (cross-service) ---------------------
 echo "[Test 8] Get organization with employees (cross-service)"
@@ -211,12 +242,35 @@ check_jq "deep fan-out response has at least one department" "${RESP}" \
 check_jq "deep fan-out response first department has employees[] array" "${RESP}" \
   '.departments[0].employees | type' "array"
 
-# Test 11: Negative — GET unknown employee id ---------------------------------
-# EmployeeController.findById throws ResponseStatusException(NOT_FOUND) when the
-# id is missing — surfaces through the gateway as a 404.
-echo "[Test 11] Negative: GET /employee/nonexistent — expect 404"
+# Test 11: Negative — GET unknown id across services ------------------------
+# Every service's findById maps a missing id to ResponseStatusException(NOT_FOUND)
+# — surfaces through the gateway as a 404. Earlier the department / organization
+# controllers called `findById(id).get()` (NoSuchElementException → 500) and the
+# three `/{id}/with-*` endpoints `return null` (200 with a null body); each now
+# throws 404 and the with-* endpoints short-circuit before any peer fan-out.
+echo "[Test 11a] Negative: GET /employee/nonexistent — expect 404"
 check_status "GET /employee/nonexistent-id returns 404" \
   GET "${BASE_URL}/employee/nonexistent-id" 404
+
+echo "[Test 11b] Negative: GET /department/nonexistent — expect 404"
+check_status "GET /department/nonexistent-id returns 404" \
+  GET "${BASE_URL}/department/nonexistent-id" 404
+
+echo "[Test 11c] Negative: GET /organization/nonexistent — expect 404"
+check_status "GET /organization/nonexistent-id returns 404" \
+  GET "${BASE_URL}/organization/nonexistent-id" 404
+
+echo "[Test 11d] Negative: GET /organization/nonexistent/with-departments — expect 404"
+check_status "GET /organization/nonexistent-id/with-departments returns 404" \
+  GET "${BASE_URL}/organization/nonexistent-id/with-departments" 404
+
+echo "[Test 11e] Negative: GET /organization/nonexistent/with-employees — expect 404"
+check_status "GET /organization/nonexistent-id/with-employees returns 404" \
+  GET "${BASE_URL}/organization/nonexistent-id/with-employees" 404
+
+echo "[Test 11f] Negative: GET /organization/nonexistent/with-departments-and-employees — expect 404"
+check_status "GET /organization/nonexistent-id/with-departments-and-employees returns 404" \
+  GET "${BASE_URL}/organization/nonexistent-id/with-departments-and-employees" 404
 
 # Test 12: Negative — POST employee with malformed JSON body ------------------
 # Jackson rejects invalid JSON with 400 Bad Request before the controller runs.

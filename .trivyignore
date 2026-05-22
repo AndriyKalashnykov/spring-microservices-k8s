@@ -1,5 +1,12 @@
-# MongoDB requires writable filesystem for /data/db — readOnlyRootFilesystem breaks it
+# MongoDB requires writable filesystem for /data/db — readOnlyRootFilesystem breaks it.
+# Removal trigger: MongoDB image ships an emptyDir-only data layout (none planned upstream);
+# OR the project moves to an external managed-MongoDB (Atlas/cloud) and removes the in-cluster
+# pod. Re-evaluate on every Renovate-driven mongo image bump.
 KSV-0014
 
-# Spring Cloud Kubernetes requires get/list/watch on secrets for secret PropertySource loading
+# Spring Cloud Kubernetes requires get/list/watch on secrets for secret PropertySource loading.
+# Removal trigger: Spring Cloud Kubernetes 4.x adds a config-only mode that drops the secret
+# permission requirement (track spring-cloud/spring-cloud-kubernetes#1768 family); OR the project
+# switches secret material to a CSI-driver-mounted source (e.g., Secrets Store CSI) and removes
+# the API-level Secret reads from RBAC. Re-evaluate on every Spring Cloud bump.
 KSV-0041

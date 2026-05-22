@@ -119,6 +119,33 @@ class DepartmentWithEmployeesIT {
   }
 
   /**
+   * Locks the current peer-failure contract: when the employee-service peer returns 5xx, the
+   * controller has no graceful-degradation path — the exception from {@link
+   * vmware.services.department.client.EmployeeClient} propagates and the gateway-side caller sees
+   * 5xx too. If a future change adds graceful degradation (e.g., return the department with an
+   * empty {@code employees[]} array on peer failure), this assertion is updated intentionally.
+   */
+  @Test
+  void shouldPropagatePeerFailureWhenEmployeeServiceReturns5xx() {
+    Department engineering = repository.save(new Department(42L, "Engineering"));
+    String deptId = engineering.getId();
+
+    wireMock.stubFor(
+        get(urlPathMatching("/department/" + deptId))
+            .willReturn(aResponse().withStatus(500).withBody("Employee Service Down")));
+
+    client
+        .get()
+        .uri("/organization/42/with-employees")
+        .exchange()
+        .expectStatus()
+        .is5xxServerError();
+
+    // The peer WAS called — the controller's failure isn't a short-circuit, it's a propagated 5xx.
+    wireMock.verify(getRequestedFor(urlPathMatching("/department/" + deptId)));
+  }
+
+  /**
    * Test-scoped override for {@link EmployeeClient}. The main configuration builds the client
    * against {@code http://employee} (resolved via Spring Cloud LoadBalancer). For integration
    * testing we point it at the WireMock baseUrl injected via {@code @DynamicPropertySource}.

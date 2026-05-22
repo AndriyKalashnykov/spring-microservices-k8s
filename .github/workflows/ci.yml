@@ -344,7 +344,6 @@ jobs:
         with:
           context: ./${{ matrix.service }}-service
           file: ./${{ matrix.service }}-service/Dockerfile
-          build-args: VARIANT=debug
           platforms: linux/amd64
           load: true
           tags: ${{ matrix.service }}:scan
@@ -380,6 +379,20 @@ jobs:
           docker logs "${SVC}-smoke"
           docker rm -f "${SVC}-smoke" >/dev/null || true
           exit 1
+
+      # Validates the OCI-manifest-level Dockerfile contract (USER non-root,
+      # EXPOSE port, WORKDIR, ENTRYPOINT) with container-structure-test.
+      # Orthogonal to Trivy (CVE/secret/misconfig) and the smoke test (runtime
+      # boot) — catches a USER reset to root, a wrong port, a changed
+      # entrypoint. Runs on every push so Dockerfile-contract drift fails the
+      # commit that introduced it, not just the release.
+      - name: Container structure test
+        run: |
+          docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            -v "$PWD/.container-structure-test.yaml:/test.yaml:ro" \
+            gcr.io/gcp-runtimes/container-structure-test:v1.16.0 \
+            test --image "${{ matrix.service }}:scan" --config /test.yaml
 
       - name: Cleanup smoke container
         if: always()
@@ -477,7 +490,6 @@ jobs:
         with:
           context: ./${{ matrix.service }}-service
           file: ./${{ matrix.service }}-service/Dockerfile
-          build-args: VARIANT=debug
           platforms: linux/amd64
           load: true
           tags: ${{ matrix.service }}:scan
@@ -547,7 +559,6 @@ jobs:
         with:
           context: ./${{ matrix.service }}-service
           file: ./${{ matrix.service }}-service/Dockerfile
-          build-args: VARIANT=debug
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.meta.outputs.tags }}

@@ -349,7 +349,20 @@ static-check: deps format-check diagrams-check mermaid-lint lint-ci lint lint-do
 image-build: deps-docker build
 	@for svc in $(SERVICES); do \
 		echo "Building $$svc:$(IMAGE_TAG)..."; \
-		BUILDX_BUILDER=default docker buildx build --load --build-arg VARIANT=debug -t $$svc:$(IMAGE_TAG) -f $$svc-service/Dockerfile $$svc-service/; \
+		BUILDX_BUILDER=default docker buildx build --load -t $$svc:$(IMAGE_TAG) -f $$svc-service/Dockerfile $$svc-service/; \
+	done
+
+#container-structure-test: @ Validate Dockerfile contracts (USER, EXPOSE, ENTRYPOINT) on built images
+# Mirrors the CI `image-scan` step. The shared .container-structure-test.yaml config
+# applies to all 4 services because their Dockerfiles follow the same shape.
+container-structure-test: deps-docker image-build
+	@for svc in $(SERVICES); do \
+		echo "Container structure test: $$svc"; \
+		docker run --rm \
+			-v /var/run/docker.sock:/var/run/docker.sock \
+			-v "$(CURDIR)/.container-structure-test.yaml:/test.yaml:ro" \
+			gcr.io/gcp-runtimes/container-structure-test:v1.16.0 \
+			test --image $$svc:$(IMAGE_TAG) --config /test.yaml; \
 	done
 
 #image-load: @ Load Docker images into KinD cluster
@@ -628,7 +641,7 @@ renovate-validate: renovate-bootstrap
 	diagrams diagrams-check diagrams-clean mermaid-lint \
 	maven-settings-ossindex cve-check \
 	coverage-generate coverage-check coverage-open static-check \
-	image-build image-load \
+	image-build image-load container-structure-test \
 	kind-create kind-setup kind-deploy kind-undeploy kind-redeploy kind-destroy kind-up kind-down \
 	e2e e2e-test populate \
 	gateway-url gateway-open jaeger-open \
