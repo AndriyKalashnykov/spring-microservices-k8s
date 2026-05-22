@@ -7,7 +7,7 @@
 
 Reference implementation of four Spring Boot 4 microservices — gateway, organization, department, employee — deployed to a local Kind cluster in one command, with Spring Cloud Kubernetes cross-namespace service discovery.
 
-The **runtime surface** is a Spring Cloud Gateway fronting REST services that call each other through declarative `@HttpExchange` clients, persist to MongoDB, and emit W3C-`traceparent` spans via Micrometer → OpenTelemetry OTLP → Jaeger, with Actuator health probes and a unified Swagger UI. The **delivery surface** is a Maven multi-module build, a `make static-check` composite quality gate, a three-layer test pyramid (Surefire unit → Testcontainers integration → full Kind e2e), and a hardened GHCR image pipeline (Trivy image scan + Spring Boot smoke test + SLSA provenance + SBOM + cosign keyless signing) — all from a mise-pinned toolchain with Renovate-managed dependencies, driven by `make kind-up` / `make ci` / `make kind-down`.
+The **runtime surface** is a Spring Cloud Gateway fronting REST services that call each other through declarative `@HttpExchange` clients, persist to MongoDB, and emit W3C-`traceparent` spans via Micrometer → OpenTelemetry OTLP → Jaeger, with Actuator health probes and a unified Swagger UI. The **delivery surface** is a Maven multi-module build, a `make static-check` composite quality gate, a three-layer test pyramid (Surefire unit → Testcontainers integration → full Kind e2e), and a hardened GHCR image pipeline (Trivy image scan + Spring Boot smoke test + container-structure-test + cosign keyless OIDC signing) — all from a mise-pinned toolchain with Renovate-managed dependencies, driven by `make kind-up` / `make ci` / `make kind-down`.
 
 <p align="center"><img src="docs/diagrams/out/c4-container.png" alt="C4 Container diagram — Spring Microservices on Kubernetes" width="720"></p>
 
@@ -283,7 +283,7 @@ GitHub Actions runs on every push to `master`, tags `v*`, and pull requests.
 | **cve-check** | push to master AND tag pushes (skipped under `act`) | OWASP dependency vulnerability scan — gates the `docker` job on tag pushes |
 | **image-scan** | every push (matrix: 4 services) | Per-service Dockerfile validation gates: build single-arch image → Trivy image scan (CRITICAL/HIGH blocking) → Spring Boot boot-marker smoke test → container-structure-test (OCI-manifest contract: USER non-root, EXPOSE, WORKDIR, ENTRYPOINT). Catches base-image CVE regressions, runtime breakages, and Dockerfile-contract drift on the commit that introduced them, not on release day. |
 | **e2e** | push/PR when KinD-relevant files change (skipped under `act`) | End-to-end test against a full Kind + cloud-provider-kind stack: `make e2e` cycles create → setup (MongoDB) → deploy (4 services + gateway LB) → `./e2e/e2e-test.sh` → destroy. |
-| **docker** | tag push only (matrix: 4 services) | Full pre-push hardening: build local image → Trivy image scan → Spring Boot smoke test → multi-arch (amd64+arm64) build with SLSA provenance + SBOM attestation → push to GHCR → cosign keyless OIDC signing. Depends on `build`, `test`, `cve-check`. |
+| **docker** | tag push only (matrix: 4 services) | Full pre-push hardening: build local image → Trivy image scan → Spring Boot smoke test → multi-arch (amd64+arm64) build → push to GHCR → cosign keyless OIDC signing. Depends on `build`, `test`, `cve-check`. |
 | **ci-pass** | always | Branch-protection aggregator: single required status check that verifies no upstream job failed or was cancelled. Skipped jobs do not trip the gate. |
 
 ### Pre-push image hardening
@@ -296,9 +296,7 @@ The `docker` job runs the following gates **before** any image is pushed to GHCR
 | 2 | **Trivy image scan** (CRITICAL/HIGH blocking) | CVEs in the base image (`eclipse-temurin:25-jre-noble`), OS packages, and any layers added during the build that the filesystem scan can't see | `aquasecurity/trivy-action` with `image-ref:` |
 | 3 | **Spring Boot boot-marker smoke test** | Image is well-formed: JVM starts, Spring context boots, embedded Tomcat begins listening (greps the container logs for `Started <Service>Application in N.NN seconds` within 90s — no MongoDB needed since we don't gate on `/actuator/health`) | `docker run` + `docker logs` + `grep` |
 | 4 | Multi-arch build + push | Publishes for both `linux/amd64` and `linux/arm64`. Mostly cache-hit from gate 1. | `docker/build-push-action` |
-| 5 | **SLSA L2 build provenance** (`provenance: mode=max`) | Cryptographic record of how the image was built (commit, builder, build args). Verifiable via the OCI manifest. | `docker/build-push-action` native attestation |
-| 6 | **SBOM attestation** (`sbom: true`) | Software Bill of Materials embedded in the image manifest as an attestation, auditable by Trivy/Grype/Syft consumers | `docker/build-push-action` native attestation |
-| 7 | **Cosign keyless OIDC signing** | Sigstore signature on the manifest digest with no long-lived private keys (uses GitHub OIDC → Fulcio → Rekor) | `sigstore/cosign-installer` + `cosign sign --yes` |
+| 5 | **Cosign keyless OIDC signing** | Sigstore signature on the manifest digest with no long-lived private keys (uses GitHub OIDC → Fulcio → Rekor) | `sigstore/cosign-installer` + `cosign sign --yes` |
 
 Verify a published image's signature with:
 
@@ -309,7 +307,7 @@ cosign verify ghcr.io/AndriyKalashnykov/spring-microservices-k8s/employee:<tag> 
   --certificate-oidc-issuer https://token.actions.githubusercontent.com
 ```
 
-Note: GHCR's Packages UI shows extra `unknown/unknown` rows alongside the platform manifests — these are the attestation manifests (SLSA provenance + SBOM). They're cosmetic; `docker pull` works identically.
+Note: SLSA L2 build provenance and SBOM attestations (`provenance: mode=max` + `sbom: true`) are deliberately disabled. Buildx emits them as per-platform `unknown/unknown` manifest entries that GHCR's UI renders as if they were real platforms — a confusing cosmetic cost with no upside until a downstream consumer actually runs `cosign verify-attestation --type slsaprovenance` or `trivy image --sbom-from registry`. Flip them back on (Pattern B) the moment such a consumer is wired in.
 
 Integration tests use [Testcontainers](https://testcontainers.com/) with MongoDB for fast local testing via `make integration-test`.
 End-to-end tests validate the full stack on Kind via `make e2e`.

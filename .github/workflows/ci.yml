@@ -544,7 +544,7 @@ jobs:
           exit 1
 
       # ----------------------------------------------------------------
-      # All gates passed → publish multi-arch with attestations.
+      # All gates passed → publish multi-arch.
       # ----------------------------------------------------------------
       - name: Log in to GHCR
         uses: docker/login-action@650006c6eb7dba73a995cc03b0b2d7f5ca915bee # v4
@@ -563,13 +563,19 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          # SLSA L2 build provenance (mode=max) + SBOM attestations.
-          # GHCR's UI shows extra "unknown/unknown" entries for the
-          # attestation manifests alongside the real platform manifests
-          # — this is cosmetic; `docker pull` works identically and
-          # consumers gain provable supply-chain origin.
-          provenance: mode=max
-          sbom: true
+          # provenance + sbom set to false (Pattern A). Buildx's in-manifest
+          # attestations add per-platform `unknown/unknown` rows to the OCI
+          # index that GHCR's web UI renders as if they were real platforms —
+          # a confusing cosmetic cost with no upside unless a downstream
+          # consumer actually runs `cosign verify-attestation` / `trivy image
+          # --sbom-from registry`. Nothing does today, so the attestations
+          # were being produced and never read. Cosign keyless signing on the
+          # manifest digest below still proves origin. Switch BOTH back to
+          # `mode=max` / `true` (Pattern B) the moment a downstream verifier
+          # is wired in — the supply-chain attestations are still worth
+          # paying for, just not before there is a reader.
+          provenance: false
+          sbom: false
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
