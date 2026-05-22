@@ -44,7 +44,7 @@ addresses the following concerns:
 | Testcontainers | 2.0.x (managed by Spring Boot BOM) |
 | Spring Cloud LoadBalancer | 5.0.x |
 | SpringDoc OpenAPI | 3.0.2 |
-| MongoDB | 8.0.20 (official `mongo` image, non-root UID 999) |
+| MongoDB | 8.3.2 (official `mongo` image, non-root UID 999) |
 | Kubernetes | 1.35.0 (Kind node image, pinned) |
 | Kind | 0.31.0 |
 | cloud-provider-kind | 0.10.0 (host-side LoadBalancer controller, supersedes MetalLB) |

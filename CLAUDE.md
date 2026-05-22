@@ -72,6 +72,10 @@ make kind-undeploy # Remove services but keep the cluster running
 - Testcontainers (integration tests)
 - Checkstyle + hadolint + gitleaks + Trivy + PlantUML drift check + `mermaid-cli` (Mermaid lint) (static analysis composite gate via `make static-check`)
 
+## Architecture Notes
+
+- **C4 deployment diagram element budget**: `docs/diagrams/c4-deployment.puml` currently sits at 15 drawable boxes (host wrapper + cluster + 6 namespaces + 6 pods + `cloud-provider-kind`) — Simon Brown's soft cap for a single C4 view. Adding a 5th service tips it past the readable limit. The next service should drive a **view split** (e.g., move the `observability` namespace to its own diagram, or drop the host wrapper node) rather than packing more elements into the single deployment view.
+
 ## Upgrade Backlog
 
 Each row carries an explicit **Revisit-if** list of observable conditions. When any trigger fires, the item is re-opened for evaluation — the deferral rationale is not self-refreshing, and the trigger column makes stale rationales detectable in seconds instead of months.
