@@ -9,7 +9,14 @@
     "managerFilePatterns": ["/^k8s/.+\\.ya?ml$/"]
   },
   "ignorePaths": [
-    "**/target/**"
+    "**/node_modules/**",
+    "**/vendor/**",
+    "**/dist/**",
+    "**/bin/**",
+    "**/obj/**",
+    "**/target/**",
+    "**/.idea/**",
+    "**/.vscode/**"
   ],
   "commitMessagePrefix": "chore(all): ",
   "commitMessageAction": "update",
@@ -114,6 +121,21 @@
       "description": "Group BouncyCastle dependencies (bcpkix/bcutil/bcprov pinned together to address transitive CVEs from io.kubernetes:client-java; keep all three on the same version)",
       "matchPackageNames": ["/^org\\.bouncycastle:/"],
       "groupName": "BouncyCastle"
+    },
+    {
+      "description": "Group the mongo image bump across the k8s manifest (kubernetes manager) and the Testcontainers + docs regex managers into one PR so the version stays consistent everywhere",
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["mongo"],
+      "groupName": "MongoDB"
+    },
+    {
+      "description": "Do not automerge the CVE-override pins (jackson-core, tomcat-embed-core, BouncyCastle) — these sit in <dependencyManagement> as a deliberate CVE-fix floor and must be reviewed by hand and removed once the Spring Boot BOM catches up (see CLAUDE.md upgrade backlog)",
+      "matchPackageNames": [
+        "tools.jackson.core:jackson-core",
+        "org.apache.tomcat.embed:tomcat-embed-core",
+        "/^org\\.bouncycastle:/"
+      ],
+      "automerge": false
     },
     {
       "description": "Label Java packages",

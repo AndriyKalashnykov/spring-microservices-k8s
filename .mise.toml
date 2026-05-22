@@ -11,7 +11,8 @@ java = "25"
 maven = "3.9.16"
 
 # Node major — kept in sync with .nvmrc. Used by renovate-validate only.
-node = "22"
+# Pinned to 24: renovate@latest requires node ^24.11.0.
+node = "24"
 
 # renovate: datasource=github-releases depName=kubernetes-sigs/kind extractVersion=^v(?<version>.*)$
 kind = "0.31.0"

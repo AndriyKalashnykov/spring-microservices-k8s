@@ -21,22 +21,22 @@ Deployment_Node(host, "Developer Workstation", "Linux / macOS") {
     Deployment_Node(kind, "Kind Cluster", "Kubernetes via KinD") {
 
         Deployment_Node(ns_gw, "namespace: gateway") {
-            Container(gateway_pod, "gateway pod", "Spring Boot 4.0.5, Java 25", ":8080 — Service type LoadBalancer")
+            Container(gateway_pod, "gateway pod", "Spring Boot 4.0.6, Java 25", ":8080 — Service type LoadBalancer")
         }
         Deployment_Node(ns_emp, "namespace: employee") {
-            Container(employee_pod, "employee pod", "Spring Boot 4.0.5, Java 25", ":8080 — Service type ClusterIP")
+            Container(employee_pod, "employee pod", "Spring Boot 4.0.6, Java 25", ":8080 — Service type ClusterIP")
         }
         Deployment_Node(ns_dept, "namespace: department") {
-            Container(department_pod, "department pod", "Spring Boot 4.0.5, Java 25", ":8080 — Service type ClusterIP")
+            Container(department_pod, "department pod", "Spring Boot 4.0.6, Java 25", ":8080 — Service type ClusterIP")
         }
         Deployment_Node(ns_org, "namespace: organization") {
-            Container(organization_pod, "organization pod", "Spring Boot 4.0.5, Java 25", ":8080 — Service type ClusterIP")
+            Container(organization_pod, "organization pod", "Spring Boot 4.0.6, Java 25", ":8080 — Service type ClusterIP")
         }
         Deployment_Node(ns_mongo, "namespace: mongo") {
-            ContainerDb(mongo_pod, "mongodb pod", "MongoDB 8.0", ":27017 — Service type ClusterIP")
+            ContainerDb(mongo_pod, "mongodb pod", "MongoDB 8.3", ":27017 — Service type ClusterIP")
         }
         Deployment_Node(ns_obs, "namespace: observability") {
-            Container(jaeger_pod, "jaeger pod", "Jaeger 2.17 (OTel Collector-based)", ":16686 UI (LoadBalancer), :4318 OTLP/HTTP (ClusterIP)")
+            Container(jaeger_pod, "jaeger pod", "Jaeger 2.18 (OTel Collector-based)", ":16686 UI (LoadBalancer), :4318 OTLP/HTTP (ClusterIP)")
         }
     }
     Container(cpk, "cloud-provider-kind", "host-side docker container on `kind` network — allocates LoadBalancer IPs for LB-typed Services")
