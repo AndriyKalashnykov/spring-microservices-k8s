@@ -25,12 +25,25 @@ jobs:
       KEEP_MINIMUM: 5
     steps:
       - name: Delete old workflow runs
+        # Canonical template form: pipe `gh run list --json` to a STANDALONE `jq`
+        # with `--arg`/`--argjson` for variable interpolation. The previous form
+        # interpolated `$KEEP_MINIMUM` and `$CUTOFF` directly into the `--jq`
+        # expression via shell, which works but mixes shell + jq quoting — the
+        # canonical form keeps the jq script literal and passes values through
+        # typed variables, matching the rest of the portfolio.
         run: |
           CUTOFF=$(date -u -d "$RETAIN_DAYS days ago" +%Y-%m-%dT%H:%M:%SZ)
           gh run list --repo "${{ github.repository }}" \
-            --json databaseId,createdAt --limit 200 \
-            --jq "sort_by(.createdAt) | reverse | .[$KEEP_MINIMUM:] | .[] | select(.createdAt < \"$CUTOFF\") | .databaseId" \
-          | xargs -r -I{} gh run delete {} --repo "${{ github.repository }}"
+              --json databaseId,createdAt --limit 200 \
+            | jq -r --arg cutoff "$CUTOFF" --argjson keep "$KEEP_MINIMUM" '
+                sort_by(.createdAt)
+                | reverse
+                | .[$keep:]
+                | .[]
+                | select(.createdAt < $cutoff)
+                | .databaseId
+              ' \
+            | xargs -r -I{} gh run delete {} --repo "${{ github.repository }}"
 
   cleanup-caches:
     runs-on: ubuntu-latest
@@ -45,6 +58,10 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
       - name: Delete caches for stale refs
+        # Uses the high-level `gh cache list` / `gh cache delete` commands (the
+        # canonical template form), not the raw `gh api .../actions/caches`
+        # REST endpoint. Same outcome; less brittle if GitHub renames the REST
+        # path, and matches the rest of the portfolio.
         run: |
           # Build a set of valid refs: master, all tags, all open branches.
           VALID_REFS=$(mktemp)
@@ -55,14 +72,17 @@ jobs:
               | sed 's|^|refs/heads/|' || true
           } | sort -u > "$VALID_REFS"
 
-          # List all caches and delete those whose ref is not in the valid set.
-          gh api repos/${{ github.repository }}/actions/caches --paginate \
-            --jq '.actions_caches[] | "\(.id) \(.ref)"' \
-          | while read -r id ref; do
-              if ! grep -Fxq "$ref" "$VALID_REFS"; then
-                echo "Deleting cache $id (ref: $ref)"
-                gh api -X DELETE "repos/${{ github.repository }}/actions/caches/$id" || true
-              fi
-            done
+          # List every cache (id + ref) and delete those whose ref is no longer
+          # in the valid set. `--limit 1000` is the GitHub cap; well above the
+          # actual cache count for this repo (Maven + Trivy DB + buildx-gha).
+          gh cache list --repo "${{ github.repository }}" --limit 1000 \
+              --json id,ref \
+            | jq -r '.[] | "\(.id) \(.ref)"' \
+            | while read -r id ref; do
+                if ! grep -Fxq "$ref" "$VALID_REFS"; then
+                  echo "Deleting cache $id (ref: $ref)"
+                  gh cache delete "$id" --repo "${{ github.repository }}" || true
+                fi
+              done
 
           rm -f "$VALID_REFS"

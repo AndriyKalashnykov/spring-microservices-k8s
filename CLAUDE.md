@@ -57,7 +57,7 @@ make kind-undeploy # Remove services but keep the cluster running
 
 ## CI/CD
 
-- **ci.yml** -- `static-check` (composite quality gate incl. PlantUML `diagrams-check`), `build`, `test` (coverage), `integration-test` (Failsafe `**/*IT.java`), `cve-check` (OWASP, push-to-master + tag only), `image-scan` (per-service Trivy + Spring Boot smoke test on every push), `e2e` (Kind-based full stack on every push), `docker` (tag-gated, 4-service matrix with multi-arch + SLSA provenance + SBOM + cosign keyless signing), `ci-pass` (branch-protection aggregator)
+- **ci.yml** -- `static-check` (composite quality gate incl. PlantUML `diagrams-check`), `build`, `test` (coverage), `integration-test` (Failsafe `**/*IT.java`), `cve-check` (OWASP, push-to-master + tag only), `image-scan` (per-service Trivy + Spring Boot smoke test + container-structure-test on every push), `e2e` (Kind-based full stack on every push), `docker` (tag-gated, 4-service matrix with multi-arch + cosign keyless signing; SLSA provenance + SBOM disabled until a downstream verifier exists), `ci-pass` (branch-protection aggregator)
 - **cleanup-runs.yml** -- weekly cleanup of old workflow runs
 
 ## Tech Stack
@@ -71,6 +71,10 @@ make kind-undeploy # Remove services but keep the cluster running
 - MongoDB 8.3 (official `mongo` image, non-root UID 999, version-pinned for Renovate)
 - Testcontainers (integration tests)
 - Checkstyle + hadolint + gitleaks + Trivy + PlantUML drift check + `mermaid-cli` (Mermaid lint) (static analysis composite gate via `make static-check`)
+
+## Architecture Notes
+
+- **C4 deployment diagram element budget**: `docs/diagrams/c4-deployment.puml` currently sits at 15 drawable boxes (host wrapper + cluster + 6 namespaces + 6 pods + `cloud-provider-kind`) — Simon Brown's soft cap for a single C4 view. Adding a 5th service tips it past the readable limit. The next service should drive a **view split** (e.g., move the `observability` namespace to its own diagram, or drop the host wrapper node) rather than packing more elements into the single deployment view.
 
 ## Upgrade Backlog
 
