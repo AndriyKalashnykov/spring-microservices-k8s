@@ -30,8 +30,12 @@ commandTests:
   # Orthogonal to metadataTest.user — proves the image ACTUALLY runs as UID
   # 10001 at startup. A later layer could in principle override USER; only
   # `id -u` inside the running container settles the runtime identity.
+  # The `(?m)` inline flag enables multiline mode so `$` matches before the
+  # trailing newline `id -u` always emits — without it, `^10001$` fails on
+  # the literal output `10001\n` (container-structure-test runs Go regex
+  # against the full stdout, not line-by-line).
   - name: "container runs as non-root UID 10001"
     command: "id"
     args: ["-u"]
     expectedOutput:
-      - "^10001$"
+      - "(?m)^10001$"

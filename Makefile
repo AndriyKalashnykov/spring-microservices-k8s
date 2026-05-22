@@ -361,7 +361,7 @@ container-structure-test: deps-docker image-build
 		docker run --rm \
 			-v /var/run/docker.sock:/var/run/docker.sock \
 			-v "$(CURDIR)/.container-structure-test.yaml:/test.yaml:ro" \
-			gcr.io/gcp-runtimes/container-structure-test:v1.19.3 \
+			gcr.io/gcp-runtimes/container-structure-test:v1.16.0 \
 			test --image $$svc:$(IMAGE_TAG) --config /test.yaml; \
 	done
 
