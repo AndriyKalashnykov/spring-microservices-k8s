@@ -1,0 +1,37 @@
+# container-structure-test config — validates the OCI-manifest-level Dockerfile
+# contract for every published service image (gateway, employee, department,
+# organization). The four Dockerfiles share the same shape (multi-stage extract
+# + eclipse-temurin jre-noble runtime, non-root UID 10001, EXPOSE 8080,
+# ENTRYPOINT java -jar app.jar) so one config validates all four.
+#
+# Why a separate gate from Trivy + smoke test:
+#   - Trivy catches CVEs in the image layers (vuln/secret/misconfig).
+#   - The smoke test proves the JVM starts and Spring Boot boots.
+#   - This config catches Dockerfile-contract drift — a USER reset to root
+#     (silently nullifies pod-security restrictions), a wrong EXPOSE (breaks
+#     Kubernetes Service routing), a changed entrypoint (never reaches main).
+#   None of the other two gates would catch these.
+#
+# Runner: gcr.io/gcp-runtimes/container-structure-test (pinned in
+# .github/workflows/ci.yml and Makefile).
+schemaVersion: 2.0.0
+
+metadataTest:
+  user: "10001"
+  exposedPorts:
+    - "8080"
+  workdir: "/application"
+  entrypoint:
+    - "java"
+    - "-jar"
+    - "app.jar"
+
+commandTests:
+  # Orthogonal to metadataTest.user — proves the image ACTUALLY runs as UID
+  # 10001 at startup. A later layer could in principle override USER; only
+  # `id -u` inside the running container settles the runtime identity.
+  - name: "container runs as non-root UID 10001"
+    command: "id"
+    args: ["-u"]
+    expectedOutput:
+      - "^10001$"

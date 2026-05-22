@@ -198,6 +198,7 @@ Three-layer test pyramid: unit → integration → end-to-end. Each layer runs i
 | `make diagrams` | Render PlantUML architecture diagrams under `docs/diagrams/` to PNG |
 | `make diagrams-check` | Verify committed PNGs match current `.puml` source (drift check for CI) |
 | `make diagrams-clean` | Remove rendered diagram PNGs |
+| `make container-structure-test` | Validate Dockerfile contracts (USER, EXPOSE, ENTRYPOINT) on built images |
 | `make cve-check` | Run OWASP dependency vulnerability scan |
 | `make coverage-generate` | Generate code coverage report |
 | `make coverage-check` | Verify code coverage meets minimum threshold |
@@ -280,7 +281,7 @@ GitHub Actions runs on every push to `master`, tags `v*`, and pull requests.
 | **test** | after static-check | Surefire unit + in-process controller tests (`**/*Test.java`) with JaCoCo coverage |
 | **integration-test** | after static-check | Failsafe Testcontainers integration tests (`**/*IT.java`) — real MongoDB per class plus WireMock for cross-service stubs |
 | **cve-check** | push to master AND tag pushes (skipped under `act`) | OWASP dependency vulnerability scan — gates the `docker` job on tag pushes |
-| **image-scan** | every push (matrix: 4 services) | Per-service Dockerfile validation gates 1–3: build single-arch image → Trivy image scan (CRITICAL/HIGH blocking) → Spring Boot boot-marker smoke test. Catches base-image CVE regressions and Dockerfile breakages on the commit that introduced them, not on release day. |
+| **image-scan** | every push (matrix: 4 services) | Per-service Dockerfile validation gates: build single-arch image → Trivy image scan (CRITICAL/HIGH blocking) → Spring Boot boot-marker smoke test → container-structure-test (OCI-manifest contract: USER non-root, EXPOSE, WORKDIR, ENTRYPOINT). Catches base-image CVE regressions, runtime breakages, and Dockerfile-contract drift on the commit that introduced them, not on release day. |
 | **e2e** | push/PR when KinD-relevant files change (skipped under `act`) | End-to-end test against a full Kind + cloud-provider-kind stack: `make e2e` cycles create → setup (MongoDB) → deploy (4 services + gateway LB) → `./e2e/e2e-test.sh` → destroy. |
 | **docker** | tag push only (matrix: 4 services) | Full pre-push hardening: build local image → Trivy image scan → Spring Boot smoke test → multi-arch (amd64+arm64) build with SLSA provenance + SBOM attestation → push to GHCR → cosign keyless OIDC signing. Depends on `build`, `test`, `cve-check`. |
 | **ci-pass** | always | Branch-protection aggregator: single required status check that verifies no upstream job failed or was cancelled. Skipped jobs do not trip the gate. |
