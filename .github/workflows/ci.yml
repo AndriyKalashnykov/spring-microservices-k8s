@@ -72,12 +72,17 @@ jobs:
               - '**/Dockerfile'
               - '**/src/**'
 
-      # Final outputs: under act, force `code` and `e2e` to true so the full
-      # pipeline runs locally (act users want full exercise, not selective
-      # skipping). Otherwise propagate the dorny/paths-filter result.
+      # Final outputs:
+      #   - under act, force `code`/`e2e` true so the full pipeline runs
+      #     locally (act users want full exercise, not selective skipping);
+      #   - on tag pushes, force them true too — a `v*` tag at master's HEAD
+      #     yields an empty paths-filter diff, which would skip `cve-check`
+      #     and cascade-skip the release `docker` job (green run, zero images
+      #     published). A tag is a release and MUST run every job.
+      # Otherwise propagate the dorny/paths-filter result.
       - id: outputs
         run: |
-          if [ "${{ vars.ACT }}" = "true" ]; then
+          if [ "${{ vars.ACT }}" = "true" ] || [ "${{ startsWith(github.ref, 'refs/tags/') }}" = "true" ]; then
             echo "code=true" >> "$GITHUB_OUTPUT"
             echo "e2e=true" >> "$GITHUB_OUTPUT"
           else

@@ -170,6 +170,14 @@ lint: deps
 GJF_JAR := $(HOME)/.cache/google-java-format/google-java-format-$(GJF_VERSION)-all-deps.jar
 GJF_URL := https://github.com/google/google-java-format/releases/download/v$(GJF_VERSION)/google-java-format-$(GJF_VERSION)-all-deps.jar
 
+# JDK-internal compiler packages google-java-format needs exported (JDK 16+).
+# Shared verbatim by the `format` and `format-check` recipes.
+GJF_EXPORTS := --add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED \
+	--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED \
+	--add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED \
+	--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED \
+	--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED
+
 $(GJF_JAR):
 	@mkdir -p $(dir $(GJF_JAR))
 	@echo "Downloading google-java-format $(GJF_VERSION)..."
@@ -178,23 +186,13 @@ $(GJF_JAR):
 #format: @ Auto-format Java source code (Google style)
 format: deps $(GJF_JAR)
 	@find . -path '*/src/main/java/*.java' -o -path '*/src/test/java/*.java' | \
-		xargs java --add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED \
-			--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED \
-			--add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED \
-			--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED \
-			--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED \
-			-jar $(GJF_JAR) --replace
+		xargs java $(GJF_EXPORTS) -jar $(GJF_JAR) --replace
 	@echo "Formatted all Java files with Google style."
 
 #format-check: @ Verify code formatting (CI gate)
 format-check: deps $(GJF_JAR)
 	@find . -path '*/src/main/java/*.java' -o -path '*/src/test/java/*.java' | \
-		xargs java --add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED \
-			--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED \
-			--add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED \
-			--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED \
-			--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED \
-			-jar $(GJF_JAR) --set-exit-if-changed --dry-run > /dev/null
+		xargs java $(GJF_EXPORTS) -jar $(GJF_JAR) --set-exit-if-changed --dry-run > /dev/null
 
 # ---------------------------------------------------------------------------
 # Code Quality
@@ -314,6 +312,13 @@ maven-settings-ossindex:
 # `-DnvdApiServerId=nvd` references the literal id of the `<server>` block
 # written by maven-settings-ossindex; the API key value lives in settings.xml
 # only — never in argv. Safe even on multi-user hosts (`ps -ef`, `/proc/<pid>/cmdline`).
+#
+# TODO(workaround): the CI `cve-check` job carries `continue-on-error: true` because
+# OWASP dependency-check 12.2.x cannot parse NVD's 9-digit nanosecond timestamps
+# (DateTimeParseException). Upstream: dependency-check/DependencyCheck#8424 and
+# jeremylong/open-vulnerability-clients#106. Remove the `continue-on-error` flag in
+# ci.yml and this note when ODC ships a release with the NVD-timestamp fix. See
+# CLAUDE.md upgrade-backlog item #1c for the full deferral rationale and triggers.
 cve-check: deps maven-settings-ossindex
 	@mvn -B org.owasp:dependency-check-maven:check \
 		$$([ -n "$$NVD_API_KEY" ] && echo "-DnvdApiServerId=nvd")
@@ -331,7 +336,9 @@ coverage-open:
 	@$(OPEN_CMD) ./employee-service/target/site/jacoco/index.html
 
 #static-check: @ Run all quality and security checks
-static-check: format-check diagrams-check mermaid-lint lint-ci lint lint-docker secrets trivy-fs trivy-config
+# `deps` is listed explicitly so a cold checkout reaches the mise toolchain
+# without relying on it being pulled transitively via format-check's prereqs.
+static-check: deps format-check diagrams-check mermaid-lint lint-ci lint lint-docker secrets trivy-fs trivy-config
 	@echo "Static check passed."
 
 # ---------------------------------------------------------------------------
@@ -546,7 +553,9 @@ logs-gateway: deps-kubectl
 # ---------------------------------------------------------------------------
 
 #ci: @ Run full local CI pipeline
-ci: deps static-check test integration-test coverage-generate coverage-check build cve-check deps-prune-check
+# `coverage-generate` runs the full unit suite (`mvn test` + jacoco:report), so a
+# standalone `test` prereq would execute the whole suite a second time — omitted.
+ci: deps static-check integration-test coverage-generate coverage-check build cve-check deps-prune-check
 	@echo "=== CI Complete ==="
 
 #ci-run: @ Run GitHub Actions workflow locally using act
@@ -605,10 +614,10 @@ renovate-bootstrap:
 renovate-validate: renovate-bootstrap
 	@[ -f renovate.json ] || { echo "Error: renovate.json not found"; exit 1; }
 	@if [ -n "$$GH_ACCESS_TOKEN" ]; then \
-		GITHUB_COM_TOKEN=$$GH_ACCESS_TOKEN npx --yes renovate --platform=local; \
+		GITHUB_COM_TOKEN=$$GH_ACCESS_TOKEN npx --yes renovate@latest --platform=local; \
 	else \
 		echo "Warning: GH_ACCESS_TOKEN not set, some dependency lookups may fail"; \
-		npx --yes renovate --platform=local; \
+		npx --yes renovate@latest --platform=local; \
 	fi
 
 .PHONY: help \

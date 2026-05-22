@@ -3,11 +3,11 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-brightgreen.svg)](https://opensource.org/licenses/MIT)
 [![Renovate enabled](https://img.shields.io/badge/renovate-enabled-brightgreen.svg)](https://app.renovatebot.com/dashboard#github/AndriyKalashnykov/spring-microservices-k8s)
 
-# Spring Boot microservices on Kubernetes with Spring Cloud, MongoDB, and Kind dev cluster
+# Runnable Spring Boot 4 Microservices on Kind
 
-Reference implementation of Spring Boot + Spring Cloud Kubernetes microservices with full CI hardening.
+Reference implementation of four Spring Boot 4 microservices — gateway, organization, department, employee — deployed to a local Kind cluster in one command, with Spring Cloud Kubernetes cross-namespace service discovery.
 
-Four services (gateway, organization, department, employee) deploy to isolated namespaces on a local Kind cluster with one command. The stack is fully wired: cross-namespace service discovery, inter-service REST calls via `@HttpExchange`, MongoDB persistence, distributed tracing, and an API gateway with Swagger UI. CI runs 8 pipeline stages — `static-check`, `build`, `test` (Surefire unit), `integration-test` (Failsafe + Testcontainers), `cve-check` (OWASP), `image-scan` (per-service Trivy + Spring Boot smoke test), `e2e` (full Kind stack), and `docker` (multi-arch publish with SLSA provenance + cosign signing). Everything is `make`-driven — `make kind-up` to run it, `make ci` to validate it, `make kind-down` to tear it down.
+The **runtime surface** is a Spring Cloud Gateway fronting REST services that call each other through declarative `@HttpExchange` clients, persist to MongoDB, and emit W3C-`traceparent` spans via Micrometer → OpenTelemetry OTLP → Jaeger, with Actuator health probes and a unified Swagger UI. The **delivery surface** is a Maven multi-module build, a `make static-check` composite quality gate, a three-layer test pyramid (Surefire unit → Testcontainers integration → full Kind e2e), and a hardened GHCR image pipeline (Trivy image scan + Spring Boot smoke test + SLSA provenance + SBOM + cosign keyless signing) — all from a mise-pinned toolchain with Renovate-managed dependencies, driven by `make kind-up` / `make ci` / `make kind-down`.
 
 <p align="center"><img src="docs/diagrams/out/c4-container.png" alt="C4 Container diagram — Spring Microservices on Kubernetes" width="720"></p>
 
@@ -15,12 +15,12 @@ Source: [`docs/diagrams/c4-container.puml`](docs/diagrams/c4-container.puml) —
 
 | Component | Technology | Rationale |
 |-----------|-----------|-----------|
-| Language | Java 25 | Current LTS-grade release; virtual threads + pattern matching + records make Spring Boot 4 code terser and more concurrent |
+| Language | Java 25 | Current LTS release (Oracle/Temurin 2-year LTS cadence, supported into 2033); virtual threads + pattern matching + records make Spring Boot 4 code terser and more concurrent |
 | Framework | Spring Boot 4.0, Spring Cloud 2025.1 | Mainstream Java microservices stack; Spring Boot 4 drops Spring Boot 2.x compat, adopts Jakarta EE 10, cleaner auto-configuration |
 | API Gateway | Spring Cloud Gateway Server WebMVC | Servlet-stack gateway (not reactive WebFlux) — simpler mental model, easier to instrument, matches the blocking RestClient used elsewhere |
 | Inter-service | RestClient with `@HttpExchange` | Native Spring declarative HTTP client; replaces Feign without pulling Netflix OSS; works with Spring Cloud LoadBalancer for service-discovery-aware calls |
 | Service Discovery | Spring Cloud Kubernetes | Uses the Kubernetes API as the registry — no Eureka/Consul to operate; `all-namespaces: true` enables cross-namespace discovery |
-| Database | MongoDB 8.0 (official `mongo` image, non-root UID 999, version-pinned) | Document model fits the Organization → Department → Employee aggregates without a migration toolchain; official image pinned for Renovate tracking |
+| Database | MongoDB 8.3 (official `mongo` image, non-root UID 999, version-pinned) | Document model fits the Organization → Department → Employee aggregates without a migration toolchain; official image pinned for Renovate tracking |
 | API Docs | SpringDoc OpenAPI 3.0 / Swagger UI | Auto-generates OpenAPI 3 from `@RestController` annotations; gateway surfaces a unified Swagger UI across all services |
 | Tracing | Micrometer Tracing → OpenTelemetry OTLP → Jaeger | Spans propagate across all four services via W3C `traceparent`, export over OTLP/HTTP to in-cluster Jaeger (`observability` namespace); UI via `make jaeger-open` |
 | Testing | Surefire (unit), Testcontainers (integration), Kind (e2e) | Three-layer pyramid: Surefire `*Test` for in-process controller slices, Failsafe `*IT` with real MongoDB per class (no mocking), real Kind cluster for e2e — catches schema drift and manifest bugs that in-process tests miss |
@@ -36,7 +36,6 @@ make deps          # check required tools
 make kind-up       # full cluster lifecycle: Kind + cloud-provider-kind + MongoDB + Jaeger + 4 services
 make e2e-test      # run end-to-end API tests
 make gateway-open  # open Swagger UI in browser
-make jaeger-open   # open Jaeger tracing UI in browser
 make kind-down     # tear everything down when finished
 ```
 
@@ -120,7 +119,7 @@ sequenceDiagram
   G-->>C: 200 application/json
 ```
 
-Steps 3–10 all happen inside the cluster via ClusterIP Services resolved through Spring Cloud Kubernetes `DiscoveryClient`. The gateway only sees the outer request (1) and final response (13). Trace headers (`traceparent`) propagate through every hop via Micrometer Tracing.
+Steps 2–13 all happen inside the cluster via ClusterIP Services resolved through Spring Cloud Kubernetes `DiscoveryClient`. The client sees only the outer request (1) and the final response (14). Trace headers (`traceparent`) propagate through every hop via Micrometer Tracing.
 
 See the full [Reference Architecture](docs/reference-architecture.md) for the Deployment diagram, Kubernetes DNS table, and per-manifest configuration details, and [Architecture Decision Records](docs/adr/) for the rationale behind key choices.
 
@@ -198,6 +197,7 @@ Three-layer test pyramid: unit → integration → end-to-end. Each layer runs i
 | `make trivy-config` | Scan Kubernetes manifests for security misconfigurations (KSV-*) |
 | `make diagrams` | Render PlantUML architecture diagrams under `docs/diagrams/` to PNG |
 | `make diagrams-check` | Verify committed PNGs match current `.puml` source (drift check for CI) |
+| `make diagrams-clean` | Remove rendered diagram PNGs |
 | `make cve-check` | Run OWASP dependency vulnerability scan |
 | `make coverage-generate` | Generate code coverage report |
 | `make coverage-check` | Verify code coverage meets minimum threshold |
