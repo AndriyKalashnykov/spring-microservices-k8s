@@ -2,12 +2,12 @@
 # For local builds: run `make build` first, then `make image-build`
 # For CI: the builds job produces JARs before Docker builds
 
-FROM eclipse-temurin:25.0.3_9-jre-noble@sha256:cd157c4b5fc66cc79d702a2096b4984fc1f893d59b1efcb134e066be8ef7f43c AS extract
+FROM eclipse-temurin:25.0.3_9-jre-noble@sha256:f9bd8815e73632c22985ebb133ec49b9fc4ad5ffe0657594ac02748ad0431ab7 AS extract
 WORKDIR /tmp
 COPY target/*.jar app.jar
 RUN java -Djarmode=tools -jar app.jar extract --layers --destination extracted
 
-FROM eclipse-temurin:25.0.3_9-jre-noble@sha256:cd157c4b5fc66cc79d702a2096b4984fc1f893d59b1efcb134e066be8ef7f43c AS runtime
+FROM eclipse-temurin:25.0.3_9-jre-noble@sha256:f9bd8815e73632c22985ebb133ec49b9fc4ad5ffe0657594ac02748ad0431ab7 AS runtime
 
 RUN groupadd -r appuser && useradd -r -g appuser -u 10001 -d /application appuser
 USER 10001
