@@ -50,7 +50,7 @@ import vmware.services.organization.repository.OrganizationRepository;
 @Import(OrganizationWithDepartmentsIT.WireMockClientConfig.class)
 class OrganizationWithDepartmentsIT {
 
-  @Container @ServiceConnection static MongoDBContainer mongo = new MongoDBContainer("mongo:8.3.2");
+  @Container @ServiceConnection static MongoDBContainer mongo = new MongoDBContainer("mongo:8.3.3");
 
   static WireMockServer departmentStub;
 
