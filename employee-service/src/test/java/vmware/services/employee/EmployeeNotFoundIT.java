@@ -23,7 +23,7 @@ import org.testcontainers.mongodb.MongoDBContainer;
 @ActiveProfiles("test")
 class EmployeeNotFoundIT {
 
-  @Container @ServiceConnection static MongoDBContainer mongo = new MongoDBContainer("mongo:8.3.3");
+  @Container @ServiceConnection static MongoDBContainer mongo = new MongoDBContainer("mongo:8.3.4");
 
   @Autowired RestTestClient client;
 
