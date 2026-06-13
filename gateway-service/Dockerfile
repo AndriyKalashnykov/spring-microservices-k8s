@@ -15,7 +15,7 @@ FROM eclipse-temurin:25.0.3_9-jre-noble@sha256:f9bd8815e73632c22985ebb133ec49b9f
 RUN apt-get update && apt-get upgrade -y \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-RUN groupadd -r appuser && useradd -r -g appuser -u 10001 -d /application appuser
+RUN groupadd -r appuser && useradd -l -u 10001 -g appuser -d /application -s /usr/sbin/nologin appuser
 USER 10001
 WORKDIR /application
 
