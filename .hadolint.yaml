@@ -1,4 +1,5 @@
 ignored:
+  - DL3005  # apt-get upgrade is the deliberate base-OS CVE-hygiene policy (see security rules); base images lag distro security rebuilds
   - DL3008  # Pin versions in apt-get install (not applicable — distroless base, no apt)
   - DL3018  # Pin versions in apk add (not applicable)
   - SC2035  # Use ./*glob* — intentional *.jar glob in layertools extract
