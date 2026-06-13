@@ -35,16 +35,16 @@ addresses the following concerns:
 | Component | Version |
 |-----------|---------|
 | Java | 25 |
-| Spring Boot | 4.0.5 |
-| Spring Cloud | 2025.1.1 |
-| Spring Cloud Kubernetes | 5.x (via 2025.1.1) |
+| Spring Boot | 4.1.0 |
+| Spring Cloud | 2025.1.2 |
+| Spring Cloud Kubernetes | 5.x (via 2025.1.2) |
 | Spring Cloud Gateway Server WebMVC | 5.0.x |
 | RestClient + @HttpExchange | Spring 7.x (native) |
 | Micrometer Tracing | OpenTelemetry bridge (`micrometer-tracing-bridge-otel`) |
 | Testcontainers | 2.0.x (managed by Spring Boot BOM) |
 | Spring Cloud LoadBalancer | 5.0.x |
 | SpringDoc OpenAPI | 3.0.2 |
-| MongoDB | 8.3.2 (official `mongo` image, non-root UID 999) |
+| MongoDB | 8.3.4 (official `mongo` image, non-root UID 999) |
 | Kubernetes | 1.35.0 (Kind node image, pinned) |
 | Kind | 0.31.0 |
 | cloud-provider-kind | 0.10.0 (host-side LoadBalancer controller, supersedes MetalLB) |
