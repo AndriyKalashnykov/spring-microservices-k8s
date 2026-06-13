@@ -129,9 +129,8 @@
       "groupName": "MongoDB"
     },
     {
-      "description": "Do not automerge the CVE-override pins (jackson-core, tomcat-embed-core, BouncyCastle) — these sit in <dependencyManagement> as a deliberate CVE-fix floor and must be reviewed by hand and removed once the Spring Boot BOM catches up (see CLAUDE.md upgrade backlog)",
+      "description": "Do not automerge the CVE-override pins (tomcat-embed-core, BouncyCastle) — these sit in <dependencyManagement> as a deliberate CVE-fix floor and must be reviewed by hand and removed once the Spring Boot BOM catches up (see CLAUDE.md upgrade backlog). jackson-core override removed once the Boot 4.1.0 BOM reached 3.1.4 (>= the GHSA-2m67-wjpj-xhg9 fix floor).",
       "matchPackageNames": [
-        "tools.jackson.core:jackson-core",
         "org.apache.tomcat.embed:tomcat-embed-core",
         "/^org\\.bouncycastle:/"
       ],
