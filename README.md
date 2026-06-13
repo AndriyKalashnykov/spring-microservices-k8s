@@ -16,7 +16,7 @@ Source: [`docs/diagrams/c4-container.puml`](docs/diagrams/c4-container.puml) —
 | Component | Technology | Rationale |
 |-----------|-----------|-----------|
 | Language | Java 25 | Current LTS release (Oracle/Temurin 2-year LTS cadence, supported into 2033); virtual threads + pattern matching + records make Spring Boot 4 code terser and more concurrent |
-| Framework | Spring Boot 4.0, Spring Cloud 2025.1 | Mainstream Java microservices stack; Spring Boot 4 drops Spring Boot 2.x compat, adopts Jakarta EE 10, cleaner auto-configuration |
+| Framework | Spring Boot 4.1, Spring Cloud 2025.1 | Mainstream Java microservices stack; Spring Boot 4 drops Spring Boot 2.x compat, adopts Jakarta EE 10, cleaner auto-configuration |
 | API Gateway | Spring Cloud Gateway Server WebMVC | Servlet-stack gateway (not reactive WebFlux) — simpler mental model, easier to instrument, matches the blocking RestClient used elsewhere |
 | Inter-service | RestClient with `@HttpExchange` | Native Spring declarative HTTP client; replaces Feign without pulling Netflix OSS; works with Spring Cloud LoadBalancer for service-discovery-aware calls |
 | Service Discovery | Spring Cloud Kubernetes | Uses the Kubernetes API as the registry — no Eureka/Consul to operate; `all-namespaces: true` enables cross-namespace discovery |
