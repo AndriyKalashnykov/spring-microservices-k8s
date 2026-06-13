@@ -93,19 +93,13 @@
       "groupName": "Docker base images"
     },
     {
-      "description": "Group Spring Boot dependencies",
-      "matchPackageNames": ["/^org\\.springframework\\.boot/"],
-      "groupName": "Spring Boot"
-    },
-    {
-      "description": "Group Spring Framework dependencies",
-      "matchPackageNames": ["/^org\\.springframework:/"],
-      "groupName": "Spring Framework"
-    },
-    {
-      "description": "Group Spring Cloud dependencies",
-      "matchPackageNames": ["/^org\\.springframework\\.cloud/"],
-      "groupName": "Spring Cloud"
+      "description": "Group Spring Boot + Spring Framework + Spring Cloud into ONE PR. These release trains are version-locked: Spring Cloud enforces a runtime CompatibilityVerifier against the Spring Boot version (e.g. Spring Cloud 2025.1.x supports Boot 4.0.x; 2025.1.2 / commons 5.0.2 added 4.1.x), and Spring Framework is governed by the Boot BOM. Bumping them in separate PRs yields individually-unmergeable PRs — a Boot-only bump fails the runtime verifier, a Cloud-only bump fails to compile. One group bumps them together so they pass/fail as a unit (see CLAUDE.md backlog #4).",
+      "matchPackageNames": [
+        "/^org\\.springframework\\.boot/",
+        "/^org\\.springframework:/",
+        "/^org\\.springframework\\.cloud/"
+      ],
+      "groupName": "Spring"
     },
     {
       "description": "Group Testcontainers dependencies",
