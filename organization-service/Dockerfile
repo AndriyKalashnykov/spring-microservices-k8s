@@ -9,6 +9,12 @@ RUN java -Djarmode=tools -jar app.jar extract --layers --destination extracted
 
 FROM eclipse-temurin:25.0.3_9-jre-noble@sha256:f9bd8815e73632c22985ebb133ec49b9fc4ad5ffe0657594ac02748ad0431ab7 AS runtime
 
+# Patch base-image OS packages for security fixes that lag the base rebuild
+# (e.g. CVE-2026-45447 in libssl3t64/openssl). Runs as root before the
+# non-root USER switch. DL3005 is intentionally allowed (see .hadolint.yaml).
+RUN apt-get update && apt-get upgrade -y \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
+
 RUN groupadd -r appuser && useradd -r -g appuser -u 10001 -d /application appuser
 USER 10001
 WORKDIR /application
