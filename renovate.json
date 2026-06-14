@@ -124,6 +124,11 @@
       "allowedVersions": "/^8\\.0\\./"
     },
     {
+      "description": "Lock kubectl (.mise.toml) to the cluster node's minor line (kindest/node v1.35.5 -> kubectl 1.35.x) for an exact apiserver match. The e2e job's paths-filter excludes .mise.toml, so a kubectl-only bump never runs e2e and CI cannot catch kubectl<->cluster skew drift — this constraint is the guard. Bump it together with the kind CLI + kindest/node when the cluster moves to a new minor.",
+      "matchPackageNames": ["kubernetes/kubernetes"],
+      "allowedVersions": "/^1\\.35\\./"
+    },
+    {
       "description": "Do not automerge the CVE-override pins (BouncyCastle) — these sit in <dependencyManagement> as a deliberate CVE-fix floor and must be reviewed by hand and removed once the Spring Boot BOM catches up (see CLAUDE.md upgrade backlog). jackson-core override removed once the Boot 4.1.0 BOM reached 3.1.4 (>= the GHSA-2m67-wjpj-xhg9 fix floor); tomcat-embed-core override removed once the Boot 4.1.0 BOM reached 11.0.22 (CVE-2026-34483/34486/34487 fix floor).",
       "matchPackageNames": [
         "/^org\\.bouncycastle:/"

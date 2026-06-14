@@ -62,6 +62,11 @@ jobs:
             code:
               - '!(**.md|docs/**|specs/**|LICENSE|.gitignore|.claudeignore|.claude/**|benchmarks/**|**.png|**.jpg|**.gif|**.svg)'
               - 'CLAUDE.md'
+              # PlantUML diagram sources are rendered to committed PNGs and gated by
+              # `diagrams-check` (part of static-check). Re-include them so a .puml-only
+              # change runs the drift gate instead of skipping it (which would let stale
+              # committed PNGs merge). docs/** is negated above; this restores just the sources.
+              - 'docs/diagrams/**/*.puml'
             e2e:
               - 'k8s/**'
               - 'pom.xml'
@@ -92,7 +97,7 @@ jobs:
 
   static-check:
     needs: [changes]
-    if: needs.changes.outputs.code == 'true'
+    if: ${{ !failure() && !cancelled() && needs.changes.outputs.code == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -117,7 +122,7 @@ jobs:
 
   test:
     needs: [changes, static-check]
-    if: needs.changes.outputs.code == 'true'
+    if: ${{ !failure() && !cancelled() && needs.changes.outputs.code == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -152,7 +157,7 @@ jobs:
 
   integration-test:
     needs: [changes, static-check]
-    if: needs.changes.outputs.code == 'true'
+    if: ${{ !failure() && !cancelled() && needs.changes.outputs.code == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -184,7 +189,7 @@ jobs:
 
   build:
     needs: [changes, static-check]
-    if: needs.changes.outputs.code == 'true'
+    if: ${{ !failure() && !cancelled() && needs.changes.outputs.code == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -249,11 +254,18 @@ jobs:
           install: true
           cache: true
 
+      - name: Compute ISO week for NVD cache rotation
+        id: nvdweek
+        run: echo "week=$(date -u +%Y-%V)" >> "$GITHUB_OUTPUT"
+
       - name: Cache NVD database
         uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
           path: ~/.m2/repository/org/owasp/dependency-check-data
-          key: nvd-db-${{ hashFiles('pom.xml') }}
+          # Rotate weekly: the NVD DB grows continuously, so a key tied to pom.xml
+          # (rarely changed) would serve a stale DB for weeks. ISO-week key refreshes
+          # every Monday; restore-keys falls back to the latest prior week's cache.
+          key: nvd-db-${{ steps.nvdweek.outputs.week }}
           restore-keys: nvd-db-
 
       - name: Create Maven settings for OSS Index
@@ -296,7 +308,7 @@ jobs:
   # tag pushes only.
   image-scan:
     needs: [changes, build]
-    if: needs.changes.outputs.code == 'true'
+    if: ${{ !failure() && !cancelled() && needs.changes.outputs.code == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     strategy:
@@ -410,7 +422,7 @@ jobs:
     # could affect KinD-deployed services (k8s manifests, code, build files,
     # Dockerfiles, the e2e script itself, the CI workflow). Matches skill
     # convention for the "what could break the cluster?" surface.
-    if: vars.ACT != 'true' && needs.changes.outputs.e2e == 'true'
+    if: ${{ !failure() && !cancelled() && vars.ACT != 'true' && needs.changes.outputs.e2e == 'true' }}
     needs: [changes, build, test]
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -433,7 +445,7 @@ jobs:
         run: make e2e
 
   docker:
-    if: startsWith(github.ref, 'refs/tags/')
+    if: ${{ !failure() && !cancelled() && startsWith(github.ref, 'refs/tags/') }}
     # Gate releases on the full pre-push hardening pipeline:
     #   build + test + cve-check (already passed) → image scan → smoke test → push (with provenance + SBOM) → cosign sign
     needs: [build, test, cve-check]

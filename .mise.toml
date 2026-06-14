@@ -18,11 +18,15 @@ node = "24"
 kind = "0.32.0"
 
 # kubectl — pinned for reproducibility (was previously the developer's system
-# kubectl, an unguarded version). Kept on the 1.35 line to match the kindest/node
-# v1.35.5 cluster; the kubectl<->cluster skew policy tolerates +/-1 minor, so a
-# Renovate bump to 1.36.x stays safe — only let it run one minor ahead of the node.
+# kubectl, an unguarded version). LOCKED to the cluster node's minor line
+# (kindest/node v1.35.5 -> kubectl 1.35.x) for an exact apiserver match (0 skew).
+# Renovate is constrained to 1.35.x in renovate.json; this bumps DELIBERATELY with
+# the cluster (kind CLI + kindest/node) rather than racing ahead. The lock matters
+# because the e2e job's paths-filter excludes .mise.toml, so a kubectl-only bump
+# never runs e2e -> CI cannot catch kubectl<->cluster skew drift; the constraint is
+# the guard, not CI.
 # renovate: datasource=github-releases depName=kubernetes/kubernetes extractVersion=^v(?<version>.*)$
-kubectl = "1.36.2"
+kubectl = "1.35.6"
 
 # renovate: datasource=github-releases depName=nektos/act extractVersion=^v(?<version>.*)$
 act = "0.2.89"
