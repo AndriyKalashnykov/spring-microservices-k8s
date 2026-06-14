@@ -27,7 +27,8 @@ import vmware.services.organization.repository.OrganizationRepository;
 @ActiveProfiles("test")
 class OrganizationRepositoryIT {
 
-  @Container @ServiceConnection static MongoDBContainer mongo = new MongoDBContainer("mongo:8.3.4");
+  @Container @ServiceConnection
+  static MongoDBContainer mongo = new MongoDBContainer("mongo:8.0.26");
 
   @Autowired OrganizationRepository repository;
 

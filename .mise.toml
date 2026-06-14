@@ -17,6 +17,13 @@ node = "24"
 # renovate: datasource=github-releases depName=kubernetes-sigs/kind extractVersion=^v(?<version>.*)$
 kind = "0.32.0"
 
+# kubectl — pinned for reproducibility (was previously the developer's system
+# kubectl, an unguarded version). Kept on the 1.35 line to match the kindest/node
+# v1.35.5 cluster; the kubectl<->cluster skew policy tolerates +/-1 minor, so a
+# Renovate bump to 1.36.x stays safe — only let it run one minor ahead of the node.
+# renovate: datasource=github-releases depName=kubernetes/kubernetes extractVersion=^v(?<version>.*)$
+kubectl = "1.35.6"
+
 # renovate: datasource=github-releases depName=nektos/act extractVersion=^v(?<version>.*)$
 act = "0.2.89"
 

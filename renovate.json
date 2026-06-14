@@ -117,15 +117,15 @@
       "groupName": "BouncyCastle"
     },
     {
-      "description": "Group the mongo image bump across the k8s manifest (kubernetes manager) and the Testcontainers + docs regex managers into one PR so the version stays consistent everywhere",
+      "description": "Group the mongo image bump across the k8s manifest (kubernetes manager) and the Testcontainers + docs regex managers into one PR so the version stays consistent everywhere. Constrained to the 8.0 LTS line (EOL 2029-10-31) via allowedVersions: Renovate lands 8.0.x security patches but never jumps to a short-lived rapid-release line (8.1/8.2/8.3/8.4). See CLAUDE.md upgrade backlog #5.",
       "matchDatasources": ["docker"],
       "matchPackageNames": ["mongo"],
-      "groupName": "MongoDB"
+      "groupName": "MongoDB",
+      "allowedVersions": "/^8\\.0\\./"
     },
     {
-      "description": "Do not automerge the CVE-override pins (tomcat-embed-core, BouncyCastle) — these sit in <dependencyManagement> as a deliberate CVE-fix floor and must be reviewed by hand and removed once the Spring Boot BOM catches up (see CLAUDE.md upgrade backlog). jackson-core override removed once the Boot 4.1.0 BOM reached 3.1.4 (>= the GHSA-2m67-wjpj-xhg9 fix floor).",
+      "description": "Do not automerge the CVE-override pins (BouncyCastle) — these sit in <dependencyManagement> as a deliberate CVE-fix floor and must be reviewed by hand and removed once the Spring Boot BOM catches up (see CLAUDE.md upgrade backlog). jackson-core override removed once the Boot 4.1.0 BOM reached 3.1.4 (>= the GHSA-2m67-wjpj-xhg9 fix floor); tomcat-embed-core override removed once the Boot 4.1.0 BOM reached 11.0.22 (CVE-2026-34483/34486/34487 fix floor).",
       "matchPackageNames": [
-        "org.apache.tomcat.embed:tomcat-embed-core",
         "/^org\\.bouncycastle:/"
       ],
       "automerge": false
