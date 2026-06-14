@@ -28,10 +28,10 @@ System_Boundary(platform, "Spring Microservices Platform") {
     Container(department, "Department Service", "Spring Boot 4.1.0, Java 25", "Departments CRUD; calls Employee via @HttpExchange")
     Container(organization, "Organization Service", "Spring Boot 4.1.0, Java 25", "Organizations CRUD; calls Department + Employee via @HttpExchange")
 
-    ContainerDb(mongo, "MongoDB 8.3", "MongoDB", "Shared datastore; per-service database")
+    ContainerDb(mongo, "MongoDB 8.0", "MongoDB", "Shared datastore; per-service database")
 }
 
-System_Ext(jaeger, "Jaeger 2.18", "OTel-Collector-based tracing backend (OTLP receiver + UI on :16686)")
+System_Ext(jaeger, "Jaeger 2.19", "OTel-Collector-based tracing backend (OTLP receiver + UI on :16686)")
 
 Rel(client, gateway, "HTTPS")
 Rel(gateway, employee,     "routes /employee/**",     "HTTP")

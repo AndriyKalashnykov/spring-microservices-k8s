@@ -44,9 +44,9 @@ addresses the following concerns:
 | Testcontainers | 2.0.x (managed by Spring Boot BOM) |
 | Spring Cloud LoadBalancer | 5.0.x |
 | SpringDoc OpenAPI | 3.0.2 |
-| MongoDB | 8.3.4 (official `mongo` image, non-root UID 999) |
-| Kubernetes | 1.35.0 (Kind node image, pinned) |
-| Kind | 0.31.0 |
+| MongoDB | 8.0.26 (official `mongo` image, non-root UID 999) |
+| Kubernetes | 1.35.5 (Kind node image, pinned) |
+| Kind | 0.32.0 |
 | cloud-provider-kind | 0.10.0 (host-side LoadBalancer controller, supersedes MetalLB) |
 
 ## Reference Architecture
@@ -355,7 +355,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: mongodb
-          image: mongo:8.3.4
+          image: mongo:8.0.26
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: false
@@ -584,7 +584,7 @@ individual target.
 Run all checks:
 
 ```bash
-make static-check    # format-check + lint-ci + lint + lint-docker + secrets + trivy-fs + trivy-config + diagrams-check
+make static-check    # format-check + diagrams-check + mermaid-lint + lint-ci + lint + lint-docker + secrets + trivy-fs + trivy-config
 make cve-check       # OWASP Dependency-Check — slower, runs in its own CI job
 make deps-prune      # check for unused Maven dependencies
 make deps-prune-check # CI gate version — fails on unused or undeclared deps
@@ -610,7 +610,7 @@ Key properties of the runtime image:
   — the `-jre-noble` variant ships a minimal Ubuntu 24.04 LTS base with only
   the JRE, keeping the image size modest while still providing a usable
   shell for debugging
-- **Non-root with a numeric UID** (`useradd -r -u 10001`) — Kubernetes's
+- **Non-root with a numeric UID** (`useradd -l -u 10001`) — Kubernetes's
   restricted Pod Security Standard requires `runAsNonRoot: true` to be
   verifiable from the manifest, which needs a numeric UID in the image
 - **Spring Boot layered JAR** — application code is in its own layer so
@@ -631,7 +631,7 @@ RUN java -Djarmode=layertools -jar app.jar extract
 
 FROM eclipse-temurin:25-jre-noble AS runtime
 
-RUN groupadd -r appuser && useradd -r -g appuser -u 10001 -d /application appuser
+RUN groupadd -r appuser && useradd -l -u 10001 -g appuser -d /application -s /usr/sbin/nologin appuser
 USER 10001
 WORKDIR /application
 
@@ -834,9 +834,12 @@ and allocates IPs for every `type: LoadBalancer` Service automatically.
 Supersedes MetalLB — see [ADR-0006](adr/0006-cloud-provider-kind-over-metallb.md)
 for the rationale.
 
-The Kind node image is pinned (`KIND_NODE_IMAGE := v1.35.0` in the Makefile,
-Renovate-tracked) so every `make kind-up` gets identical Kubernetes across
-machines and CI runners.
+The Kind node image is pinned (`KIND_NODE_IMAGE := v1.35.5` in the Makefile,
+digest-locked) so every `make kind-up` gets identical Kubernetes across
+machines and CI runners. It is intentionally **not** Renovate-tracked: the
+node image is version-locked to the pinned `kind` CLI (it must be one of the
+pre-built images that `kind` ships), so it bumps only together with `kind` in
+`.mise.toml`, never independently.
 
 Two tiers of targets — `kind-up` / `kind-down` for the common "just bring
 the stack up" and "tear it down" flows, and granular targets for
@@ -905,13 +908,13 @@ GitHub Actions runs on every push to `master`, tags `v*`, and pull requests.
 
 | Job | Triggers | Steps |
 |-----|----------|-------|
-| **static-check** | push, PR | `make static-check` composite gate: format-check, lint-ci (actionlint), lint (Checkstyle + compiler warnings-as-errors), lint-docker (hadolint), secrets (gitleaks), trivy-fs, trivy-config, diagrams-check |
+| **static-check** | push, PR | `make static-check` composite gate: format-check, diagrams-check (PlantUML drift), mermaid-lint (mermaid-cli), lint-ci (actionlint), lint (Checkstyle + compiler warnings-as-errors), lint-docker (hadolint), secrets (gitleaks), trivy-fs, trivy-config |
 | **build** | after static-check | Build all modules with Maven, upload JARs as `service-jars` artifact |
 | **test** | after static-check | Run Testcontainers integration tests + coverage |
 | **cve-check** | push to master AND tag pushes (skipped under `act`) | OWASP dependency vulnerability scan — gates the `docker` job on tag pushes |
-| **image-scan** | every push (matrix: 4 services) | Per-service Dockerfile validation gates 1–3: build single-arch image → Trivy image scan (CRITICAL/HIGH blocking) → Spring Boot boot-marker smoke test |
+| **image-scan** | every push (matrix: 4 services) | Per-service Dockerfile validation gates 1–3: build single-arch image → Trivy image scan (CRITICAL/HIGH blocking) → Spring Boot boot-marker smoke test → container-structure-test (OCI contract: non-root USER, EXPOSE, WORKDIR, ENTRYPOINT) |
 | **e2e** | every push (skipped under `act`) | End-to-end test against a full Kind + cloud-provider-kind stack: `make e2e` cycles create → setup (MongoDB) → deploy (4 services + gateway LB) → `./e2e/e2e-test.sh` → destroy |
-| **docker** | tag push only (matrix: 4 services) | Full pre-push hardening: build local image → Trivy image scan → Spring Boot smoke test → multi-arch (amd64+arm64) build with SLSA provenance + SBOM attestation → push to GHCR → cosign keyless OIDC signing |
+| **docker** | tag push only (matrix: 4 services) | Full pre-push hardening: build local image → Trivy image scan → Spring Boot smoke test → multi-arch (amd64+arm64) build → push to GHCR → cosign keyless OIDC signing (SLSA provenance + SBOM attestation disabled until a downstream verifier exists) |
 | **ci-pass** | always | Branch-protection aggregator: single required status check that verifies no upstream job failed. Skipped jobs do not trip the gate. |
 
 The release-time `docker` job is documented in detail in the

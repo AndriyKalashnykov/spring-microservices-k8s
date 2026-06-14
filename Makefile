@@ -37,12 +37,15 @@ SEMVER_RE := ^[0-9]+\.[0-9]+\.[0-9]+$$
 # there via inline comments). .java-version and .nvmrc remain the secondary
 # sources for CI tooling that reads them directly (mise reads both natively).
 #
-# Not Renovate-tracked: must match a Kubernetes version shipped by the pinned
-# kind version. kind 0.31.0 supports: v1.35.0 (default), v1.34.3, v1.33.7,
-# v1.32.11, v1.31.14. Bump together with kind per kind release notes.
+# Intentionally NOT Renovate-tracked: kindest/node is version-LOCKED to the
+# pinned kind CLI — it must be one of the pre-built images that kind ships, so
+# it cannot bump independently of `kind` (per the kind <-> kindest/node catalog
+# pairing rule). kind 0.32.0 ships: v1.36.1, v1.35.5 (default), v1.34.8,
+# v1.33.12. Bump this image ONLY together with the kind CLI in .mise.toml, to a
+# version in the NEW catalog (re-read the target kind release notes each time).
 # Digest-pinned for image immutability (the manifest-list digest covers both
 # linux/amd64 and linux/arm64 variants).
-KIND_NODE_IMAGE   := kindest/node:v1.35.0@sha256:4613778f3cfcd10e615029370f5786704559103cf27bef934597ba562b269661
+KIND_NODE_IMAGE   := kindest/node:v1.35.5@sha256:ce977ae6d65918d0b58a5f8b5e940429c2ce42fa3a5619ec2bbc60b949c0ac95
 # renovate: datasource=github-releases depName=kubernetes-sigs/cloud-provider-kind extractVersion=^v(?<version>.*)$
 CLOUD_PROVIDER_KIND_VERSION := 0.10.0
 # renovate: datasource=github-releases depName=google/google-java-format extractVersion=^v(?<version>.*)$
@@ -58,6 +61,13 @@ MERMAID_CLI_VERSION := 11.15.0
 # Source of truth: .java-version (read by CI via java-version-file); not Renovate-trackable.
 # Used by deps target to verify the installed Java major matches the project.
 JAVA_MAJOR        := $(shell cat .java-version 2>/dev/null || echo 25)
+
+# Service ports used when building LoadBalancer URLs in recipes below. These
+# MIRROR the k8s Service manifest ports (gateway: k8s/gateway-deployment.yaml,
+# jaeger UI: k8s/jaeger-deployment.yaml) — change them there too if you retune.
+# `?=` lets an operator override without editing recipes.
+GATEWAY_PORT      ?= 8080
+JAEGER_UI_PORT    ?= 16686
 
 # ---------------------------------------------------------------------------
 # Help
@@ -457,7 +467,7 @@ kind-deploy: kind-create kind-setup image-build
 	@for i in $$(seq 1 30); do \
 		EXTERNAL_IP=$$(kubectl get svc gateway -n gateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null); \
 		if [ -n "$$EXTERNAL_IP" ] && [ "$$EXTERNAL_IP" != "<pending>" ]; then \
-			echo "Gateway available at http://$$EXTERNAL_IP:8080"; \
+			echo "Gateway available at http://$$EXTERNAL_IP:$(GATEWAY_PORT)"; \
 			break; \
 		fi; \
 		echo "  waiting for LoadBalancer IP... ($$i/30)"; \
@@ -508,7 +518,7 @@ e2e-test: deps-kubectl
 #populate: @ Populate test data via gateway
 populate: deps-docker deps-kubectl
 	@EXTERNAL_IP=$$(kubectl get svc gateway -n gateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}'); \
-	BASE_URL="http://$$EXTERNAL_IP:8080"; \
+	BASE_URL="http://$$EXTERNAL_IP:$(GATEWAY_PORT)"; \
 	echo "Gateway URL: $$BASE_URL"; \
 	echo "Adding employees..."; \
 	curl -sf -X POST "$$BASE_URL/employee/" -H "Content-Type: application/json" \
@@ -533,17 +543,17 @@ populate: deps-docker deps-kubectl
 #gateway-url: @ Print gateway LoadBalancer URL
 gateway-url: deps-kubectl
 	@EXTERNAL_IP=$$(kubectl get svc gateway -n gateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}'); \
-	echo "http://$$EXTERNAL_IP:8080"
+	echo "http://$$EXTERNAL_IP:$(GATEWAY_PORT)"
 
 #gateway-open: @ Open Swagger UI in browser
 gateway-open: deps-kubectl
 	@EXTERNAL_IP=$$(kubectl get svc gateway -n gateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}'); \
-	$(OPEN_CMD) "http://$$EXTERNAL_IP:8080/swagger-ui.html"
+	$(OPEN_CMD) "http://$$EXTERNAL_IP:$(GATEWAY_PORT)/swagger-ui.html"
 
 #jaeger-open: @ Open Jaeger tracing UI in browser
 jaeger-open: deps-kubectl
 	@EXTERNAL_IP=$$(kubectl get svc jaeger -n observability -o jsonpath='{.status.loadBalancer.ingress[0].ip}'); \
-	$(OPEN_CMD) "http://$$EXTERNAL_IP:16686/"
+	$(OPEN_CMD) "http://$$EXTERNAL_IP:$(JAEGER_UI_PORT)/"
 
 #logs-employee: @ Tail employee service logs
 logs-employee: deps-kubectl
