@@ -57,6 +57,8 @@ NODE_VERSION      := $(shell cat .nvmrc 2>/dev/null || echo 22)
 PLANTUML_VERSION    := 1.2026.6
 # renovate: datasource=docker depName=minlag/mermaid-cli
 MERMAID_CLI_VERSION := 11.15.0
+# renovate: datasource=github-releases depName=GoogleContainerTools/container-structure-test extractVersion=^v(?<version>.*)$
+CONTAINER_STRUCTURE_TEST_VERSION := 1.22.1
 
 # Source of truth: .java-version (read by CI via java-version-file); not Renovate-trackable.
 # Used by deps target to verify the installed Java major matches the project.
@@ -371,7 +373,7 @@ container-structure-test: deps-docker image-build
 		docker run --rm \
 			-v /var/run/docker.sock:/var/run/docker.sock \
 			-v "$(CURDIR)/.container-structure-test.yaml:/test.yaml:ro" \
-			gcr.io/gcp-runtimes/container-structure-test:v1.16.0 \
+			gcr.io/gcp-runtimes/container-structure-test:v$(CONTAINER_STRUCTURE_TEST_VERSION) \
 			test --image $$svc:$(IMAGE_TAG) --config /test.yaml; \
 	done
 
@@ -492,6 +494,11 @@ kind-redeploy: kind-undeploy kind-deploy
 #kind-destroy: @ Delete KinD cluster and stop cloud-provider-kind
 kind-destroy: deps-kind
 	@docker rm -f cloud-provider-kind 2>/dev/null || true
+	@# Prune cloud-provider-kind's per-Service `kindccm-<hash>` Envoy sidecars.
+	@# Removing the controller above does NOT remove them; orphans hold IPs in the
+	@# kind Docker subnet and a later kind-up can inherit a stale Envoy config
+	@# (pointed at dead pods) -> "Connection reset by peer" on first e2e curl.
+	@docker ps -aq --filter name=kindccm- | xargs -r docker rm -f 2>/dev/null || true
 	@kind delete cluster --name $(KIND_CLUSTER_NAME) 2>/dev/null || true
 	@echo "KinD cluster '$(KIND_CLUSTER_NAME)' deleted."
 
@@ -593,6 +600,10 @@ ci-run: deps-act
 	[ -n "$$NVD_API_KEY" ] && secret_args+=(--secret NVD_API_KEY); \
 	[ -n "$$OSS_INDEX_USER" ] && secret_args+=(--secret OSS_INDEX_USER); \
 	[ -n "$$OSS_INDEX_TOKEN" ] && secret_args+=(--secret OSS_INDEX_TOKEN); \
+	if [ -z "$$GITHUB_TOKEN" ] && command -v gh >/dev/null 2>&1; then \
+		export GITHUB_TOKEN="$$(gh auth token 2>/dev/null)"; \
+	fi; \
+	[ -n "$$GITHUB_TOKEN" ] && secret_args+=(--secret GITHUB_TOKEN); \
 	act push --container-architecture linux/amd64 \
 		--pull=false \
 		--artifact-server-port "$$ACT_PORT" \
