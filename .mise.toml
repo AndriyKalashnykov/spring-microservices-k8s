@@ -22,7 +22,7 @@ kind = "0.32.0"
 # v1.35.5 cluster; the kubectl<->cluster skew policy tolerates +/-1 minor, so a
 # Renovate bump to 1.36.x stays safe — only let it run one minor ahead of the node.
 # renovate: datasource=github-releases depName=kubernetes/kubernetes extractVersion=^v(?<version>.*)$
-kubectl = "1.35.6"
+kubectl = "1.36.2"
 
 # renovate: datasource=github-releases depName=nektos/act extractVersion=^v(?<version>.*)$
 act = "0.2.89"
