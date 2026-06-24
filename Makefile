@@ -47,7 +47,7 @@ SEMVER_RE := ^[0-9]+\.[0-9]+\.[0-9]+$$
 # linux/amd64 and linux/arm64 variants).
 KIND_NODE_IMAGE   := kindest/node:v1.35.5@sha256:ce977ae6d65918d0b58a5f8b5e940429c2ce42fa3a5619ec2bbc60b949c0ac95
 # renovate: datasource=github-releases depName=kubernetes-sigs/cloud-provider-kind extractVersion=^v(?<version>.*)$
-CLOUD_PROVIDER_KIND_VERSION := 0.10.0
+CLOUD_PROVIDER_KIND_VERSION := 0.11.0
 # renovate: datasource=github-releases depName=google/google-java-format extractVersion=^v(?<version>.*)$
 GJF_VERSION       := 1.35.0
 # Source of truth: .nvmrc (major version only, e.g., "22"); not Renovate-trackable.
