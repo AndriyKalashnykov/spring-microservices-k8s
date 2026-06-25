@@ -46,7 +46,15 @@ SEMVER_RE := ^[0-9]+\.[0-9]+\.[0-9]+$$
 # Digest-pinned for image immutability (the manifest-list digest covers both
 # linux/amd64 and linux/arm64 variants).
 KIND_NODE_IMAGE   := kindest/node:v1.35.5@sha256:ce977ae6d65918d0b58a5f8b5e940429c2ce42fa3a5619ec2bbc60b949c0ac95
-# renovate: datasource=github-releases depName=kubernetes-sigs/cloud-provider-kind extractVersion=^v(?<version>.*)$
+# This version is consumed ONLY as the container-image tag
+# registry.k8s.io/cloud-provider-kind/cloud-controller-manager:v$(CLOUD_PROVIDER_KIND_VERSION)
+# (see kind-create). Track the actual REGISTRY (datasource=docker), NOT GitHub
+# releases: registry.k8s.io is fed by the k8s image-promotion pipeline, which
+# lags the upstream GitHub release by hours-to-days. A github-releases datasource
+# proposes a tag the moment the release is cut — before the image is promoted —
+# so `docker run` 404s with `manifest unknown` and e2e fails. The docker
+# datasource can only ever propose a tag that is actually published.
+# renovate: datasource=docker depName=registry.k8s.io/cloud-provider-kind/cloud-controller-manager extractVersion=^v(?<version>.*)$
 CLOUD_PROVIDER_KIND_VERSION := 0.10.0
 # renovate: datasource=github-releases depName=google/google-java-format extractVersion=^v(?<version>.*)$
 GJF_VERSION       := 1.35.0
@@ -57,8 +65,17 @@ NODE_VERSION      := $(shell cat .nvmrc 2>/dev/null || echo 22)
 PLANTUML_VERSION    := 1.2026.6
 # renovate: datasource=docker depName=minlag/mermaid-cli
 MERMAID_CLI_VERSION := 11.15.0
-# renovate: datasource=github-releases depName=GoogleContainerTools/container-structure-test extractVersion=^v(?<version>.*)$
-CONTAINER_STRUCTURE_TEST_VERSION := 1.22.1
+# This version is consumed ONLY as the container-image tag
+# gcr.io/gcp-runtimes/container-structure-test:v$(CONTAINER_STRUCTURE_TEST_VERSION)
+# (see container-structure-test target + the ci.yml image-scan job). Track the
+# REGISTRY (datasource=docker), NOT GitHub releases: upstream FROZE the gcr.io
+# image at v1.16.0 ("Container builds are currently not updated with new
+# releases" — github.com/GoogleContainerTools/container-structure-test) while
+# the standalone binary releases continue to 1.22.x. A github-releases datasource
+# bumped this to 1.22.1, but that image tag does not exist (gcr.io max is
+# v1.16.0), so `docker run` 404s. Pinned to the real published image max.
+# renovate: datasource=docker depName=gcr.io/gcp-runtimes/container-structure-test extractVersion=^v(?<version>.*)$
+CONTAINER_STRUCTURE_TEST_VERSION := 1.16.0
 
 # Source of truth: .java-version (read by CI via java-version-file); not Renovate-trackable.
 # Used by deps target to verify the installed Java major matches the project.

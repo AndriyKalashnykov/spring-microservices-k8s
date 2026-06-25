@@ -63,6 +63,14 @@
         "image:\\s+(?<depName>mongo):(?<currentValue>[0-9]+\\.[0-9]+\\.[0-9]+)"
       ],
       "datasourceTemplate": "docker"
+    },
+    {
+      "customType": "regex",
+      "description": "Track container-image tags pinned in GitHub Actions workflow `run:` steps via inline `# renovate:` comments on shell `VAR=\"tag\"` assignments. Currently the container-structure-test image in ci.yml's image-scan job (gcr.io/gcp-runtimes/container-structure-test, frozen upstream at v1.16.0; kept in lockstep with the Makefile's CONTAINER_STRUCTURE_TEST_VERSION). datasource=docker — the image registry — never github-releases, because the gcr.io image is frozen while the GitHub binary releases continue past it.",
+      "managerFilePatterns": ["/^\\.github/workflows/.+\\.ya?ml$/"],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>[^\\s]+) depName=(?<depName>[^\\s]+)(?: versioning=(?<versioning>[^\\s]+))?(?: extractVersion=(?<extractVersion>[^\\s]+))?\\s+[A-Z_]+=\"(?<currentValue>[^\"]+)\""
+      ]
     }
   ],
   "vulnerabilityAlerts": {
@@ -77,7 +85,7 @@
       "minimumReleaseAge": "3 days"
     },
     {
-      "description": "Regex-managed docker refs (Makefile PlantUML/mermaid-cli, docs mongo, Testcontainers) don't capture currentDigest — skip digest pinning to avoid Renovate 'update failure' on pin-dependencies branch",
+      "description": "Regex-managed docker refs (Makefile PlantUML/mermaid-cli/cloud-provider-kind/container-structure-test, docs mongo, Testcontainers, workflow container-structure-test) don't capture currentDigest — skip digest pinning to avoid Renovate 'update failure' on pin-dependencies branch",
       "matchManagers": ["custom.regex"],
       "matchDatasources": ["docker"],
       "pinDigests": false
