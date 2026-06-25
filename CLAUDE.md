@@ -57,7 +57,7 @@ make kind-undeploy # Remove services but keep the cluster running
 
 ## CI/CD
 
-- **ci.yml** -- `changes` (dorny/paths-filter gate that drives every downstream `needs:`/`if:`), `static-check` (composite quality gate incl. PlantUML `diagrams-check`), `build`, `test` (coverage), `integration-test` (Failsafe `**/*IT.java`), `cve-check` (OWASP, push-to-master + tag only), `image-scan` (per-service Trivy + Spring Boot smoke test + container-structure-test on every push), `e2e` (Kind-based full stack on every push), `docker` (tag-gated, 4-service matrix with multi-arch + cosign keyless signing; SLSA provenance + SBOM disabled until a downstream verifier exists), `ci-pass` (branch-protection aggregator)
+- **ci.yml** -- `changes` (dorny/paths-filter gate that drives every downstream `needs:`/`if:`), `static-check` (composite quality gate incl. PlantUML `diagrams-check`), `build`, `test` (coverage), `integration-test` (Failsafe `**/*IT.java`), `cve-check` (OWASP, **tag pushes + weekly schedule + dispatch** — OFF the per-push path: slow NVD feed + `continue-on-error`, blocking dep-CVE coverage is Trivy `trivy-fs`/`image-scan` on every push), `image-scan` (per-service Trivy + Spring Boot smoke test + container-structure-test on every push), `e2e` (Kind-based full stack on every push), `docker` (tag-gated, 4-service matrix with multi-arch + cosign keyless signing; SLSA provenance + SBOM disabled until a downstream verifier exists), `ci-pass` (branch-protection aggregator)
 - **cleanup-runs.yml** -- weekly cleanup of old workflow runs
 
 ## Tech Stack
