@@ -399,11 +399,17 @@ jobs:
       # entrypoint. Runs on every push so Dockerfile-contract drift fails the
       # commit that introduced it, not just the release.
       - name: Container structure test
+        # Image tag kept in lockstep with CONTAINER_STRUCTURE_TEST_VERSION in the
+        # Makefile (both pinned to gcr.io's frozen max v1.16.0 — see that var's
+        # comment). Tracked by the `.github/workflows` docker customManager in
+        # renovate.json so the literal can't drift silently.
         run: |
+          # renovate: datasource=docker depName=gcr.io/gcp-runtimes/container-structure-test extractVersion=^v(?<version>.*)$
+          CST_VERSION="1.16.0"
           docker run --rm \
             -v /var/run/docker.sock:/var/run/docker.sock \
             -v "$PWD/.container-structure-test.yaml:/test.yaml:ro" \
-            gcr.io/gcp-runtimes/container-structure-test:v1.16.0 \
+            "gcr.io/gcp-runtimes/container-structure-test:v${CST_VERSION}" \
             test --image "${{ matrix.service }}:scan" --config /test.yaml
 
       - name: Cleanup smoke container
