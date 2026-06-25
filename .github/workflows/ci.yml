@@ -227,20 +227,22 @@ jobs:
   cve-check:
     needs: [changes, static-check]
     # Runs on:
-    #   - push to master AND tag pushes  (release-time gate — the docker job
-    #     depends on it; master-push kept while OWASP step is continue-on-error
-    #     pending NVD nanosecond-timestamp upstream fix — see CLAUDE.md #1c)
+    #   - TAG pushes only                 (release-time gate — the docker job
+    #     depends on it). NOT on plain master pushes: the OWASP NVD scan is slow
+    #     (~minutes, downloads the NVD feed) AND continue-on-error (so it never
+    #     blocks a master push anyway), while the BLOCKING dependency-CVE coverage
+    #     already runs on every push via Trivy — `trivy-fs` inside `static-check`
+    #     and the per-service `image-scan` (CRITICAL/HIGH, exit 1). Keeping OWASP
+    #     off the per-push path removes a multi-minute wait from every master
+    #     merge with no loss of blocking coverage. See CLAUDE.md #1c.
     #   - weekly schedule                 (catches new NVD advisories landing
-    #     on unchanged deps between releases)
+    #     on unchanged deps between releases — the between-release safety net)
     #   - workflow_dispatch               (ad-hoc rescan after a new CVE drop)
     # Skipped under local act runs because the OWASP NVD download is slow.
     # Also skipped on doc-only changes (changes.outputs.code == 'false').
     if: |
       vars.ACT != 'true' && needs.changes.outputs.code == 'true' && (
-        (github.event_name == 'push' && (
-          github.ref == 'refs/heads/master' ||
-          startsWith(github.ref, 'refs/tags/')
-        )) ||
+        (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')) ||
         github.event_name == 'schedule' ||
         github.event_name == 'workflow_dispatch'
       )
