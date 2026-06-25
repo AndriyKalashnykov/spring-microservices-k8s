@@ -364,10 +364,25 @@ coverage-check: coverage-generate
 coverage-open:
 	@$(OPEN_CMD) ./employee-service/target/site/jacoco/index.html
 
+#check-toolchain-alignment: @ Verify the Java major version agrees across .java-version, .mise.toml, and all module poms
+check-toolchain-alignment:
+	@set -e; \
+	jv=$$(cat .java-version | tr -d '[:space:]'); \
+	mise=$$(grep -oE '^java[[:space:]]*=[[:space:]]*"[0-9]+' .mise.toml | grep -oE '[0-9]+'); \
+	fail=0; \
+	for svc in $(SERVICES); do \
+		p=$$svc-service; \
+		pv=$$(grep -oE '<java.version>[0-9]+' $$p/pom.xml | grep -oE '[0-9]+'); \
+		if [ "$$pv" != "$$jv" ] || [ "$$pv" != "$$mise" ]; then \
+			echo "Java major mismatch: $$p/pom.xml=$$pv .java-version=$$jv .mise.toml=$$mise"; fail=1; \
+		fi; \
+	done; \
+	if [ "$$fail" -eq 0 ]; then echo "Java toolchain aligned at major $$jv"; else exit 1; fi
+
 #static-check: @ Run all quality and security checks
 # `deps` is listed explicitly so a cold checkout reaches the mise toolchain
 # without relying on it being pulled transitively via format-check's prereqs.
-static-check: deps format-check diagrams-check mermaid-lint lint-ci lint lint-docker secrets trivy-fs trivy-config
+static-check: check-toolchain-alignment deps format-check diagrams-check mermaid-lint lint-ci lint lint-docker secrets trivy-fs trivy-config
 	@echo "Static check passed."
 
 # ---------------------------------------------------------------------------
@@ -484,7 +499,7 @@ kind-deploy: kind-create kind-setup image-build
 	done
 	@echo "Waiting for gateway LoadBalancer IP..."
 	@for i in $$(seq 1 30); do \
-		EXTERNAL_IP=$$(kubectl get svc gateway -n gateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null); \
+		EXTERNAL_IP=$$($(KUBECTL) get svc gateway -n gateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null); \
 		if [ -n "$$EXTERNAL_IP" ] && [ "$$EXTERNAL_IP" != "<pending>" ]; then \
 			echo "Gateway available at http://$$EXTERNAL_IP:$(GATEWAY_PORT)"; \
 			break; \
@@ -541,7 +556,7 @@ e2e-test: deps-kubectl
 
 #populate: @ Populate test data via gateway
 populate: deps-docker deps-kubectl
-	@EXTERNAL_IP=$$(kubectl get svc gateway -n gateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}'); \
+	@EXTERNAL_IP=$$($(KUBECTL) get svc gateway -n gateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}'); \
 	BASE_URL="http://$$EXTERNAL_IP:$(GATEWAY_PORT)"; \
 	echo "Gateway URL: $$BASE_URL"; \
 	echo "Adding employees..."; \
@@ -566,17 +581,17 @@ populate: deps-docker deps-kubectl
 
 #gateway-url: @ Print gateway LoadBalancer URL
 gateway-url: deps-kubectl
-	@EXTERNAL_IP=$$(kubectl get svc gateway -n gateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}'); \
+	@EXTERNAL_IP=$$($(KUBECTL) get svc gateway -n gateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}'); \
 	echo "http://$$EXTERNAL_IP:$(GATEWAY_PORT)"
 
 #gateway-open: @ Open Swagger UI in browser
 gateway-open: deps-kubectl
-	@EXTERNAL_IP=$$(kubectl get svc gateway -n gateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}'); \
+	@EXTERNAL_IP=$$($(KUBECTL) get svc gateway -n gateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}'); \
 	$(OPEN_CMD) "http://$$EXTERNAL_IP:$(GATEWAY_PORT)/swagger-ui.html"
 
 #jaeger-open: @ Open Jaeger tracing UI in browser
 jaeger-open: deps-kubectl
-	@EXTERNAL_IP=$$(kubectl get svc jaeger -n observability -o jsonpath='{.status.loadBalancer.ingress[0].ip}'); \
+	@EXTERNAL_IP=$$($(KUBECTL) get svc jaeger -n observability -o jsonpath='{.status.loadBalancer.ingress[0].ip}'); \
 	$(OPEN_CMD) "http://$$EXTERNAL_IP:$(JAEGER_UI_PORT)/"
 
 #logs-employee: @ Tail employee service logs
@@ -678,7 +693,7 @@ renovate-validate: renovate-bootstrap
 	lint-ci lint-docker secrets trivy-fs trivy-config \
 	diagrams diagrams-check diagrams-clean mermaid-lint \
 	maven-settings-ossindex cve-check \
-	coverage-generate coverage-check coverage-open static-check \
+	coverage-generate coverage-check coverage-open check-toolchain-alignment static-check \
 	image-build image-load container-structure-test \
 	kind-create kind-setup kind-deploy kind-undeploy kind-redeploy kind-destroy kind-up kind-down \
 	e2e e2e-test populate \

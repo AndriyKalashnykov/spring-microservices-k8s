@@ -24,7 +24,7 @@
   "labels": ["dependencies"],
   "prConcurrentLimit": 50,
   "prHourlyLimit": 0,
-  "platformAutomerge": true,
+  "platformAutomerge": false,
   "automerge": true,
   "automergeType": "pr",
   "automergeStrategy": "squash",
@@ -71,6 +71,14 @@
       "matchStrings": [
         "# renovate: datasource=(?<datasource>[^\\s]+) depName=(?<depName>[^\\s]+)(?: versioning=(?<versioning>[^\\s]+))?(?: extractVersion=(?<extractVersion>[^\\s]+))?\\s+[A-Z_]+=\"(?<currentValue>[^\"]+)\""
       ]
+    },
+    {
+      "customType": "regex",
+      "description": "Track the pinned C4-PlantUML stdlib version in the !include URLs across docs/diagrams/*.puml. One bump PR edits every occurrence. AUTOMERGE DISABLED (see packageRule): a stdlib bump requires regenerating the committed PNGs (make diagrams), which hosted Renovate cannot do — diagrams-check will go RED until a maintainer regenerates + commits the PNGs.",
+      "managerFilePatterns": ["/^docs/diagrams/.+\\.puml$/"],
+      "matchStrings": ["plantuml-stdlib/C4-PlantUML/(?<currentValue>v[0-9][^/]*)/"],
+      "datasourceTemplate": "github-tags",
+      "depNameTemplate": "plantuml-stdlib/C4-PlantUML"
     }
   ],
   "vulnerabilityAlerts": {
@@ -141,6 +149,16 @@
       "matchPackageNames": [
         "/^org\\.bouncycastle:/"
       ],
+      "automerge": false
+    },
+    {
+      "description": "Hold mise tool bumps 3 days so the upstream release artifact that mise installs is published before the PR opens (tag-before-release-publish trap; partial buffer — the real backstop is the required ci-pass check).",
+      "matchManagers": ["mise"],
+      "minimumReleaseAge": "3 days"
+    },
+    {
+      "description": "Do not automerge C4-PlantUML stdlib bumps — they require manual `make diagrams` PNG regeneration before diagrams-check passes.",
+      "matchDepNames": ["plantuml-stdlib/C4-PlantUML"],
       "automerge": false
     },
     {

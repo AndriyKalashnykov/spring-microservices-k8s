@@ -63,7 +63,7 @@ spec:
               valueFrom:
                 configMapKeyRef:
                   name: employee
-                  key: management.otlp.tracing.endpoint
+                  key: management.opentelemetry.tracing.export.otlp.endpoint
             # spring-boot-starter-opentelemetry brings in OTLP exporters for
             # tracing AND metrics AND logging. Tracing is the only one this
             # project routes to Jaeger; metrics flow to Prometheus via the
