@@ -2,6 +2,7 @@ package vmware.services.organization;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.anyRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.anyUrl;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.core.WireMockConfiguration;
@@ -30,6 +31,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.mongodb.MongoDBContainer;
 import vmware.services.organization.client.DepartmentClient;
 import vmware.services.organization.client.EmployeeClient;
+import vmware.services.organization.model.Organization;
 import vmware.services.organization.repository.OrganizationRepository;
 
 /**
@@ -91,6 +93,30 @@ class OrganizationNotFoundIT {
     repository.deleteAll();
     departmentStub.resetAll();
     employeeStub.resetAll();
+  }
+
+  @Test
+  void shouldReturnOrganizationOnFindByIdWhenIdExists() {
+    Organization saved = repository.save(new Organization("MegaCorp", "Main Street"));
+    String orgId = saved.getId();
+
+    client
+        .get()
+        .uri("/" + orgId)
+        .exchange()
+        .expectStatus()
+        .isOk()
+        .expectBody(Organization.class)
+        .value(
+            body -> {
+              assertThat(body.getId()).isEqualTo(orgId);
+              assertThat(body.getName()).isEqualTo("MegaCorp");
+              assertThat(body.getAddress()).isEqualTo("Main Street");
+            });
+
+    // Plain GET /{id} performs no fan-out — neither peer is touched.
+    departmentStub.verify(0, anyRequestedFor(anyUrl()));
+    employeeStub.verify(0, anyRequestedFor(anyUrl()));
   }
 
   @Test

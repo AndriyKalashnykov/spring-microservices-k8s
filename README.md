@@ -9,14 +9,14 @@ Reference implementation of four Spring Boot 4 microservices — gateway, organi
 
 The **runtime surface** is a Spring Cloud Gateway fronting REST services that call each other through declarative `@HttpExchange` clients, persist to MongoDB, and emit W3C-`traceparent` spans via Micrometer → OpenTelemetry OTLP → Jaeger, with Actuator health probes and a unified Swagger UI. The **delivery surface** is a Maven multi-module build, a `make static-check` composite quality gate, a three-layer test pyramid (Surefire unit → Testcontainers integration → full Kind e2e), and a hardened GHCR image pipeline (Trivy image scan + Spring Boot smoke test + container-structure-test + cosign keyless OIDC signing) — all from a mise-pinned toolchain with Renovate-managed dependencies, driven by `make kind-up` / `make ci` / `make kind-down`.
 
-<p align="center"><img src="docs/diagrams/out/c4-container.png" alt="C4 Container diagram — Spring Microservices on Kubernetes" width="720"></p>
+<p align="center"><img src="docs/diagrams/out/c4-container.png" alt="C4 Container diagram — Spring Microservices on Kubernetes" width="360"></p>
 
 Source: [`docs/diagrams/c4-container.puml`](docs/diagrams/c4-container.puml) — PlantUML + [C4-PlantUML](https://github.com/plantuml-stdlib/C4-PlantUML) with a modern flat skinparam block (no shadows, sharp corners, Inter font, teal/indigo/violet palette). Regenerate with `make diagrams`.
 
 | Component | Technology | Rationale |
 |-----------|-----------|-----------|
 | Language | Java 25 | Current LTS release (Oracle/Temurin 2-year LTS cadence, supported into 2033); virtual threads + pattern matching + records make Spring Boot 4 code terser and more concurrent |
-| Framework | Spring Boot 4.1, Spring Cloud 2025.1 | Mainstream Java microservices stack; Spring Boot 4 drops Spring Boot 2.x compat, adopts Jakarta EE 10, cleaner auto-configuration |
+| Framework | Spring Boot 4.1, Spring Cloud 2025.1.2 | Mainstream Java microservices stack; Spring Boot 4 drops Spring Boot 2.x compat, adopts Jakarta EE 10, cleaner auto-configuration |
 | API Gateway | Spring Cloud Gateway Server WebMVC | Servlet-stack gateway (not reactive WebFlux) — simpler mental model, easier to instrument, matches the blocking RestClient used elsewhere |
 | Inter-service | RestClient with `@HttpExchange` | Native Spring declarative HTTP client; replaces Feign without pulling Netflix OSS; works with Spring Cloud LoadBalancer for service-discovery-aware calls |
 | Service Discovery | Spring Cloud Kubernetes | Uses the Kubernetes API as the registry — no Eureka/Consul to operate; `all-namespaces: true` enables cross-namespace discovery |

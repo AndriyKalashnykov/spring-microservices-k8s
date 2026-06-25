@@ -118,6 +118,33 @@ class OrganizationWithEmployeesIT {
             .withHeader("Accept", equalTo("application/json")));
   }
 
+  @Test
+  void shouldReturnOrganizationWithEmptyEmployeesWhenPeerHasNone() {
+    Organization saved = repository.save(new Organization("MegaCorp", "Main Street"));
+    String orgId = saved.getId();
+
+    employeeStub.stubFor(
+        get(urlPathMatching("/organization/" + orgId))
+            .willReturn(aResponse().withHeader("Content-Type", "application/json").withBody("[]")));
+
+    client
+        .get()
+        .uri("/" + orgId + "/with-employees")
+        .exchange()
+        .expectStatus()
+        .isOk()
+        .expectBody(Organization.class)
+        .value(
+            body -> {
+              assertThat(body.getName()).isEqualTo("MegaCorp");
+              assertThat(body.getEmployees()).isEmpty();
+            });
+
+    employeeStub.verify(
+        getRequestedFor(urlPathMatching("/organization/" + orgId))
+            .withHeader("Accept", equalTo("application/json")));
+  }
+
   @TestConfiguration
   static class WireMockClientConfig {
 

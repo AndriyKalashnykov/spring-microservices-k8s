@@ -134,6 +134,35 @@ class OrganizationDeepFanOutIT {
   }
 
   /**
+   * Locks the current peer-failure contract: when the department-service peer returns 5xx during
+   * the deep fan-out, the controller has no graceful-degradation path — the exception from {@link
+   * DepartmentClient#findByOrganizationWithEmployees(String)} propagates and the caller sees 5xx
+   * too. Mirrors {@code DepartmentWithEmployeesIT}'s peer-failure contract. If a future change adds
+   * graceful degradation (e.g., return the org with an empty {@code departments[]} on peer
+   * failure), this assertion is updated intentionally.
+   */
+  @Test
+  void shouldPropagatePeerFailureWhenDepartmentServiceReturns5xx() {
+    Organization saved = repository.save(new Organization("MegaCorp", "Main Street"));
+    String orgId = saved.getId();
+
+    departmentStub.stubFor(
+        get(urlPathMatching("/organization/" + orgId + "/with-employees"))
+            .willReturn(aResponse().withStatus(500).withBody("Department Service Down")));
+
+    client
+        .get()
+        .uri("/" + orgId + "/with-departments-and-employees")
+        .exchange()
+        .expectStatus()
+        .is5xxServerError();
+
+    // The peer WAS called — the controller's failure is a propagated 5xx, not a short-circuit.
+    departmentStub.verify(
+        getRequestedFor(urlPathMatching("/organization/" + orgId + "/with-employees")));
+  }
+
+  /**
    * Test-scoped overrides for {@link DepartmentClient} and {@link EmployeeClient}. Production beans
    * resolve {@code http://department} / {@code http://employee} via Spring Cloud LoadBalancer; here
    * we point them at the WireMock stubs injected via {@code @DynamicPropertySource}.

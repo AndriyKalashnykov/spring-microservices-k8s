@@ -51,7 +51,7 @@ addresses the following concerns:
 
 ## Reference Architecture
 
-<p align="center"><img src="diagrams/out/c4-context.png" alt="C4 Context diagram — Spring Microservices Platform" width="720"></p>
+<p align="center"><img src="diagrams/out/c4-context.png" alt="C4 Context diagram — Spring Microservices Platform" width="380"></p>
 
 Source: [`diagrams/c4-context.puml`](diagrams/c4-context.puml) — PlantUML + C4-PlantUML, modern flat theme.
 
@@ -80,7 +80,7 @@ The application is built with these open source components:
 - [SpringDoc OpenAPI](https://springdoc.org/): OpenAPI 3 documentation with
   Swagger UI.
 
-<p align="center"><img src="diagrams/out/c4-container.png" alt="C4 Container diagram" width="720"></p>
+<p align="center"><img src="diagrams/out/c4-container.png" alt="C4 Container diagram" width="360"></p>
 
 Source: [`diagrams/c4-container.puml`](diagrams/c4-container.puml) — PlantUML + C4-PlantUML, modern flat theme.
 
