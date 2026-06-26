@@ -55,7 +55,7 @@ KIND_NODE_IMAGE   := kindest/node:v1.35.5@sha256:ce977ae6d65918d0b58a5f8b5e94042
 # so `docker run` 404s with `manifest unknown` and e2e fails. The docker
 # datasource can only ever propose a tag that is actually published.
 # renovate: datasource=docker depName=registry.k8s.io/cloud-provider-kind/cloud-controller-manager extractVersion=^v(?<version>.*)$
-CLOUD_PROVIDER_KIND_VERSION := 0.11.0
+CLOUD_PROVIDER_KIND_VERSION := 0.11.1
 # renovate: datasource=github-releases depName=google/google-java-format extractVersion=^v(?<version>.*)$
 GJF_VERSION       := 1.35.0
 # Source of truth: .nvmrc (major version only, e.g., "22"); not Renovate-trackable.
