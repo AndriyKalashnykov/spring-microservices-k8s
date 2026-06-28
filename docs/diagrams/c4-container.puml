@@ -1,6 +1,10 @@
 @startuml c4-container
 !include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/v2.13.0/C4_Container.puml
 
+' Left-to-right layout keeps the rendered PNG landscape instead of a tall
+' portrait tower, so it embeds at a reasonable height in the architecture docs.
+LAYOUT_LEFT_RIGHT()
+
 ' Modern flat styling: no shadows, sharper corners, clean sans-serif, modern palette.
 skinparam backgroundColor #FAFAFA
 skinparam shadowing false

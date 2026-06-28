@@ -13,3 +13,6 @@ dependency-reduced-pom.xml
 *.log
 Thumbs.db
 .claude/
+
+# PlantUML render version-stamp sentinel (re-render trigger, not output)
+docs/diagrams/out/.plantuml-*.stamp

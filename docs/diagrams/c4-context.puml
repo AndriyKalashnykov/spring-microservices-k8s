@@ -1,7 +1,16 @@
 @startuml c4-context
 !include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/v2.13.0/C4_Context.puml
 
+' Left-to-right layout keeps the rendered PNG landscape (wide, not a tall
+' portrait tower) so it embeds cleanly as the README hero without overflowing
+' the page height.
+LAYOUT_LEFT_RIGHT()
+
 ' Modern flat styling: no shadows, sharper corners, clean sans-serif, modern palette.
+' Higher DPI renders a larger-resolution PNG so the README hero can embed at a
+' bigger width without upscaling/blur (this is the hero diagram; the Container
+' and Deployment views stay at the default 96 dpi).
+skinparam dpi 150
 skinparam backgroundColor #FAFAFA
 skinparam shadowing false
 skinparam roundCorner 4

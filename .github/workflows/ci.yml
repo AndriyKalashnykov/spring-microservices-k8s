@@ -241,7 +241,7 @@ jobs:
     # Skipped under local act runs because the OWASP NVD download is slow.
     # Also skipped on doc-only changes (changes.outputs.code == 'false').
     if: |
-      vars.ACT != 'true' && needs.changes.outputs.code == 'true' && (
+      !failure() && !cancelled() && vars.ACT != 'true' && needs.changes.outputs.code == 'true' && (
         (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')) ||
         github.event_name == 'schedule' ||
         github.event_name == 'workflow_dispatch'
@@ -455,7 +455,7 @@ jobs:
   docker:
     if: ${{ !failure() && !cancelled() && startsWith(github.ref, 'refs/tags/') }}
     # Gate releases on the full pre-push hardening pipeline:
-    #   build + test + cve-check (already passed) → image scan → smoke test → push (with provenance + SBOM) → cosign sign
+    #   build + test + cve-check (already passed) → image scan → smoke test → push (Pattern A, no in-manifest attestations) → cosign sign
     needs: [build, test, cve-check]
     runs-on: ubuntu-latest
     timeout-minutes: 30
