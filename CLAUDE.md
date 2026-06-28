@@ -48,6 +48,14 @@ make kind-setup    # Configure namespaces, RBAC, deploy MongoDB
 make kind-deploy   # Build, load, and deploy all services
 ```
 
+### Doc Health
+
+```bash
+make check-readme-images  # Verify external README images (badges, star-history chart) resolve to an image/* body
+```
+
+`check-readme-images` is intentionally **manual-only** — not a `static-check`/CI prerequisite — because it hits external services (shields.io, star-history.com, hits.sh) that are transiently flaky and would redden unrelated PRs (same posture as `cve-check`). Run it on demand or after a push to confirm badges/charts render on github.com.
+
 ## Teardown
 
 ```bash

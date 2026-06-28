@@ -9,9 +9,9 @@ Reference implementation of four Spring Boot 4 microservices — gateway, organi
 
 The **runtime surface** is a Spring Cloud Gateway fronting REST services that call each other through declarative `@HttpExchange` clients, persist to MongoDB, and emit W3C-`traceparent` spans via Micrometer → OpenTelemetry OTLP → Jaeger, with Actuator health probes and a unified Swagger UI. The **delivery surface** is a Maven multi-module build, a `make static-check` composite quality gate, a three-layer test pyramid (Surefire unit → Testcontainers integration → full Kind e2e), and a hardened GHCR image pipeline (Trivy image scan + Spring Boot smoke test + container-structure-test + cosign keyless OIDC signing) — all from a mise-pinned toolchain with Renovate-managed dependencies, driven by `make kind-up` / `make ci` / `make kind-down`.
 
-<p align="center"><img src="docs/diagrams/out/c4-container.png" alt="C4 Container diagram — Spring Microservices on Kubernetes" width="360"></p>
+<p align="center"><img src="docs/diagrams/out/c4-context.png" alt="C4 Context diagram — Spring Microservices on Kubernetes" width="1024"></p>
 
-Source: [`docs/diagrams/c4-container.puml`](docs/diagrams/c4-container.puml) — PlantUML + [C4-PlantUML](https://github.com/plantuml-stdlib/C4-PlantUML) with a modern flat skinparam block (no shadows, sharp corners, Inter font, teal/indigo/violet palette). Regenerate with `make diagrams`.
+Source: [`docs/diagrams/c4-context.puml`](docs/diagrams/c4-context.puml) — PlantUML + [C4-PlantUML](https://github.com/plantuml-stdlib/C4-PlantUML) with a modern flat skinparam block (no shadows, sharp corners, Inter font, teal/indigo/violet palette). The full Container and Deployment views live in [`docs/reference-architecture.md`](docs/reference-architecture.md). Regenerate with `make diagrams`.
 
 | Component | Technology | Rationale |
 |-----------|-----------|-----------|
@@ -27,12 +27,12 @@ Source: [`docs/diagrams/c4-container.puml`](docs/diagrams/c4-container.puml) —
 | Containers | Eclipse Temurin 25, multi-arch (amd64+arm64) | Temurin is the reference OpenJDK build; multi-arch covers Apple Silicon dev + x86 servers from a single manifest |
 | Local K8s | Kind + cloud-provider-kind | Kind runs a real Kubernetes API in Docker — higher fidelity than Minikube; cloud-provider-kind (kind-team maintained, lives in `kubernetes-sigs/`) runs host-side and allocates LoadBalancer IPs on the `kind` Docker network. Supersedes MetalLB — simpler lifecycle, no in-cluster footprint, kindest/node bumps supported day-one |
 | CI/CD | GitHub Actions, Renovate, GHCR | GitHub-native, zero extra infrastructure; Renovate auto-merges minor/patch dependency updates; GHCR avoids Docker Hub pull-rate limits |
-| Code Quality | google-java-format, Checkstyle, hadolint, gitleaks, actionlint, Trivy, PlantUML | Composite `make static-check` gate — format + lint + Dockerfile lint + secret scan + workflow lint + filesystem/K8s config CVE scan + diagram drift — fails the build on any single violation |
+| Code Quality | google-java-format, Checkstyle, hadolint, gitleaks, actionlint, Trivy, PlantUML, Mermaid lint | Composite `make static-check` gate — toolchain-alignment + format + lint + Dockerfile lint + secret scan + workflow lint + filesystem/K8s config CVE scan + PlantUML & Mermaid diagram drift — fails the build on any single violation |
 
 ## Quick Start
 
 ```bash
-make deps          # check required tools
+make deps          # install mise + the pinned toolchain
 make kind-up       # full cluster lifecycle: Kind + cloud-provider-kind + MongoDB + Jaeger + 4 services
 make e2e-test      # run end-to-end API tests
 make gateway-open  # open Swagger UI in browser
@@ -76,7 +76,7 @@ This architecture follows Cloud Native best practices and [The 12 Factor App](ht
 - **API documentation** exposed via Swagger UI
 - **Docker images** built with layered JARs using the Spring Boot plugin
 - **Observability** via Prometheus exporters + distributed tracing (Micrometer → OTLP → Jaeger)
-- **Static analysis** via google-java-format, Checkstyle, hadolint, gitleaks, actionlint, Trivy (filesystem + K8s config), and PlantUML diagram drift check — all wired into the `make static-check` composite gate
+- **Static analysis** via google-java-format, Checkstyle, hadolint, gitleaks, actionlint, Trivy (filesystem + K8s config), PlantUML & Mermaid diagram drift checks, and a toolchain-alignment guard — all wired into the `make static-check` composite gate
 
 ### Service Communication
 
@@ -338,4 +338,4 @@ Contributions welcome — open a PR. Run `make static-check` locally before push
 
 ## Stargazers over time
 
-[![Stargazers over time](https://starchart.cc/AndriyKalashnykov/spring-microservices-k8s.svg?variant=adaptive)](https://starchart.cc/AndriyKalashnykov/spring-microservices-k8s)
+[![Stargazers over time](https://api.star-history.com/svg?repos=AndriyKalashnykov/spring-microservices-k8s&type=Date)](https://star-history.com/#AndriyKalashnykov/spring-microservices-k8s&Date)

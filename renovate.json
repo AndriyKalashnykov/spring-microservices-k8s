@@ -35,7 +35,7 @@
       "description": "Update Makefile tool versions via inline renovate comments",
       "managerFilePatterns": ["/^Makefile$/"],
       "matchStrings": [
-        "# renovate: datasource=(?<datasource>[^\\s]+) depName=(?<depName>[^\\s]+)( versioning=(?<versioning>[^\\s]+))?( extractVersion=(?<extractVersion>[^\\s]+))?\\n[A-Z_]+\\s*:=\\s*(?<currentValue>[^\\s]+)"
+        "# renovate: datasource=(?<datasource>[^\\s]+) depName=(?<depName>[^\\s]+)( versioning=(?<versioning>[^\\s]+))?( extractVersion=(?<extractVersion>[^\\s]+))?\\n[A-Z0-9_]+\\s*:=\\s*(?<currentValue>[^\\s]+)"
       ]
     },
     {
@@ -43,7 +43,7 @@
       "description": "Update .mise.toml tool pins via inline renovate comments",
       "managerFilePatterns": ["/^\\.mise\\.toml$/"],
       "matchStrings": [
-        "# renovate: datasource=(?<datasource>[^\\s]+) depName=(?<depName>[^\\s]+)( extractVersion=(?<extractVersion>[^\\s]+))?( versioning=(?<versioning>[^\\s]+))?\\n[a-zA-Z_-]+\\s*=\\s*\"(?<currentValue>[^\"]+)\""
+        "# renovate: datasource=(?<datasource>[^\\s]+) depName=(?<depName>[^\\s]+)( extractVersion=(?<extractVersion>[^\\s]+))?( versioning=(?<versioning>[^\\s]+))?\\n[a-zA-Z0-9_-]+\\s*=\\s*\"(?<currentValue>[^\"]+)\""
       ]
     },
     {
@@ -69,7 +69,7 @@
       "description": "Track container-image tags pinned in GitHub Actions workflow `run:` steps via inline `# renovate:` comments on shell `VAR=\"tag\"` assignments. Currently the container-structure-test image in ci.yml's image-scan job (gcr.io/gcp-runtimes/container-structure-test, frozen upstream at v1.16.0; kept in lockstep with the Makefile's CONTAINER_STRUCTURE_TEST_VERSION). datasource=docker — the image registry — never github-releases, because the gcr.io image is frozen while the GitHub binary releases continue past it.",
       "managerFilePatterns": ["/^\\.github/workflows/.+\\.ya?ml$/"],
       "matchStrings": [
-        "# renovate: datasource=(?<datasource>[^\\s]+) depName=(?<depName>[^\\s]+)(?: versioning=(?<versioning>[^\\s]+))?(?: extractVersion=(?<extractVersion>[^\\s]+))?\\s+[A-Z_]+=\"(?<currentValue>[^\"]+)\""
+        "# renovate: datasource=(?<datasource>[^\\s]+) depName=(?<depName>[^\\s]+)(?: versioning=(?<versioning>[^\\s]+))?(?: extractVersion=(?<extractVersion>[^\\s]+))?\\s+[A-Z0-9_]+=\"(?<currentValue>[^\"]+)\""
       ]
     },
     {
@@ -145,6 +145,12 @@
       "allowedVersions": "/^1\\.35\\./"
     },
     {
+      "description": "Lock the eclipse-temurin base image to the Java 25 major. The Dockerfile temurin pin is the only Renovate-tracked Java coordinate (poms/.mise.toml/.java-version are major-only and manually bumped), so without this lock a 25->26 bump would land CI-green (Java-25 bytecode runs on a JRE-26 base) while the rest of the toolchain stays 25 — a silent runtime/compile-target split. The Java major is a deliberate coordinated event (see CLAUDE.md backlog #3); bump this allowedVersions together with poms/.mise.toml/.java-version. check-toolchain-alignment now also guards the Dockerfile<->pom major.",
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["eclipse-temurin"],
+      "allowedVersions": "/^25\\./"
+    },
+    {
       "description": "Do not automerge the CVE-override pins (BouncyCastle) — these sit in <dependencyManagement> as a deliberate CVE-fix floor and must be reviewed by hand and removed once the Spring Boot BOM catches up (see CLAUDE.md upgrade backlog). jackson-core override removed once the Boot 4.1.0 BOM reached 3.1.4 (>= the GHSA-2m67-wjpj-xhg9 fix floor); tomcat-embed-core override removed once the Boot 4.1.0 BOM reached 11.0.22 (CVE-2026-34483/34486/34487 fix floor).",
       "matchPackageNames": [
         "/^org\\.bouncycastle:/"
@@ -152,8 +158,9 @@
       "automerge": false
     },
     {
-      "description": "Hold mise tool bumps 3 days so the upstream release artifact that mise installs is published before the PR opens (tag-before-release-publish trap; partial buffer — the real backstop is the required ci-pass check).",
-      "matchManagers": ["mise"],
+      "description": "Hold .mise.toml tool bumps 3 days so the upstream release artifact that mise installs is published before the PR opens (tag-before-release-publish trap; partial buffer — the real backstop is the required ci-pass check). Scoped to the custom.regex manager + .mise.toml file because the mise manager is NOT enabled (.mise.toml is tracked via custom.regex); a matchManagers:[\"mise\"] rule would be inert config.",
+      "matchManagers": ["custom.regex"],
+      "matchFileNames": [".mise.toml"],
       "minimumReleaseAge": "3 days"
     },
     {

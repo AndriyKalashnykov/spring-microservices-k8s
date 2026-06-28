@@ -88,6 +88,10 @@ JAVA_MAJOR        := $(shell cat .java-version 2>/dev/null || echo 25)
 GATEWAY_PORT      ?= 8080
 JAEGER_UI_PORT    ?= 16686
 
+# External-image health check (scripts/check-external-images.sh) timeout/retries.
+CURL_MAX_TIME_SECONDS ?= 20
+CURL_RETRIES          ?= 2
+
 # ---------------------------------------------------------------------------
 # Help
 # ---------------------------------------------------------------------------
@@ -250,11 +254,23 @@ trivy-config: deps
 DIAGRAM_DIR := docs/diagrams
 DIAGRAM_SRC := $(wildcard $(DIAGRAM_DIR)/*.puml)
 DIAGRAM_OUT := $(patsubst $(DIAGRAM_DIR)/%.puml,$(DIAGRAM_DIR)/out/%.png,$(DIAGRAM_SRC))
+# Version-stamped sentinel: its NAME encodes PLANTUML_VERSION, so a renderer
+# bump (e.g. Renovate) changes the prereq, re-fires every PNG rule, and forces a
+# full re-render. Without this, a bare PLANTUML_VERSION bump leaves the .puml
+# prereqs unchanged → `diagrams` no-ops → `diagrams-check` passes on PNGs
+# rendered by the OLD plantuml. The stamp is a re-render trigger, not tracked
+# output (gitignored).
+DIAGRAM_STAMP := $(DIAGRAM_DIR)/out/.plantuml-$(PLANTUML_VERSION).stamp
 
 #diagrams: @ Render PlantUML architecture diagrams to PNG
 diagrams: deps-docker $(DIAGRAM_OUT)
 
-$(DIAGRAM_DIR)/out/%.png: $(DIAGRAM_DIR)/%.puml
+$(DIAGRAM_STAMP):
+	@mkdir -p $(DIAGRAM_DIR)/out
+	@rm -f $(DIAGRAM_DIR)/out/.plantuml-*.stamp
+	@touch $@
+
+$(DIAGRAM_DIR)/out/%.png: $(DIAGRAM_DIR)/%.puml $(DIAGRAM_STAMP)
 	@mkdir -p $(DIAGRAM_DIR)/out
 	@docker run --rm -v "$(CURDIR)/$(DIAGRAM_DIR):/work" -w /work \
 		-e HOME=/tmp -e _JAVA_OPTIONS=-Duser.home=/tmp \
@@ -275,6 +291,14 @@ diagrams-check: diagrams
 #diagrams-clean: @ Remove rendered diagram PNGs
 diagrams-clean:
 	@rm -rf $(DIAGRAM_DIR)/out
+
+#check-readme-images: @ Verify external README images (badges, star chart) resolve to an image/* body
+# Intentionally manual-only (NOT a static-check/ci prerequisite): it hits external
+# services (shields.io, star-history.com, hits.sh) that are transiently flaky and
+# would redden unrelated PRs — same posture as cve-check. Run on demand / post-push.
+check-readme-images:
+	@CURL_MAX_TIME_SECONDS=$(CURL_MAX_TIME_SECONDS) CURL_RETRIES=$(CURL_RETRIES) \
+		./scripts/check-external-images.sh README.md
 
 #mermaid-lint: @ Validate Mermaid diagrams in markdown files (used for sequence/flow diagrams)
 mermaid-lint: deps-docker
@@ -364,7 +388,7 @@ coverage-check: coverage-generate
 coverage-open:
 	@$(OPEN_CMD) ./employee-service/target/site/jacoco/index.html
 
-#check-toolchain-alignment: @ Verify the Java major version agrees across .java-version, .mise.toml, and all module poms
+#check-toolchain-alignment: @ Verify the Java major version agrees across .java-version, .mise.toml, all module poms, and the service Dockerfiles
 check-toolchain-alignment:
 	@set -e; \
 	jv=$$(cat .java-version | tr -d '[:space:]'); \
@@ -373,11 +397,12 @@ check-toolchain-alignment:
 	for svc in $(SERVICES); do \
 		p=$$svc-service; \
 		pv=$$(grep -oE '<java.version>[0-9]+' $$p/pom.xml | grep -oE '[0-9]+'); \
-		if [ "$$pv" != "$$jv" ] || [ "$$pv" != "$$mise" ]; then \
-			echo "Java major mismatch: $$p/pom.xml=$$pv .java-version=$$jv .mise.toml=$$mise"; fail=1; \
+		dv=$$(grep -oE 'eclipse-temurin:[0-9]+' $$p/Dockerfile | grep -oE '[0-9]+' | head -1); \
+		if [ "$$pv" != "$$jv" ] || [ "$$pv" != "$$mise" ] || [ "$$dv" != "$$jv" ]; then \
+			echo "Java major mismatch: $$p/pom.xml=$$pv $$p/Dockerfile(temurin)=$$dv .java-version=$$jv .mise.toml=$$mise"; fail=1; \
 		fi; \
 	done; \
-	if [ "$$fail" -eq 0 ]; then echo "Java toolchain aligned at major $$jv"; else exit 1; fi
+	if [ "$$fail" -eq 0 ]; then echo "Java toolchain aligned at major $$jv (poms, Dockerfiles, .java-version, .mise.toml)"; else exit 1; fi
 
 #static-check: @ Run all quality and security checks
 # `deps` is listed explicitly so a cold checkout reaches the mise toolchain
@@ -691,7 +716,7 @@ renovate-validate: renovate-bootstrap
 	deps-updates deps-update deps-prune deps-prune-check \
 	clean build test integration-test lint format format-check \
 	lint-ci lint-docker secrets trivy-fs trivy-config \
-	diagrams diagrams-check diagrams-clean mermaid-lint \
+	diagrams diagrams-check diagrams-clean mermaid-lint check-readme-images \
 	maven-settings-ossindex cve-check \
 	coverage-generate coverage-check coverage-open check-toolchain-alignment static-check \
 	image-build image-load container-structure-test \
