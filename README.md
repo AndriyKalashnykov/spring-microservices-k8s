@@ -3,7 +3,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-brightgreen.svg)](https://opensource.org/licenses/MIT)
 [![Renovate enabled](https://img.shields.io/badge/renovate-enabled-brightgreen.svg)](https://app.renovatebot.com/dashboard#github/AndriyKalashnykov/spring-microservices-k8s)
 
-# Runnable Spring Boot 4 Microservices on Kind
+# Spring Boot 4 Microservices on Kind
 
 Reference implementation of four Spring Boot 4 microservices — gateway, organization, department, employee — deployed to a local Kind cluster in one command, with Spring Cloud Kubernetes cross-namespace service discovery.
 
