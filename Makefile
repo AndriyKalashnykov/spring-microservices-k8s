@@ -64,7 +64,7 @@ NODE_VERSION      := $(shell cat .nvmrc 2>/dev/null || echo 22)
 # renovate: datasource=docker depName=plantuml/plantuml
 PLANTUML_VERSION    := 1.2026.6
 # renovate: datasource=docker depName=minlag/mermaid-cli
-MERMAID_CLI_VERSION := 11.15.0
+MERMAID_CLI_VERSION := 11.16.0
 # This version is consumed ONLY as the container-image tag
 # gcr.io/gcp-runtimes/container-structure-test:v$(CONTAINER_STRUCTURE_TEST_VERSION)
 # (see container-structure-test target + the ci.yml image-scan job). Track the
