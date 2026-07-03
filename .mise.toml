@@ -38,7 +38,7 @@ hadolint = "2.14.0"
 gitleaks = "8.30.1"
 
 # renovate: datasource=github-releases depName=aquasecurity/trivy extractVersion=^v(?<version>.*)$
-trivy = "0.71.2"
+trivy = "0.72.0"
 
 # renovate: datasource=github-releases depName=rhysd/actionlint extractVersion=^v(?<version>.*)$
 actionlint = "1.7.12"
