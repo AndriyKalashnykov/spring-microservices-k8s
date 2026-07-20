@@ -130,7 +130,7 @@ deps-install: deps
 #deps-check: @ Show required tools and installation status
 deps-check:
 	@echo "--- Tool status ---"
-	@for tool in java mvn docker kubectl kind act hadolint gitleaks trivy actionlint shellcheck node; do \
+	@for tool in java mvn docker kubectl kind act hadolint gitleaks trivy actionlint shellcheck node jq; do \
 		printf "  %-16s " "$$tool:"; \
 		command -v $$tool >/dev/null 2>&1 && echo "installed" || echo "NOT installed"; \
 	done
@@ -261,7 +261,14 @@ secrets: deps
 # moves the count by tens, not hundreds) and 12x above the degraded signature.
 # Re-measure after any large dependency change with:
 #   trivy fs --scanners vuln --list-all-pkgs -f json . | jq '[.Results[].Packages//[]]|flatten|length'
-TRIVY_FS_MIN_PACKAGES ?= 900
+# `:=` NOT `?=` — deliberate. `?=` lets the ENVIRONMENT set this, so a stray
+# `export TRIVY_FS_MIN_PACKAGES=1` would silently disable a security floor while the
+# gate still printed a pass (verified: `TRIVY_FS_MIN_PACKAGES=1 make -pn` resolved it
+# to 1 under `?=`). This is not an operator knob — the recipe below explicitly says
+# not to lower it. `:=` keeps the env out while STILL allowing an explicit
+# command-line override (`make trivy-fs TRIVY_FS_MIN_PACKAGES=2000`), which is how the
+# floor's RED is proven; Make gives command-line assignments precedence over `:=`.
+TRIVY_FS_MIN_PACKAGES := 900
 
 #trivy-fs: @ Scan filesystem for vulnerabilities, secrets, and misconfigurations
 # --offline-scan: never contact Maven Central. Resolving parent/BOM POMs at scan time
