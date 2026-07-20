@@ -119,30 +119,12 @@ jobs:
           install: true
           cache: true
 
-      # RESTORE-ONLY, deliberately. This job never runs Maven, yet it is the FIRST job
-      # to touch the `maven-<pomhash>` key — and actions/cache will not overwrite an
-      # existing key. With a full save/restore step it therefore SEALED whatever
-      # `restore-keys: maven-` happened to hand it (an older, pom-stale repository) for
-      # the entire life of that pom hash, so every later job inherited a cache missing
-      # exactly the artifacts the poms had just bumped. `build` runs Maven for real and
-      # keeps the authoritative save.
-      - name: Restore Maven repository
-        id: m2
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ~/.m2/repository
-          key: maven-${{ hashFiles('**/pom.xml') }}
-          restore-keys: maven-
-
-      # `make static-check` runs `trivy-fs`, which uses --offline-scan (to stop Maven
-      # Central 429s) and enforces a package-count floor. Offline resolution reads
-      # ~/.m2 only, so with NO cache at all (first run on a branch, or eviction — this
-      # repo's caches sit near the 10 GB limit) the scan would collapse to ~75 of 1127
-      # packages and the floor would fire as a FALSE red. Seed the repository in that
-      # one case. A partial `maven-` hit is a real ~250 MB repository and needs no seed.
-      - name: Seed local Maven repository (only when no cache matched)
-        if: steps.m2.outputs.cache-matched-key == ''
-        run: mvn -B -q dependency:go-offline
+      # NO Maven cache here, deliberately. This job runs no Maven: `static-check`'s
+      # trivy-fs is now secret+misconfig only (dependency CVEs are tag-time, in
+      # image-scan), so nothing in this job reads ~/.m2. Restoring it would only
+      # re-create the hazard it used to have — being the FIRST job to seal the
+      # `maven-<pomhash>` key with a pom-stale repository that every later job inherits.
+      # `build` runs Maven for real and owns the cache.
 
       - name: Static check
         run: make static-check
@@ -353,6 +335,12 @@ jobs:
       - name: Save NVD database
         # Only when the scan completed (see above) and this week's key is not already
         # stored — actions/cache/save errors on an existing key.
+        #
+        # continue-on-error: this job is ADVISORY, and `docker` needs it — so without
+        # this flag a transient cache-service error (5xx, quota, a two-tags-in-one-week
+        # key race) would fail cve-check and BLOCK A RELEASE on a cache write. A cache
+        # miss next run is the correct cost of a failed save; a blocked release is not.
+        continue-on-error: true
         if: steps.odc.outputs.completed == 'true' && steps.nvdcache.outputs.cache-hit != 'true'
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
@@ -559,10 +547,20 @@ jobs:
     # is continue-on-error) and must never be able to veto a release by being slow or
     # skipped. `!failure()` still blocks it from failing the release for a REAL reason
     # (e.g. `make maven-settings-ossindex`, which has no continue-on-error).
+    # `e2e` is in this list for the same reason `image-scan` is. `!failure()` only
+    # spans a job's OWN needs, so before this, a FAILING e2e could not stop the push:
+    # docker and e2e both merely needed `build`, ran in parallel on a tag, and the
+    # image shipped to GHCR + cosign-signed while e2e was still red. That matters more
+    # now than it used to — the justification for making image-scan tag-only is that
+    # `e2e` builds and boots all four images on every push, so e2e IS the load-bearing
+    # image validation, and load-bearing validation that cannot block a release is
+    # decoration. (Known, safe-direction caveat: e2e carries `vars.ACT != 'true'`, so
+    # a hypothetical act run on a tag self-blocks rather than publishing.)
     if: >-
       ${{ !cancelled() && !failure()
       && needs.build.result == 'success'
       && needs.test.result == 'success'
+      && needs.e2e.result == 'success'
       && needs.image-scan.result == 'success'
       && startsWith(github.ref, 'refs/tags/') }}
     # Gate releases on the full pre-push hardening pipeline:
@@ -577,7 +575,7 @@ jobs:
     # red, the artifact shipped anyway. Listing it here is what makes the gate real —
     # and it is a prerequisite of image-scan being tag-only, since that leaves this as
     # the scan's ONLY run.
-    needs: [build, test, cve-check, image-scan]
+    needs: [build, test, cve-check, image-scan, e2e]
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
