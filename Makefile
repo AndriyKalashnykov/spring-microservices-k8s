@@ -294,7 +294,7 @@ trivy-fs: deps
 		exit 1; \
 	fi; \
 	if [ "$$finds" -gt 0 ]; then \
-		trivy convert --format table --severity CRITICAL,HIGH "$$out"; \
+		trivy convert --format table --scanners vuln,secret,misconfig "$$out"; \
 		echo "ERROR: $$finds CRITICAL/HIGH finding(s) - see the table above."; \
 		exit 1; \
 	fi
