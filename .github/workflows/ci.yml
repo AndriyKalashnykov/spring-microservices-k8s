@@ -13,11 +13,20 @@ on:
   # ci-pass aggregator still runs on doc-only PRs (its `if: always()` ensures
   # the Rulesets gate is satisfied).
   pull_request:
-  # Weekly NVD rescan: catches new CVEs landing on unchanged dependencies
-  # between releases. Also keeps the ~2GB NVD cache warm (7-day GitHub cache
-  # eviction). Monday 06:00 UTC = Sunday evening EST (low-traffic window).
-  schedule:
-    - cron: '0 6 * * 1'
+  # NO `schedule:` — removed 2026-07-20. It existed solely for the weekly NVD rescan,
+  # and `cve-check` was its ONLY consumer, so every Monday it ran the whole pipeline
+  # (changes -> static-check -> test -> integration-test -> build -> e2e, ~20 billed
+  # minutes) to reach one job that is (a) advisory by design, (b) broken upstream
+  # since 2026-04-15 (the NVD nanosecond-timestamp parse bug, backlog #1c) and so
+  # producing nothing, and (c) timing out — the 2026-07-20 run burned 45m and
+  # reported `cancelled`, reddening an otherwise fully-green master.
+  #
+  # What this gives up: automatic detection of a new CVE landing on UNCHANGED
+  # dependencies between releases. That is largely covered by `trivy-fs` (in
+  # `static-check`), which blocks on CRITICAL/HIGH on every push against a
+  # continuously-updated Trivy DB — and this repo pushes often (Renovate). The
+  # residual gap is a quiet period with no pushes; `workflow_dispatch` covers an
+  # ad-hoc rescan, and a tag runs the full gate. See CLAUDE.md backlog #14.
   workflow_call:
   workflow_dispatch:
 
@@ -110,12 +119,30 @@ jobs:
           install: true
           cache: true
 
-      - name: Cache Maven dependencies
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      # RESTORE-ONLY, deliberately. This job never runs Maven, yet it is the FIRST job
+      # to touch the `maven-<pomhash>` key — and actions/cache will not overwrite an
+      # existing key. With a full save/restore step it therefore SEALED whatever
+      # `restore-keys: maven-` happened to hand it (an older, pom-stale repository) for
+      # the entire life of that pom hash, so every later job inherited a cache missing
+      # exactly the artifacts the poms had just bumped. `build` runs Maven for real and
+      # keeps the authoritative save.
+      - name: Restore Maven repository
+        id: m2
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.m2/repository
           key: maven-${{ hashFiles('**/pom.xml') }}
           restore-keys: maven-
+
+      # `make static-check` runs `trivy-fs`, which uses --offline-scan (to stop Maven
+      # Central 429s) and enforces a package-count floor. Offline resolution reads
+      # ~/.m2 only, so with NO cache at all (first run on a branch, or eviction — this
+      # repo's caches sit near the 10 GB limit) the scan would collapse to ~75 of 1127
+      # packages and the floor would fire as a FALSE red. Seed the repository in that
+      # one case. A partial `maven-` hit is a real ~250 MB repository and needs no seed.
+      - name: Seed local Maven repository (only when no cache matched)
+        if: steps.m2.outputs.cache-matched-key == ''
+        run: mvn -B -q dependency:go-offline
 
       - name: Static check
         run: make static-check
@@ -232,18 +259,19 @@ jobs:
     #     (~minutes, downloads the NVD feed) AND continue-on-error (so it never
     #     blocks a master push anyway), while the BLOCKING dependency-CVE coverage
     #     already runs on every push via Trivy — `trivy-fs` inside `static-check`
-    #     and the per-service `image-scan` (CRITICAL/HIGH, exit 1). Keeping OWASP
-    #     off the per-push path removes a multi-minute wait from every master
-    #     merge with no loss of blocking coverage. See CLAUDE.md #1c.
-    #   - weekly schedule                 (catches new NVD advisories landing
-    #     on unchanged deps between releases — the between-release safety net)
+    #     (CRITICAL/HIGH, exit 1, with a package-count floor). Keeping OWASP off
+    #     the per-push path removes a multi-minute wait from every master merge
+    #     with no loss of blocking coverage. See CLAUDE.md #1c.
     #   - workflow_dispatch               (ad-hoc rescan after a new CVE drop)
+    # The weekly `schedule` trigger was REMOVED 2026-07-20 (see the `on:` block).
+    # This job is therefore TAG-ONLY in practice, which raises the stakes on the
+    # step timeout below: `docker` needs this job, so a cancelled cve-check now
+    # blocks a RELEASE rather than merely reddening a scheduled run.
     # Skipped under local act runs because the OWASP NVD download is slow.
     # Also skipped on doc-only changes (changes.outputs.code == 'false').
     if: |
       !failure() && !cancelled() && vars.ACT != 'true' && needs.changes.outputs.code == 'true' && (
         (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')) ||
-        github.event_name == 'schedule' ||
         github.event_name == 'workflow_dispatch'
       )
     runs-on: ubuntu-latest
@@ -260,8 +288,12 @@ jobs:
         id: nvdweek
         run: echo "week=$(date -u +%Y-%V)" >> "$GITHUB_OUTPUT"
 
-      - name: Cache NVD database
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      # RESTORE here, SAVE conditionally after the scan (see "Save NVD database" below) —
+      # a plain actions/cache would persist a HALF-DOWNLOADED DB whenever the scan is cut
+      # short, and the weekly key would then serve that truncated DB for the rest of the week.
+      - name: Restore NVD database
+        id: nvdcache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.m2/repository/org/owasp/dependency-check-data
           # Rotate weekly: the NVD DB grows continuously, so a key tied to pom.xml
@@ -279,16 +311,60 @@ jobs:
       # every run. Upstream tracking: dependency-check/DependencyCheck#8424
       # and jeremylong/open-vulnerability-clients#106. Remove this flag
       # when ODC > 12.2.1 ships with the fix (Renovate bumps the plugin).
-      # Coverage is not lost — the `image-scan` job runs Trivy with CRITICAL/HIGH
-      # blocking on every push across the 4-service matrix.
+      # Coverage is not lost — dependency CVEs are covered by `trivy-fs` inside
+      # `static-check` on every push, and by the per-service `image-scan` at tag time.
+      #
+      # timeout-minutes: 35 is LOAD-BEARING, not decoration. `continue-on-error` absorbs a
+      # STEP failure but NOT a JOB timeout: a job that hits its own `timeout-minutes: 45`
+      # (above) reports `cancelled`, which continue-on-error cannot convert. Observed
+      # 2026-07-20: this step ran 45m16s against the job's cap and cancelled the run.
+      # Capping the STEP converts that into a Failed step, which continue-on-error
+      # converts to a successful job.
+      #
+      # Now that the weekly schedule is gone this job is TAG-ONLY, so the failure it
+      # prevents is no longer a red scheduled run — it is a BLOCKED RELEASE: `docker`
+      # needs this job, and a cancelled need means the images never publish. An
+      # advisory scan must not be able to veto a release by being slow.
+      #
+      # ARITHMETIC: 35 here + the ~5 min the preceding steps take (checkout, mise,
+      # NVD cache restore) must stay under the job's 45. Change one, change both.
       - name: Run OWASP dependency check
+        id: odc
         continue-on-error: true
+        timeout-minutes: 35
         env:
           NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
           OSS_INDEX_USER: ${{ secrets.OSS_INDEX_USER }}
           OSS_INDEX_TOKEN: ${{ secrets.OSS_INDEX_TOKEN }}
           MAVEN_OPTS: '--add-modules jdk.incubator.vector'
-        run: make cve-check
+        run: |
+          rc=0
+          make cve-check || rc=$?
+          # Reached only if the scan RAN TO COMPLETION — including an ordinary failure
+          # such as the upstream parse bug above, which still leaves a fully-downloaded
+          # NVD DB worth caching. A timeout kills the step before this line, which is
+          # precisely what the cache-save gate below keys on. Do NOT gate that save on
+          # the step's outcome instead: ODC fails on EVERY run today, so an
+          # outcome-based gate would disable NVD caching entirely and make the slow
+          # full download permanent.
+          echo "completed=true" >> "$GITHUB_OUTPUT"
+          exit $rc
+
+      - name: Save NVD database
+        # Only when the scan completed (see above) and this week's key is not already
+        # stored — actions/cache/save errors on an existing key.
+        if: steps.odc.outputs.completed == 'true' && steps.nvdcache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.m2/repository/org/owasp/dependency-check-data
+          key: nvd-db-${{ steps.nvdweek.outputs.week }}
+
+      # Without this, a permanently-timing-out scan becomes a green job with a yellow
+      # step nobody opens. This job is advisory, so nothing else would ever say so.
+      - name: Warn when the OWASP scan did not complete
+        if: always() && steps.odc.outputs.completed != 'true'
+        run: |
+          echo "::warning title=OWASP scan incomplete::The OWASP dependency-check step did not run to completion (step cap: 35 min). The NVD DB was NOT cached. If this repeats across weekly runs, cve-check is providing no coverage — see CLAUDE.md backlog #1c."
 
       - name: Upload CVE report
         if: always()
@@ -310,7 +386,24 @@ jobs:
   # tag pushes only.
   image-scan:
     needs: [changes, build]
-    if: ${{ !failure() && !cancelled() && needs.changes.outputs.code == 'true' }}
+    # TAG PUSHES ONLY. This job (4-service matrix: docker build + Trivy + Spring Boot
+    # smoke test + container-structure-test) was ~50% of every push's billed minutes
+    # (~9m55s of ~20m), and its most expensive half was duplicated work: `e2e` already
+    # builds all four images and boots them in a real KinD cluster on every push
+    # (make e2e -> kind-up -> kind-deploy -> image-build), so "does the image build and
+    # does Spring Boot start" is covered per-push regardless.
+    #
+    # ACCEPTED TRADE (deliberate, recorded in CLAUDE.md): the Trivy image scan and the
+    # container-structure-test Dockerfile contract now run at RELEASE time rather than
+    # on the commit that introduces a regression. Per-push dependency-CVE coverage is
+    # `trivy-fs` inside `static-check` — which is why that gate now carries a package
+    # count floor, so it cannot pass by silently scanning nothing.
+    #
+    # This is only safe because `docker` now *needs* this job (see below). Before that,
+    # the two ran in PARALLEL on a tag and a CRITICAL finding never blocked the push.
+    if: >-
+      ${{ !failure() && !cancelled() && needs.changes.outputs.code == 'true'
+      && (startsWith(github.ref, 'refs/tags/') || vars.ACT == 'true') }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     strategy:
@@ -455,8 +548,18 @@ jobs:
   docker:
     if: ${{ !failure() && !cancelled() && startsWith(github.ref, 'refs/tags/') }}
     # Gate releases on the full pre-push hardening pipeline:
-    #   build + test + cve-check (already passed) → image scan → smoke test → push (Pattern A, no in-manifest attestations) → cosign sign
-    needs: [build, test, cve-check]
+    #   build + test + cve-check + image-scan (Trivy CRITICAL/HIGH + Spring Boot smoke
+    #   test + container-structure-test) → push (Pattern A, no in-manifest attestations)
+    #   → cosign sign
+    #
+    # `image-scan` was NOT in this list until 2026-07-20, despite the comment above
+    # having claimed the scan gated the push since it was written. Both jobs only
+    # needed `build`, so on a tag they ran in PARALLEL: a CRITICAL CVE failed the run
+    # AFTER the image had already been pushed to GHCR and cosign-signed. ci-pass went
+    # red, the artifact shipped anyway. Listing it here is what makes the gate real —
+    # and it is a prerequisite of image-scan being tag-only, since that leaves this as
+    # the scan's ONLY run.
+    needs: [build, test, cve-check, image-scan]
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
