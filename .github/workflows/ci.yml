@@ -13,11 +13,20 @@ on:
   # ci-pass aggregator still runs on doc-only PRs (its `if: always()` ensures
   # the Rulesets gate is satisfied).
   pull_request:
-  # Weekly NVD rescan: catches new CVEs landing on unchanged dependencies
-  # between releases. Also keeps the ~2GB NVD cache warm (7-day GitHub cache
-  # eviction). Monday 06:00 UTC = Sunday evening EST (low-traffic window).
-  schedule:
-    - cron: '0 6 * * 1'
+  # NO `schedule:` — removed 2026-07-20. It existed solely for the weekly NVD rescan,
+  # and `cve-check` was its ONLY consumer, so every Monday it ran the whole pipeline
+  # (changes -> static-check -> test -> integration-test -> build -> e2e, ~20 billed
+  # minutes) to reach one job that is (a) advisory by design, (b) broken upstream
+  # since 2026-04-15 (the NVD nanosecond-timestamp parse bug, backlog #1c) and so
+  # producing nothing, and (c) timing out — the 2026-07-20 run burned 45m and
+  # reported `cancelled`, reddening an otherwise fully-green master.
+  #
+  # What this gives up: automatic detection of a new CVE landing on UNCHANGED
+  # dependencies between releases. That is largely covered by `trivy-fs` (in
+  # `static-check`), which blocks on CRITICAL/HIGH on every push against a
+  # continuously-updated Trivy DB — and this repo pushes often (Renovate). The
+  # residual gap is a quiet period with no pushes; `workflow_dispatch` covers an
+  # ad-hoc rescan, and a tag runs the full gate. See CLAUDE.md backlog #14.
   workflow_call:
   workflow_dispatch:
 
@@ -250,18 +259,19 @@ jobs:
     #     (~minutes, downloads the NVD feed) AND continue-on-error (so it never
     #     blocks a master push anyway), while the BLOCKING dependency-CVE coverage
     #     already runs on every push via Trivy — `trivy-fs` inside `static-check`
-    #     and the per-service `image-scan` (CRITICAL/HIGH, exit 1). Keeping OWASP
-    #     off the per-push path removes a multi-minute wait from every master
-    #     merge with no loss of blocking coverage. See CLAUDE.md #1c.
-    #   - weekly schedule                 (catches new NVD advisories landing
-    #     on unchanged deps between releases — the between-release safety net)
+    #     (CRITICAL/HIGH, exit 1, with a package-count floor). Keeping OWASP off
+    #     the per-push path removes a multi-minute wait from every master merge
+    #     with no loss of blocking coverage. See CLAUDE.md #1c.
     #   - workflow_dispatch               (ad-hoc rescan after a new CVE drop)
+    # The weekly `schedule` trigger was REMOVED 2026-07-20 (see the `on:` block).
+    # This job is therefore TAG-ONLY in practice, which raises the stakes on the
+    # step timeout below: `docker` needs this job, so a cancelled cve-check now
+    # blocks a RELEASE rather than merely reddening a scheduled run.
     # Skipped under local act runs because the OWASP NVD download is slow.
     # Also skipped on doc-only changes (changes.outputs.code == 'false').
     if: |
       !failure() && !cancelled() && vars.ACT != 'true' && needs.changes.outputs.code == 'true' && (
         (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')) ||
-        github.event_name == 'schedule' ||
         github.event_name == 'workflow_dispatch'
       )
     runs-on: ubuntu-latest
@@ -306,13 +316,18 @@ jobs:
       #
       # timeout-minutes: 35 is LOAD-BEARING, not decoration. `continue-on-error` absorbs a
       # STEP failure but NOT a JOB timeout: a job that hits its own `timeout-minutes: 45`
-      # (above) reports `cancelled`, and ci-pass explicitly fails on any cancelled need —
-      # so a slow NVD feed reddened an otherwise fully-green weekly run (2026-07-20:
-      # this step ran 45m16s against the job's 45m cap and cancelled the whole run).
+      # (above) reports `cancelled`, which continue-on-error cannot convert. Observed
+      # 2026-07-20: this step ran 45m16s against the job's cap and cancelled the run.
       # Capping the STEP converts that into a Failed step, which continue-on-error
-      # converts to a successful job. ARITHMETIC: 35 here + the ~5 min the preceding
-      # steps take (checkout, mise, NVD cache restore) must stay under the job's 45.
-      # If you change either number, change both.
+      # converts to a successful job.
+      #
+      # Now that the weekly schedule is gone this job is TAG-ONLY, so the failure it
+      # prevents is no longer a red scheduled run — it is a BLOCKED RELEASE: `docker`
+      # needs this job, and a cancelled need means the images never publish. An
+      # advisory scan must not be able to veto a release by being slow.
+      #
+      # ARITHMETIC: 35 here + the ~5 min the preceding steps take (checkout, mise,
+      # NVD cache restore) must stay under the job's 45. Change one, change both.
       - name: Run OWASP dependency check
         id: odc
         continue-on-error: true
