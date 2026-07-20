@@ -242,10 +242,55 @@ lint-docker: deps
 secrets: deps
 	@gitleaks detect --source . --verbose --redact --no-git
 
+# Minimum number of packages `trivy-fs` must analyse before its result is believable.
+#
+# MEASURED 2026-07-20 (trivy 0.72.0, this repo, 5 poms), NOT guessed:
+#   warm ~/.m2, networked        -> 1127 packages (144/142/133/144/564)
+#   warm ~/.m2, --offline-scan   -> 1127 packages  (identical, 2.7s vs ~50s)
+#   COLD ~/.m2, --offline-scan   ->   75 packages  (10/8/9/10/38) AND STILL EXITS 0
+#
+# That last row is why this floor exists. `--offline-scan` (added below to stop the
+# Maven Central 429s that were reddening unrelated PRs) makes trivy resolve POMs from
+# the local repository only; upstream's own docs warn it "may skip some dependencies
+# (that were not found on your local machine)". With a cold or partial ~/.m2 that is a
+# SILENT 93% coverage collapse reported as a pass — a fake green inside a security gate.
+# The result count alone cannot distinguish it (0 findings either way), and neither can
+# the target count (5 in BOTH cases) — only the package count can.
+#
+# 900 sits ~20% below the healthy figure (absorbing ordinary dependency churn, which
+# moves the count by tens, not hundreds) and 12x above the degraded signature.
+# Re-measure after any large dependency change with:
+#   trivy fs --scanners vuln --list-all-pkgs -f json . | jq '[.Results[].Packages//[]]|flatten|length'
+TRIVY_FS_MIN_PACKAGES ?= 900
+
 #trivy-fs: @ Scan filesystem for vulnerabilities, secrets, and misconfigurations
+# --offline-scan: never contact Maven Central. Resolving parent/BOM POMs at scan time
+# rate-limits the shared CI runner IP (HTTP 429, Retry-After ~25min), which failed
+# `static-check` on PRs whose diff could not possibly have caused it.
 trivy-fs: deps
-	@trivy fs --scanners vuln,secret,misconfig --severity CRITICAL,HIGH \
-		--skip-dirs target --skip-dirs .git .
+	@set -e; \
+	out=$$(mktemp); \
+	trap 'rm -f "$$out"' EXIT; \
+	trivy fs --scanners vuln,secret,misconfig --severity CRITICAL,HIGH \
+		--offline-scan --list-all-pkgs -f json \
+		--skip-dirs target --skip-dirs .git . > "$$out"; \
+	pkgs=$$(jq '[.Results[]?.Packages//[]]|flatten|length' "$$out"); \
+	finds=$$(jq '[.Results[]?.Vulnerabilities//[], .Results[]?.Secrets//[], .Results[]?.Misconfigurations//[]]|flatten|length' "$$out"); \
+	echo "trivy-fs: $$pkgs packages analysed, $$finds CRITICAL/HIGH findings"; \
+	if [ "$$pkgs" -lt "$(TRIVY_FS_MIN_PACKAGES)" ]; then \
+		echo "ERROR: only $$pkgs packages analysed (floor $(TRIVY_FS_MIN_PACKAGES))."; \
+		echo "       --offline-scan resolves POMs from ~/.m2 only, so a cold/partial local"; \
+		echo "       repository silently produces a near-empty scan that would otherwise PASS."; \
+		echo "       This is NOT a clean result - the scan did not look at your dependencies."; \
+		echo "       Fix: populate the local repo ('mvn -B dependency:go-offline' or 'make build'),"; \
+		echo "       then re-run. Do NOT lower TRIVY_FS_MIN_PACKAGES to get green."; \
+		exit 1; \
+	fi; \
+	if [ "$$finds" -gt 0 ]; then \
+		trivy convert --format table --severity CRITICAL,HIGH "$$out"; \
+		echo "ERROR: $$finds CRITICAL/HIGH finding(s) - see the table above."; \
+		exit 1; \
+	fi
 
 #trivy-config: @ Scan Kubernetes manifests for security misconfigurations (KSV-*)
 trivy-config: deps

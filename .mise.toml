@@ -45,3 +45,10 @@ actionlint = "1.7.12"
 
 # renovate: datasource=github-releases depName=koalaman/shellcheck extractVersion=^v(?<version>.*)$
 shellcheck = "0.11.0"
+
+# jq — parses trivy's JSON in the `trivy-fs` package-count floor (see the Makefile).
+# Declared explicitly rather than relying on it being preinstalled: GitHub runners and
+# most dev boxes ship jq, so an undeclared dependency would work everywhere until it
+# didn't (a bare container, a minimal image) and fail inside a security gate.
+# renovate: datasource=github-releases depName=jqlang/jq extractVersion=^jq-(?<version>.*)$
+jq = "1.8.2"
