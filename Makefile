@@ -130,7 +130,7 @@ deps-install: deps
 #deps-check: @ Show required tools and installation status
 deps-check:
 	@echo "--- Tool status ---"
-	@for tool in java mvn docker kubectl kind act hadolint gitleaks trivy actionlint shellcheck node jq; do \
+	@for tool in java mvn docker kubectl kind act hadolint gitleaks trivy actionlint shellcheck node; do \
 		printf "  %-16s " "$$tool:"; \
 		command -v $$tool >/dev/null 2>&1 && echo "installed" || echo "NOT installed"; \
 	done
@@ -242,62 +242,36 @@ lint-docker: deps
 secrets: deps
 	@gitleaks detect --source . --verbose --redact --no-git
 
-# Minimum number of packages `trivy-fs` must analyse before its result is believable.
+#trivy-fs: @ Scan filesystem for SECRETS and MISCONFIGURATION (not dependency CVEs)
+# DEPENDENCY-CVE SCANNING IS DELIBERATELY NOT HERE — it is tag-time only.
 #
-# MEASURED 2026-07-20 (trivy 0.72.0, this repo, 5 poms), NOT guessed:
-#   warm ~/.m2, networked        -> 1127 packages (144/142/133/144/564)
-#   warm ~/.m2, --offline-scan   -> 1127 packages  (identical, 2.7s vs ~50s)
-#   COLD ~/.m2, --offline-scan   ->   75 packages  (10/8/9/10/38) AND STILL EXITS 0
+# `--scanners secret,misconfig` only. Rationale, in order of weight:
+#   1. Build minutes: dependency CVE scanning belongs at release, not on every push.
+#   2. It was NOT RELIABLE here anyway. Scanning `vuln` over pom.xml makes trivy
+#      resolve parent/BOM POMs. Networked, that rate-limits the shared CI runner IP
+#      (HTTP 429) and reddened PRs whose diff could not have caused it. `--offline-scan`
+#      fixes the 429 but resolves from ~/.m2 ONLY — and in CI the Maven cache key is
+#      `maven-<hash of **/pom.xml>`, so it MISSES on exactly the commits that change
+#      dependencies, `restore-keys` yields a pom-STALE repo, and the scan silently
+#      drops the packages that just changed. MEASURED 2026-07-20: a single-module
+#      Spring Boot parent bump dropped 1127 -> 999 packages, losing jackson-databind,
+#      tomcat-embed-core, snakeyaml and spring-security-crypto — while a 900-package
+#      floor still passed it GREEN. A gate that skips precisely the dependency tree
+#      under change is worse than no gate: it reports coverage it does not have.
+#   3. `secret`/`misconfig` need no Maven resolution, so they are fast, offline,
+#      deterministic — and they keep the per-push signal that genuinely works.
 #
-# That last row is why this floor exists. `--offline-scan` (added below to stop the
-# Maven Central 429s that were reddening unrelated PRs) makes trivy resolve POMs from
-# the local repository only; upstream's own docs warn it "may skip some dependencies
-# (that were not found on your local machine)". With a cold or partial ~/.m2 that is a
-# SILENT 93% coverage collapse reported as a pass — a fake green inside a security gate.
-# The result count alone cannot distinguish it (0 findings either way), and neither can
-# the target count (5 in BOTH cases) — only the package count can.
+# Dependency + OS-package CVEs are covered at TAG time by the `image-scan` job
+# (`trivy image`, CRITICAL/HIGH, exit 1, per service), which scans the BUILT IMAGE —
+# strictly more than a pom scan ever did: it sees the fat jar's resolved dependencies
+# AND the ~108 Ubuntu packages in the runtime base, which a pom scan cannot see by
+# construction. `docker` needs `image-scan`, so a finding blocks the release.
 #
-# 900 sits ~20% below the healthy figure (absorbing ordinary dependency churn, which
-# moves the count by tens, not hundreds) and 12x above the degraded signature.
-# Re-measure after any large dependency change with:
-#   trivy fs --scanners vuln --list-all-pkgs -f json . | jq '[.Results[].Packages//[]]|flatten|length'
-# `:=` NOT `?=` — deliberate. `?=` lets the ENVIRONMENT set this, so a stray
-# `export TRIVY_FS_MIN_PACKAGES=1` would silently disable a security floor while the
-# gate still printed a pass (verified: `TRIVY_FS_MIN_PACKAGES=1 make -pn` resolved it
-# to 1 under `?=`). This is not an operator knob — the recipe below explicitly says
-# not to lower it. `:=` keeps the env out while STILL allowing an explicit
-# command-line override (`make trivy-fs TRIVY_FS_MIN_PACKAGES=2000`), which is how the
-# floor's RED is proven; Make gives command-line assignments precedence over `:=`.
-TRIVY_FS_MIN_PACKAGES := 900
-
-#trivy-fs: @ Scan filesystem for vulnerabilities, secrets, and misconfigurations
-# --offline-scan: never contact Maven Central. Resolving parent/BOM POMs at scan time
-# rate-limits the shared CI runner IP (HTTP 429, Retry-After ~25min), which failed
-# `static-check` on PRs whose diff could not possibly have caused it.
+# --skip-dirs .claude: agent worktrees under .claude/ are full repo checkouts; scanning
+# them triples the work and lets another agent's scratch tree redden this one.
 trivy-fs: deps
-	@set -e; \
-	out=$$(mktemp); \
-	trap 'rm -f "$$out"' EXIT; \
-	trivy fs --scanners vuln,secret,misconfig --severity CRITICAL,HIGH \
-		--offline-scan --list-all-pkgs -f json \
-		--skip-dirs target --skip-dirs .git . > "$$out"; \
-	pkgs=$$(jq '[.Results[]?.Packages//[]]|flatten|length' "$$out"); \
-	finds=$$(jq '[.Results[]?.Vulnerabilities//[], .Results[]?.Secrets//[], .Results[]?.Misconfigurations//[]]|flatten|length' "$$out"); \
-	echo "trivy-fs: $$pkgs packages analysed, $$finds CRITICAL/HIGH findings"; \
-	if [ "$$pkgs" -lt "$(TRIVY_FS_MIN_PACKAGES)" ]; then \
-		echo "ERROR: only $$pkgs packages analysed (floor $(TRIVY_FS_MIN_PACKAGES))."; \
-		echo "       --offline-scan resolves POMs from ~/.m2 only, so a cold/partial local"; \
-		echo "       repository silently produces a near-empty scan that would otherwise PASS."; \
-		echo "       This is NOT a clean result - the scan did not look at your dependencies."; \
-		echo "       Fix: populate the local repo ('mvn -B dependency:go-offline' or 'make build'),"; \
-		echo "       then re-run. Do NOT lower TRIVY_FS_MIN_PACKAGES to get green."; \
-		exit 1; \
-	fi; \
-	if [ "$$finds" -gt 0 ]; then \
-		trivy convert --format table --scanners vuln,secret,misconfig "$$out"; \
-		echo "ERROR: $$finds CRITICAL/HIGH finding(s) - see the table above."; \
-		exit 1; \
-	fi
+	@trivy fs --scanners secret,misconfig --severity CRITICAL,HIGH --exit-code 1 \
+		--skip-dirs target --skip-dirs .git --skip-dirs .claude .
 
 #trivy-config: @ Scan Kubernetes manifests for security misconfigurations (KSV-*)
 trivy-config: deps
