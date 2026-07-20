@@ -22,11 +22,10 @@ on:
   # reported `cancelled`, reddening an otherwise fully-green master.
   #
   # What this gives up: automatic detection of a new CVE landing on UNCHANGED
-  # dependencies between releases. That is largely covered by `trivy-fs` (in
-  # `static-check`), which blocks on CRITICAL/HIGH on every push against a
-  # continuously-updated Trivy DB — and this repo pushes often (Renovate). The
-  # residual gap is a quiet period with no pushes; `workflow_dispatch` covers an
-  # ad-hoc rescan, and a tag runs the full gate. See CLAUDE.md backlog #14.
+  # dependencies between releases. Dependency-CVE scanning is tag-time only
+  # (CLAUDE.md #15) — the blocking gate is the `image-scan` job (`trivy image`,
+  # CRITICAL/HIGH, ignore-unfixed, exit 1), which `docker` needs. `workflow_dispatch`
+  # covers an ad-hoc rescan between releases; a tag runs the full gate. See #14.
   workflow_call:
   workflow_dispatch:
 
@@ -292,8 +291,9 @@ jobs:
       # every run. Upstream tracking: dependency-check/DependencyCheck#8424
       # and jeremylong/open-vulnerability-clients#106. Remove this flag
       # when ODC > 12.2.1 ships with the fix (Renovate bumps the plugin).
-      # Coverage is not lost — dependency CVEs are covered by `trivy-fs` inside
-      # `static-check` on every push, and by the per-service `image-scan` at tag time.
+      # Coverage: dependency CVEs are covered by the `image-scan` job at tag time
+      # (`trivy image`, CRITICAL/HIGH, exit 1) — NOT per-push (trivy-fs is
+      # secret+misconfig only now, CLAUDE.md #15).
       #
       # timeout-minutes: 35 is LOAD-BEARING, not decoration. `continue-on-error` absorbs a
       # STEP failure but NOT a JOB timeout: a job that hits its own `timeout-minutes: 45`
