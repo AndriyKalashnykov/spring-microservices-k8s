@@ -238,12 +238,11 @@ jobs:
     # Runs on:
     #   - TAG pushes only                 (release-time gate — the docker job
     #     depends on it). NOT on plain master pushes: the OWASP NVD scan is slow
-    #     (~minutes, downloads the NVD feed) AND continue-on-error (so it never
-    #     blocks a master push anyway), while the BLOCKING dependency-CVE coverage
-    #     already runs on every push via Trivy — `trivy-fs` inside `static-check`
-    #     (CRITICAL/HIGH, exit 1, with a package-count floor). Keeping OWASP off
-    #     the per-push path removes a multi-minute wait from every master merge
-    #     with no loss of blocking coverage. See CLAUDE.md #1c.
+    #     (~minutes, downloads the NVD feed). ALL dependency-CVE scanning is
+    #     tag-time only (owner decision 2026-07-20, CLAUDE.md #15) — the blocking
+    #     dependency+OS-package gate is the `image-scan` job, which scans the built
+    #     image (`trivy image`, CRITICAL/HIGH, exit 1) and which `docker` needs.
+    #     `trivy-fs` on the per-push path is secret+misconfig ONLY.
     #   - workflow_dispatch               (ad-hoc rescan after a new CVE drop)
     # The weekly `schedule` trigger was REMOVED 2026-07-20 (see the `on:` block).
     # This job is therefore TAG-ONLY in practice, which raises the stakes on the
@@ -381,11 +380,12 @@ jobs:
     # (make e2e -> kind-up -> kind-deploy -> image-build), so "does the image build and
     # does Spring Boot start" is covered per-push regardless.
     #
-    # ACCEPTED TRADE (deliberate, recorded in CLAUDE.md): the Trivy image scan and the
-    # container-structure-test Dockerfile contract now run at RELEASE time rather than
-    # on the commit that introduces a regression. Per-push dependency-CVE coverage is
-    # `trivy-fs` inside `static-check` — which is why that gate now carries a package
-    # count floor, so it cannot pass by silently scanning nothing.
+    # ACCEPTED TRADE (deliberate, recorded in CLAUDE.md #13/#15): the Trivy image scan
+    # and the container-structure-test Dockerfile contract now run at RELEASE time
+    # rather than on the commit that introduces a regression. There is NO per-push
+    # dependency-CVE scan by design (owner decision 2026-07-20) — this `image-scan`
+    # job IS the blocking dependency+OS-package gate, at tag time. `trivy-fs` on the
+    # per-push path is secret+misconfig only.
     #
     # This is only safe because `docker` now *needs* this job (see below). Before that,
     # the two ran in PARALLEL on a tag and a CRITICAL finding never blocked the push.

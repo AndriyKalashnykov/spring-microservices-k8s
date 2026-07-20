@@ -375,6 +375,7 @@ lint-ci: deps
 maven-settings-ossindex:
 	@if [ -n "$$OSS_INDEX_USER$$OSS_INDEX_TOKEN" ] || [ -n "$$NVD_API_KEY" ]; then \
 		mkdir -p ~/.m2; \
+		SF=$$(mktemp); \
 		{ \
 			printf '<settings>\n  <servers>\n'; \
 			if [ -n "$$OSS_INDEX_USER" ] && [ -n "$$OSS_INDEX_TOKEN" ]; then \
@@ -384,23 +385,37 @@ maven-settings-ossindex:
 				printf '    <server>\n      <id>nvd</id>\n      <password>%s</password>\n    </server>\n' "$$NVD_API_KEY"; \
 			fi; \
 			printf '  </servers>\n</settings>\n'; \
-		} > ~/.m2/settings.xml; \
+		} > "$$SF"; \
+		rm -f ~/.m2/settings.xml; \
+		( umask 077; cat "$$SF" > ~/.m2/settings.xml ); \
+		rm -f "$$SF"; \
 	fi
 
 #cve-check: @ Run OWASP dependency vulnerability scan
-# `-DnvdApiServerId=nvd` references the literal id of the `<server>` block
-# written by maven-settings-ossindex; the API key value lives in settings.xml
-# only — never in argv. Safe even on multi-user hosts (`ps -ef`, `/proc/<pid>/cmdline`).
+# `-DnvdApiServerId=nvd` / `-DossIndexServerId=ossindex` reference the literal ids of
+# the `<server>` blocks written by maven-settings-ossindex; the secret values live in
+# settings.xml only — never in argv. Safe on multi-user hosts (`ps`, `/proc/<pid>/cmdline`).
 #
-# TODO(workaround): the CI `cve-check` job carries `continue-on-error: true` because
-# OWASP dependency-check 12.2.x cannot parse NVD's 9-digit nanosecond timestamps
-# (DateTimeParseException). Upstream: dependency-check/DependencyCheck#8424 and
-# jeremylong/open-vulnerability-clients#106. Remove the `continue-on-error` flag in
-# ci.yml and this note when ODC ships a release with the NVD-timestamp fix. See
-# CLAUDE.md upgrade-backlog item #1c for the full deferral rationale and triggers.
+# `-DfailBuildOnCVSS=9` is LOAD-BEARING and passed on the CLI DELIBERATELY, not left to
+# pom.xml. The `<failBuildOnCVSS>9</failBuildOnCVSS>` in the root pom's
+# `<pluginManagement>` reaches NOTHING: the four modules declare
+# `<parent>spring-boot-starter-parent</parent>`, so the root pom is a pure AGGREGATOR
+# whose pluginManagement is inherited by no module. Measured 2026-07-20 via
+# `help:effective-pom` (per module: 0 occurrences of failBuildOnCVSS) and `mvn -X`
+# (`(f) failBuildOnCVSS = 11.0`). The mojo default is 11, and CVSS caps at 10 — so
+# WITHOUT this flag the scan is REPORT-ONLY and can never fail on a CVE (it printed
+# "One or more dependencies were identified with known vulnerabilities" then BUILD
+# SUCCESS for years). A CLI `-D` wins over pom config, so this is the fix that works
+# without restructuring the parent/aggregator split. 9 = block on CRITICAL only.
+#
+# `-DossIndexServerId=ossindex`: the OSS Index analyzer needs its server id passed
+# explicitly (the 12.2.2 mojo has NO default for ossIndexServerId), or it silently
+# disables itself with "Sonatype OSS Index Analyzer disabled due to missing
+# credentials" even though the credentials ARE present. See CLAUDE.md #8.
 cve-check: deps maven-settings-ossindex
-	@mvn -B org.owasp:dependency-check-maven:check \
-		$$([ -n "$$NVD_API_KEY" ] && echo "-DnvdApiServerId=nvd")
+	@mvn -B org.owasp:dependency-check-maven:check -DfailBuildOnCVSS=9 \
+		$$([ -n "$$NVD_API_KEY" ] && echo "-DnvdApiServerId=nvd") \
+		$$([ -n "$$OSS_INDEX_USER" ] && [ -n "$$OSS_INDEX_TOKEN" ] && echo "-DossIndexServerId=ossindex")
 
 #coverage-generate: @ Generate code coverage report
 coverage-generate: deps
