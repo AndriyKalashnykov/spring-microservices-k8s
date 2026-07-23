@@ -51,7 +51,7 @@ import vmware.services.organization.repository.OrganizationRepository;
 class OrganizationWithEmployeesIT {
 
   @Container @ServiceConnection
-  static MongoDBContainer mongo = new MongoDBContainer("mongo:8.0.26");
+  static MongoDBContainer mongo = new MongoDBContainer("mongo:8.0.28");
 
   static WireMockServer employeeStub;
 

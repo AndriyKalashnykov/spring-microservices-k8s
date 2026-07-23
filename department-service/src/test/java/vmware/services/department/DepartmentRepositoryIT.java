@@ -25,7 +25,7 @@ import vmware.services.department.repository.DepartmentRepository;
 class DepartmentRepositoryIT {
 
   @Container @ServiceConnection
-  static MongoDBContainer mongo = new MongoDBContainer("mongo:8.0.26");
+  static MongoDBContainer mongo = new MongoDBContainer("mongo:8.0.28");
 
   @Autowired DepartmentRepository repository;
 

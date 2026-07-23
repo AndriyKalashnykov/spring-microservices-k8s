@@ -355,7 +355,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: mongodb
-          image: mongo:8.0.26
+          image: mongo:8.0.28
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: false
