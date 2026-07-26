@@ -26,7 +26,7 @@ kind = "0.32.0"
 # never runs e2e -> CI cannot catch kubectl<->cluster skew drift; the constraint is
 # the guard, not CI.
 # renovate: datasource=github-releases depName=kubernetes/kubernetes extractVersion=^v(?<version>.*)$
-kubectl = "1.35.6"
+kubectl = "1.35.7"
 
 # renovate: datasource=github-releases depName=nektos/act extractVersion=^v(?<version>.*)$
 act = "0.2.89"
