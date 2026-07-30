@@ -57,7 +57,7 @@ KIND_NODE_IMAGE   := kindest/node:v1.35.5@sha256:ce977ae6d65918d0b58a5f8b5e94042
 # renovate: datasource=docker depName=registry.k8s.io/cloud-provider-kind/cloud-controller-manager extractVersion=^v(?<version>.*)$
 CLOUD_PROVIDER_KIND_VERSION := 0.11.1
 # renovate: datasource=github-releases depName=google/google-java-format extractVersion=^v(?<version>.*)$
-GJF_VERSION       := 1.36.0
+GJF_VERSION       := 1.36.1
 # Source of truth: .nvmrc (major version only, e.g., "22"); not Renovate-trackable.
 # Pinned in .mise.toml too; mise reads .nvmrc natively.
 NODE_VERSION      := $(shell cat .nvmrc 2>/dev/null || echo 22)
