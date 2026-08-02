@@ -32,7 +32,7 @@ kubectl = "1.35.7"
 act = "0.2.89"
 
 # renovate: datasource=github-releases depName=hadolint/hadolint extractVersion=^v(?<version>.*)$
-hadolint = "2.14.0"
+hadolint = "2.15.0"
 
 # renovate: datasource=github-releases depName=zricethezav/gitleaks extractVersion=^v(?<version>.*)$
 gitleaks = "8.30.1"
