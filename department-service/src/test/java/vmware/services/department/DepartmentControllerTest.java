@@ -28,7 +28,7 @@ import vmware.services.department.repository.DepartmentRepository;
 class DepartmentControllerTest {
 
   @Container @ServiceConnection
-  static MongoDBContainer mongo = new MongoDBContainer("mongo:8.0.28");
+  static MongoDBContainer mongo = new MongoDBContainer("mongo:8.0.29");
 
   @Autowired RestTestClient client;
 
