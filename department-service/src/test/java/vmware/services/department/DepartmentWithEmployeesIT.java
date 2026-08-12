@@ -50,7 +50,7 @@ import vmware.services.department.repository.DepartmentRepository;
 class DepartmentWithEmployeesIT {
 
   @Container @ServiceConnection
-  static MongoDBContainer mongo = new MongoDBContainer("mongo:8.0.28");
+  static MongoDBContainer mongo = new MongoDBContainer("mongo:8.0.29");
 
   static WireMockServer wireMock;
 
