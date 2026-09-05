@@ -62,7 +62,7 @@ GJF_VERSION       := 1.36.1
 # Pinned in .mise.toml too; mise reads .nvmrc natively.
 NODE_VERSION      := $(shell cat .nvmrc 2>/dev/null || echo 22)
 # renovate: datasource=docker depName=plantuml/plantuml
-PLANTUML_VERSION    := 1.2026.7
+PLANTUML_VERSION    := 1.2026.8
 # renovate: datasource=docker depName=minlag/mermaid-cli
 MERMAID_CLI_VERSION := 11.17.0
 # This version is consumed ONLY as the container-image tag
