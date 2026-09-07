@@ -1,5 +1,5 @@
 @startuml c4-context
-!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/v2.13.0/C4_Context.puml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/v2.14.0/C4_Context.puml
 
 ' Left-to-right layout keeps the rendered PNG landscape (wide, not a tall
 ' portrait tower) so it embeds cleanly as the README hero without overflowing
