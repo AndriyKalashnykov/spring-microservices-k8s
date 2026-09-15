@@ -30,7 +30,7 @@ import vmware.services.employee.repository.EmployeeRepository;
 class EmployeeFinderIT {
 
   @Container @ServiceConnection
-  static MongoDBContainer mongo = new MongoDBContainer("mongo:8.0.30");
+  static MongoDBContainer mongo = new MongoDBContainer("mongo:8.0.32");
 
   @Autowired RestTestClient client;
 
