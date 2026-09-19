@@ -2,12 +2,12 @@
 # For local builds: run `make build` first, then `make image-build`
 # For CI: the builds job produces JARs before Docker builds
 
-FROM eclipse-temurin:25.0.4_7-jre-noble@sha256:d0d42862bc6cdcb9bc01096d48753b741316f44af2022666833d94f562b58481 AS extract
+FROM eclipse-temurin:25.0.4_7-jre-noble@sha256:b573af9e331196fbc42e246da4df24df9b6c556c73e7efddfde0511f1c9508c5 AS extract
 WORKDIR /tmp
 COPY target/*.jar app.jar
 RUN java -Djarmode=tools -jar app.jar extract --layers --destination extracted
 
-FROM eclipse-temurin:25.0.4_7-jre-noble@sha256:d0d42862bc6cdcb9bc01096d48753b741316f44af2022666833d94f562b58481 AS runtime
+FROM eclipse-temurin:25.0.4_7-jre-noble@sha256:b573af9e331196fbc42e246da4df24df9b6c556c73e7efddfde0511f1c9508c5 AS runtime
 
 # Patch base-image OS packages for security fixes that lag the base rebuild
 # (e.g. CVE-2026-45447 in libssl3t64/openssl). Runs as root before the
