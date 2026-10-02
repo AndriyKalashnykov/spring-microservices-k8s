@@ -313,13 +313,20 @@ fi
 # Test 16: OTLP pipeline (services registered) and traceparent propagation
 # Two-stage diagnostic:
 #   16a — proves OTLP egress works at all by asking Jaeger which services
-#         have ever sent it spans. If 16a fails, the pipeline is broken
-#         (Spring tracing config, OTLP endpoint reachability, or Jaeger
-#         ingest) — debug there before looking at traceparent.
+#         have ever sent it spans. If 16a fails, read the printed HTTP
+#         status first: 000 = no HTTP response (unreachable/timeout),
+#         404 = query API changed, 5xx = Jaeger backend error, 200 with
+#         missing services = the pipeline is broken (Spring tracing
+#         config, OTLP endpoint reachability, or Jaeger ingest) — debug
+#         there before looking at traceparent.
 #   16b — sends one deep fan-out with an injected W3C traceparent header
 #         and asserts the same trace id round-trips through all four
 #         services into Jaeger. Proves Micrometer Tracing honors inbound
 #         trace context AND propagates it on outbound RestClient calls.
+# Both stages use the stable api_v3 HTTP surface (OTLP-JSON responses).
+# The internal v1 JSON API (/api/services, /api/traces/...) is "intentionally
+# undocumented and subject to change" — Jaeger 2.21.0 removed /api/services
+# (jaegertracing/jaeger#9260), which silently emptied 16a.
 # Pre-reqs: openssl + jq.
 echo "[Test 16] OTLP pipeline and traceparent propagation"
 if [[ -z "${JAEGER_IP}" ]]; then
@@ -331,18 +338,30 @@ else
   # means traces should be reaching Jaeger by now. Poll the services list
   # until all four are registered (or 30 s elapse).
   SVC_LIST=""
+  SVC_RAW=""
+  SVC_HTTP=""
+  SVC_ALL=false
   for i in $(seq 1 15); do
-    SVC_LIST=$(curl -s --max-time 10 "http://${JAEGER_IP}:16686/api/services" 2>/dev/null \
-      | jq -r '.data[]?' 2>/dev/null | sort -u | tr '\n' ',' || true)
-    if echo "${SVC_LIST}" | grep -q "gateway," \
-      && echo "${SVC_LIST}" | grep -q "organization," \
-      && echo "${SVC_LIST}" | grep -q "department," \
-      && echo "${SVC_LIST}" | grep -q "employee,"; then
+    SVC_RESP=$(curl -s --max-time 10 -w '\n%{http_code}' \
+      "http://${JAEGER_IP}:16686/api/v3/services" 2>/dev/null || true)
+    SVC_HTTP=${SVC_RESP##*$'\n'}
+    SVC_RAW=${SVC_RESP%$'\n'*}
+    # Trailing comma per entry is load-bearing: the checks below match
+    # "name," so "gateway" cannot be satisfied by e.g. "gateway-foo"
+    # (suffix guard only — "api-gateway," would still match).
+    SVC_LIST=$(jq -r '.services[]?' <<< "${SVC_RAW}" 2>/dev/null \
+      | sort -u | tr '\n' ',' || true)
+    if [[ "${SVC_LIST}" == *gateway,* && "${SVC_LIST}" == *organization,* \
+      && "${SVC_LIST}" == *department,* && "${SVC_LIST}" == *employee,* ]]; then
+      SVC_ALL=true
       break
     fi
     sleep 2
   done
-  echo "  [16a] Jaeger /api/services → ${SVC_LIST:-<none>}"
+  echo "  [16a] Jaeger /api/v3/services → ${SVC_LIST:-<none>}"
+  if [[ "${SVC_ALL}" != true ]]; then
+    echo "       Jaeger HTTP=${SVC_HTTP:-<none>} body (first 400 chars): ${SVC_RAW:0:400}"
+  fi
   check_response "Jaeger has registered service: gateway"      "${SVC_LIST}" "gateway,"
   check_response "Jaeger has registered service: organization" "${SVC_LIST}" "organization,"
   check_response "Jaeger has registered service: department"   "${SVC_LIST}" "department,"
@@ -358,9 +377,10 @@ else
   TRACE_RESP=""
   TRACE_SERVICES=""
   for i in $(seq 1 15); do
-    TRACE_RESP=$(curl -s --max-time 10 "http://${JAEGER_IP}:16686/api/traces/${TRACE_ID}" 2>/dev/null || true)
-    TRACE_SERVICES=$(echo "${TRACE_RESP}" \
-      | jq -r '[.data[]?.processes[]?.serviceName] | unique | sort | join(",")' 2>/dev/null || true)
+    TRACE_RESP=$(curl -s --max-time 10 "http://${JAEGER_IP}:16686/api/v3/traces/${TRACE_ID}" 2>/dev/null || true)
+    TRACE_SERVICES=$(jq -r '[.result.resourceSpans[]?.resource.attributes[]?
+        | select(.key == "service.name") | .value.stringValue] | unique | sort | join(",")' \
+      <<< "${TRACE_RESP}" 2>/dev/null || true)
     if echo "${TRACE_SERVICES}" | grep -q "gateway" \
       && echo "${TRACE_SERVICES}" | grep -q "organization" \
       && echo "${TRACE_SERVICES}" | grep -q "department" \
