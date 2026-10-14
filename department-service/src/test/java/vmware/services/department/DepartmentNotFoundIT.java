@@ -30,7 +30,7 @@ import vmware.services.department.repository.DepartmentRepository;
 class DepartmentNotFoundIT {
 
   @Container @ServiceConnection
-  static MongoDBContainer mongo = new MongoDBContainer("mongo:8.0.32");
+  static MongoDBContainer mongo = new MongoDBContainer("mongo:8.0.34");
 
   @Autowired RestTestClient client;
 
