@@ -25,7 +25,7 @@ import vmware.services.employee.repository.EmployeeRepository;
 class EmployeeRepositoryIT {
 
   @Container @ServiceConnection
-  static MongoDBContainer mongo = new MongoDBContainer("mongo:8.0.34");
+  static MongoDBContainer mongo = new MongoDBContainer("mongo:8.0.38");
 
   @Autowired EmployeeRepository repository;
 
