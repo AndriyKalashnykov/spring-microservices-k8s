@@ -29,7 +29,7 @@ import vmware.services.employee.repository.EmployeeRepository;
 class EmployeeNotFoundIT {
 
   @Container @ServiceConnection
-  static MongoDBContainer mongo = new MongoDBContainer("mongo:8.0.34");
+  static MongoDBContainer mongo = new MongoDBContainer("mongo:8.0.38");
 
   @Autowired RestTestClient client;
 
