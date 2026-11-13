@@ -29,7 +29,7 @@ kind = "0.33.0"
 kubectl = "1.35.10"
 
 # renovate: datasource=github-releases depName=nektos/act extractVersion=^v(?<version>.*)$
-act = "0.2.89"
+act = "0.2.97"
 
 # renovate: datasource=github-releases depName=hadolint/hadolint extractVersion=^v(?<version>.*)$
 hadolint = "2.15.1"
